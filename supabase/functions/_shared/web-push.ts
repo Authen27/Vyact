@@ -127,8 +127,11 @@ export interface PushOutcome {
 const PUSH_HOSTS = [
   /^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/,
   /^updates\.push\.services\.mozilla\.com$/, /^push\.services\.mozilla\.com$/,
-  /^web\.push\.apple\.com$/, /^[a-z0-9-]+\.push\.apple\.com$/,
-  /^[a-z0-9-]+\.notify\.windows\.com$/,
+  // v10.116.0 (T2b-2, BE-FN-07): Apple's web push host, and Windows' WNS hosts. The old wildcards
+  // (*.push.apple.com, *.notify.windows.com) let anyone register a host that never answers.
+  // Same list as register_push_subscription's check.
+  /^web\.push\.apple\.com$/,
+  /^wns2-[a-z0-9-]+\.notify\.windows\.com$/,
 ];
 
 export function isPushEndpoint(endpoint: string): boolean {

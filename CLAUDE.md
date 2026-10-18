@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.115.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.116.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -635,6 +635,22 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `b.category` made the rule silently never fire. The same class hit Pip's category lookup: a category's
   budget is `categoryBudget()` (its allocation, via `budgetLinesForMonth`), never `budgets.find(b => b.category)`.
   **The push switch shows the DEVICE's registration (v10.48.1)**, not the saved preference.
+  **Only the SERVER's notifications are pushed (v10.116.0, T2b-2; audit DB-SEC-06; owner, 18 Oct 2026).**
+  - Every `notifications` row has a `source`: `'client'` (a device wrote it, for the bell) or `'server'`.
+    `web-push` pushes only `source = 'server'` rows. A device's row never reaches a lock screen, whoever wrote it.
+  - The server raises only through `raise_server_notifications` (service role). It takes over a device's row
+    with the same `(household_id, dedupe_key)` (the server's words, `source = 'server'`, read state kept) and
+    never rewrites its own. Never raise with a plain upsert again: a device's copy would keep the server's off
+    the lock screen. A notification only devices raise (`split_received`, Pip's nudges) is bell-only.
+  - A device may insert only `source = 'client'`, `pushed_at` null, a link inside Vyact (`/…`, never `//` or
+    `/\`), and never as a viewer. From the app (`authenticated`) only `status` changes
+    (`notifications_app_edits_status_only`); viewers may mark read but not delete.
+  - Push hosts are exact (BE-FN-07): Apple only at `web.push.apple.com`, Windows only at
+    `wns2-*.notify.windows.com`, in BOTH `isPushEndpoint` and `register_push_subscription`. Never a wildcard
+    such as `*.push.apple.com`. A person has at most 10 live devices; registering an 11th retires the least
+    recently used.
+  - A payload over the limit is shortened (`fitPayload`: body, then title), never refused. The dispatcher
+    raises at most `RAISE_PER_RUN` (50) households a run, in turns.
 - **"Can I afford …" is budget-first; the safety floor is SOFT (v10.48.1, owner's rule).** The verdict rests on
   the purchase's category budget this month (`purchaseCategory` → `categoryBudget`) and the money free after
   card dues. The three-month floor is stated separately (`safety_floor_note`), last, in its own paragraph, as a

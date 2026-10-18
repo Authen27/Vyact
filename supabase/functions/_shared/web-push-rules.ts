@@ -87,10 +87,40 @@ export function skipReason(n: NotificationRow, sub: SubscriptionRow, now: Date):
 
 export interface PushPayload { title: string; body: string; url: string; tag: string; type: string }
 
-/** What the service worker shows. The deep link is app-relative, never an outside URL. */
+/**
+ * What the service worker shows. The deep link is app-relative, never an outside URL: "//host" and
+ * "/\host" (which browsers read as "//host") are refused too (T2b-2). It always fits the push limit.
+ */
 export function payloadFor(n: NotificationRow): PushPayload {
-  const link = n.deep_link && n.deep_link.startsWith('/') && !n.deep_link.startsWith('//') ? n.deep_link : '/';
-  return { title: n.title, body: n.body ?? '', url: link, tag: n.dedupe_key, type: n.type };
+  const link = n.deep_link && /^\/(?![/\\])/.test(n.deep_link) ? n.deep_link : '/';
+  return fitPayload({ title: n.title, body: n.body ?? '', url: link, tag: n.dedupe_key, type: n.type });
+}
+
+/** v10.116.0 (T2b-2, BE-FN-07) — the plaintext limit `encryptPayload` enforces (web-push.ts MAX_PAYLOAD_BYTES). */
+export const PAYLOAD_LIMIT_BYTES = 3000;
+const payloadBytes = (p: PushPayload) => new TextEncoder().encode(JSON.stringify(p)).length;
+
+/**
+ * BE-FN-07 — a notification too long for a push is shortened to fit, never refused: the body first,
+ * then the title (each ending in "…"), and only then the link and tag. A refused one used to fail its
+ * send every run until the 24-hour window closed.
+ */
+export function fitPayload(p: PushPayload, limit = PAYLOAD_LIMIT_BYTES): PushPayload {
+  if (payloadBytes(p) <= limit) return p;
+  let out: PushPayload = { ...p };
+  for (const field of ['body', 'title'] as const) {
+    const chars = Array.from(p[field]);
+    const withPrefix = (k: number) => ({ ...out, [field]: k ? `${chars.slice(0, k).join('')}…` : '' });
+    let lo = 0;
+    let hi = chars.length - 1;          // the longest prefix that fits with its "…"
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (payloadBytes(withPrefix(mid)) <= limit) lo = mid; else hi = mid - 1;
+    }
+    out = withPrefix(Math.max(lo, 0));
+    if (payloadBytes(out) <= limit) return out;
+  }
+  return { ...out, url: '/', tag: Array.from(out.tag).slice(0, 64).join('') };
 }
 
 export function testPayload(now: Date, tz: string | null): PushPayload {
