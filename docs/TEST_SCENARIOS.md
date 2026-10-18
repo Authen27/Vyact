@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1518 passing deterministic cases in 167 files. Zero failed, skipped or TODO cases at generation.**
+**1520 passing deterministic cases in 168 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 42 |
-| react | unit | available | 447 |
+| react | unit | available | 449 |
 | react | unit | conditional | 235 |
 | react | unit | infrastructure | 229 |
 
@@ -139,6 +139,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/netWorthProjection.test.ts](../react/src/lib/__tests__/netWorthProjection.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/netWorthSnapshots.test.ts](../react/src/lib/__tests__/netWorthSnapshots.test.ts) | Net worth history | unit | available | 7 |
+| [react/src/lib/__tests__/notificationWrites.test.ts](../react/src/lib/__tests__/notificationWrites.test.ts) | Notification writes (T2b-1) | unit | available | 2 |
 | [react/src/lib/__tests__/onboarding.test.ts](../react/src/lib/__tests__/onboarding.test.ts) | Onboarding | unit | available | 16 |
 | [react/src/lib/__tests__/onboardingWiring.test.ts](../react/src/lib/__tests__/onboardingWiring.test.ts) | Onboarding | unit | available | 8 |
 | [react/src/lib/__tests__/onboardingWorkflow.test.ts](../react/src/lib/__tests__/onboardingWorkflow.test.ts) | Onboarding | unit | available | 3 |
