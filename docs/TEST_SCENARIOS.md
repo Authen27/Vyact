@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1528 passing deterministic cases in 169 files. Zero failed, skipped or TODO cases at generation.**
+**1537 passing deterministic cases in 170 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 113 |
 | react | contract-unit | conditional | 125 |
 | react | handler-integration | conditional | 104 |
-| react | sql-integration | conditional | 110 |
+| react | sql-integration | conditional | 119 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 42 |
@@ -123,6 +123,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/invitationsInBell.test.ts](../react/src/lib/__tests__/invitationsInBell.test.ts) | Invitations in the bell | unit | available | 8 |
 | [react/src/lib/__tests__/inviteEmailHandler.test.ts](../react/src/lib/__tests__/inviteEmailHandler.test.ts) | Invite email handler | handler-integration | conditional | 6 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
+| [react/src/lib/__tests__/ledgerIntegritySql.test.ts](../react/src/lib/__tests__/ledgerIntegritySql.test.ts) | Ledger integrity SQL (T2c) | sql-integration | conditional | 9 |
 | [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 40 |
 | [react/src/lib/__tests__/liabilityList.test.ts](../react/src/lib/__tests__/liabilityList.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/loanAutomationSql.test.ts](../react/src/lib/__tests__/loanAutomationSql.test.ts) | Loan automation SQL | sql-integration | conditional | 3 |

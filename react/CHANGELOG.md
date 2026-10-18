@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.116.0`** (consumer)
+> **Current production version: `v10.117.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,61 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.117.0 — Money can't land on a deleted account, or in another household *(2026-10-18)*
+
+One migration (`20261102120000_t2c_ledger_integrity.sql`); no app change. Track T2 (security hardening), part c:
+audit DB-INT-09 and DB-SEC-09. Owner decisions, 18 Oct 2026: T2 reopens Batch E, and DB-INT-09 takes "all three
+guards".
+
+- **An entry can't land on a deleted account or investment.** One phone could save an expense offline while
+  another deleted its account. When the first phone came back online, the database accepted the expense.
+  It counted in spending, but it took money out of no account you could see, so net worth read too high by
+  its amount. Now the database refuses any new link to a deleted account or investment. A new link is a new entry,
+  an entry moved onto that account, or a deleted entry brought back. The refused save shows in the
+  failed-changes banner instead of landing out of sight. Old entries on a deleted account can still be
+  edited and deleted.
+- **A delete and a save at the same moment can't both win.** A save locks its account while it is written,
+  so a delete running alongside either waits and then refuses (the account is in use), or the save sees the
+  delete and is refused.
+- **Cash in Hand stays.** It could be archived or deleted by a direct database write, which skipped the
+  delete checks. WhatsApp then had nowhere to log cash, and the household couldn't get a new Cash in Hand.
+  The database now refuses to archive, delete or convert Cash in Hand. A Cash in Hand that had been
+  archived is restored, by this release and whenever the app asks for it.
+- **An account is deleted only through Delete or Move and delete.** Those check that nothing still uses
+  the account. A direct write used to skip them. A delete is now final. A hard delete is no longer
+  possible from the app; it had cleared every entry's account. The app never used either path.
+- **Every link stays inside its household.** A member who learnt another household's investment id could
+  record a buy into it. That household then couldn't be erased or deleted, and couldn't see why. The
+  database now checks every link an entry, an account or a schedule makes, as it already did for accounts,
+  members and loans. It covers:
+  - an entry's investment, the person who made it, and the schedule it came from;
+  - an account's investment and loan;
+  - a schedule's owner, and the accounts and investment in its template.
+
+**Changes you may notice:**
+- None in normal use: the app offers no deleted account, and no way to archive or delete Cash in Hand.
+- A loan set to "Record automatically" from an account that has since been deleted stops recording its EMIs
+  until its paying account is changed. Before, those EMIs landed on the deleted account and vanished from
+  every balance.
+
+Tests: ledgerIntegritySql.test.ts (new, 9, PGlite over the real migrations). Each rule was broken in turn
+(33 changes), and every one made a test fail.
+
+**What this changes in your data (owner, optional, SQL editor).** Only new writes are checked; rows already
+in place stay as they are. Two read-only checks:
+- Any archived or extra Cash in Hand. This release restores an archived one; extra live ones can't exist.
+  ```sql
+  select household_id, count(*) filter (where deleted_at is null and not is_archived) as live,
+         count(*) filter (where is_archived) as archived from accounts where kind = 'cash' group by 1
+   having count(*) filter (where is_archived) > 0 or count(*) filter (where deleted_at is null and not is_archived) <> 1;
+  ```
+- Live entries that already sit on a deleted account. They are left as they are, and are the money
+  the old gap hid.
+  ```sql
+  select count(*) from transactions t join accounts a on a.id in (t.account_id, t.to_account_id)
+   where t.deleted_at is null and a.deleted_at is not null;
+  ```
 
 ## v10.116.0 — Only Vyact's own alerts reach a lock screen *(2026-10-18)*
 

@@ -1617,6 +1617,26 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/ledgerIntegritySql.test.ts",
+      "feature": "Ledger integrity SQL (T2c)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "T2c migration: every link an entry, account or schedule makes stays in its household (asset, initiated_by, schedule, account asset/loan, schedule owner and template ids); Cash in Hand never archived, deleted or converted from the app; accounts deleted only by delete_account / move_account_and_delete (transaction-local flag), deletes final, no client hard delete; no NEW link to a deleted account or investment (new, moved or revived entry; upserted edits still work) under a share lock; archived Cash restored (PGlite over S3, R2 account_dependencies and T2c; audit DB-INT-09, DB-SEC-09; owner decisions 18 Oct 2026)",
+      "count": 9,
+      "tests": [
+        "Cash in Hand and deleting an account (DB-INT-09) T2C-003 · Cash in Hand can be renamed, never archived, deleted or converted — from the app, even by the owner",
+        "Cash in Hand and deleting an account (DB-INT-09) T2C-004 · an account is deleted only by delete_account / move_account_and_delete, and stays deleted; other accounts still archive",
+        "Cash in Hand and deleting an account (DB-INT-09) T2C-005 · move_account_and_delete still moves every entry (deleted ones too) onto the other account and deletes the source",
+        "Cash in Hand is never handed back archived (DB-INT-09) T2C-009 · the migration restored B's archived Cash (still its default: no other); ensure_cash_account restores one too",
+        "links stay inside the household (DB-SEC-09) T2C-001 · an entry can't point at another household's investment, schedule or member; its own still work",
+        "links stay inside the household (DB-SEC-09) T2C-002 · an account's investment and loan, and a schedule's owner and template accounts, are the household's own",
+        "no new link to a deleted account or investment (DB-INT-09) T2C-006 · a new entry, a changed account or a revived entry can't land on a deleted account; editing an old entry still works",
+        "no new link to a deleted account or investment (DB-INT-09) T2C-007 · the same for a deleted investment: no new buy into it; an old buy still edits",
+        "no new link to a deleted account or investment (DB-INT-09) T2C-008 · the account or investment is locked while a new link is written, so a delete at the same moment waits for it"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/ledgerWorkflow.test.ts",
       "feature": "Ledger and recurring workflows",
       "availability": "available",
