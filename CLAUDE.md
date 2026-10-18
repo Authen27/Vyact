@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.116.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.117.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -197,6 +197,30 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   the source's opening balance + offset into the destination, so no balance,
   category total or net worth moves. Reconcile stamps `last_reconciled_at` even
   with no drift, which is what clears "not reconciled in N days".
+  **The database holds every account and entry to this (v10.117.0, T2c; audit DB-INT-09, DB-SEC-09;
+  owner decisions 18 Oct 2026).**
+  - From the app (an `authenticated` request), `accounts_guard_lifecycle` refuses:
+    - archiving, deleting or converting Cash in Hand, and turning another account into Cash;
+    - a tombstone (`deleted_at`) not set by `delete_account` / `move_account_and_delete`;
+    - lifting a tombstone (a delete is final).
+  - The delete functions set the transaction-local flag `vyact.account_delete` around their tombstone
+    and clear it after. Never set that flag anywhere else. There is no client DELETE policy on
+    `accounts`.
+  - `ensure_cash_account` restores an archived Cash in Hand. It never hands one back archived.
+  - An entry never makes a NEW link to a deleted account or investment. A new link is a new row, a
+    changed `account_id` / `to_account_id` / `asset_id`, or a deleted entry brought back. The refusal
+    is `account_deleted` / `asset_deleted` (23503), so a queued save is set aside, never lost silently.
+    Editing or deleting an old entry on a deleted account still works.
+  - A new link reads its account or asset `for share` (accounts in id order), so a delete running at the
+    same moment either sees the entry or is seen by it. Never drop that lock.
+  - Every link stays inside its household (`assert_txn_tenant_consistency`,
+    `assert_account_tenant_consistency`, `assert_recurring_tenant_consistency`; all SECURITY DEFINER).
+    This covers:
+    - an entry's account, member, loan, investment, `initiated_by` and schedule;
+    - an account's asset and loan;
+    - a schedule's owner, and its template's `accountId` / `toAccountId` / `assetId`.
+    A template id that is not a UUID, or names no row, is left alone.
+  - These rules apply to every writer: the server's jobs, WhatsApp and Pip are held to them too.
 - **Payment modes, like categories, exist in THREE places (v10.25.0)** —
   `PAYMENT_MODE_LABEL` in `lib/accountsView.ts` (the client source), and the
   Deno allowlists `PAYMENT_MODE_IDS` in `_shared/whatsapp-parser.ts` and
