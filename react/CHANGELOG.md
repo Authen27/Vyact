@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.110.0`** (consumer)
+> **Current production version: `v10.111.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,46 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.111.0 — A save stays on screen until it lands; a pull never misses a late row *(2026-10-18)*
+
+App only. Track F1, part b (audit FE-SYN-06, INT-TXN-10, FE-SYN-07, DB-OPS-10; owner decisions 18 Oct 2026:
+"row-level merge" and "a 2-minute overlap and every page").
+
+- **A save made while a refresh is running stays on screen (FE-SYN-06).**
+  - A refresh reads the device's copy, then waits for the cloud's profile, a network round trip. A save, an
+    edit or a delete made in that gap used to be undone when the refresh landed: the old list came back, and
+    a person who thought the save had failed could enter it twice.
+  - Now the refresh is merged row by row. Rows changed, added or deleted on this device meanwhile keep their
+    on-screen state; every other row takes the refresh.
+  - Every save, edit and delete now writes its own row into the current list. Each used to write back the
+    list it had read before its await, undoing a refresh or another save that landed in between.
+- **A cloud pull never replaces a row whose write is still queued (INT-TXN-10).**
+  - An edit made offline keeps its value, a row created offline is no longer dropped by a full pull (first
+    sync, Force resync, Dismiss), and a row deleted offline does not come back. Once the write lands, the
+    server's row replaces the device's.
+  - If someone else changed the same row meanwhile, the write still meets the database's version check and
+    shows as "changed elsewhere", as before. Nothing is overwritten silently either way.
+- **Two writers to the device's copy no longer drop each other's rows.** A save, a cloud pull and a write's
+  fold-back each read the whole list and wrote it back, so two at once kept only one change. Each list now
+  takes one writer at a time, and a save writes its row and queues its write together, so a pull sees both
+  or neither.
+- **A delta pull re-reads 2 minutes back and reads every page (FE-SYN-07, DB-OPS-10).**
+  - A row is stamped when its database transaction starts, so a slower one (a WhatsApp entry, a loan
+    payment) could commit after this device had already pulled newer rows, and was then never fetched until
+    a full resync. Each pull now starts 2 minutes before its cursor; rows it already holds are skipped, so
+    nothing is rewritten.
+  - A pull reads page after page (500 rows each) until the last one. Only then does the data count as fresh:
+    after a big import elsewhere, one page used to count, and a Net Worth snapshot could be recorded from
+    half the rows. A pull also writes the device's copy once per page instead of once per row.
+
+Tests:
+- syncMerge.test.ts (new, 11): the merge rules; a save, an edit and a delete during a refresh; a save during
+  a refresh; a queued edit, new row and delete through delta and full pulls; a conflict still raised;
+  concurrent writers; the late commit fetched; 1,201 rows in three pages; a broken page not counted as
+  fresh; the overlap re-read writes nothing. Each was checked to fail with its fix undone.
+- updated deliberately: w8aAppFixes W8a-SYN12-001 (the strict read now sits in putRow / removeRow /
+  updateList), syncDevice F1A-002 (it also reads updateList keys).
 
 ## v10.110.0 — Sync on the device: sign-out clears everything, writes retry until they land, "Synced" tells the truth *(2026-10-18)*
 

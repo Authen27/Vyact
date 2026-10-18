@@ -2689,6 +2689,28 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/syncMerge.test.ts",
+      "feature": "Sync row merge and delta pull (F1b)",
+      "availability": "conditional",
+      "layer": "store-integration",
+      "owner": "F1b: a refresh keeps the rows saved, edited or deleted while it was in flight; a save lands in the current list; a cloud pull leaves a row with a queued write as the device has it (new rows kept, deletes kept); cache writers run one at a time; a delta pull re-reads 2 minutes behind its cursor and reads every page before counting as fresh (fake IndexedDB, mocked cloud; owner decisions 18 Oct 2026)",
+      "count": 11,
+      "tests": [
+        "a cloud pull never replaces a row with a queued write (INT-TXN-10) F1B-004 · a queued edit survives a delta pull; once it lands, the server's row replaces it",
+        "a cloud pull never replaces a row with a queued write (INT-TXN-10) F1B-005 · a row created offline survives a full pull, and a queued delete never comes back",
+        "a cloud pull never replaces a row with a queued write (INT-TXN-10) F1B-006 · an edit made elsewhere meanwhile is still a conflict when the queued write lands",
+        "a cloud pull never replaces a row with a queued write (INT-TXN-10) F1B-007 · writers to one cached list run one at a time: none drops another's row",
+        "a delta pull re-reads 2 minutes back and reads every page (FE-SYN-07, DB-OPS-10) F1B-008 · a row whose transaction started earlier but committed after the last pull is fetched",
+        "a delta pull re-reads 2 minutes back and reads every page (FE-SYN-07, DB-OPS-10) F1B-009 · 1,201 new rows are read in three pages, and the entity counts as fresh only after the last",
+        "a delta pull re-reads 2 minutes back and reads every page (FE-SYN-07, DB-OPS-10) F1B-010 · a full page with no answer after it is not fresh; the next pull carries on from that page",
+        "a delta pull re-reads 2 minutes back and reads every page (FE-SYN-07, DB-OPS-10) F1B-011 · re-reading the overlap rewrites nothing when nothing changed, and a deleted row goes",
+        "a save made during a refresh stays on screen (FE-SYN-06) F1B-002 · a refresh that read before a save, an edit and a delete keeps all three; other rows take the refresh",
+        "a save made during a refresh stays on screen (FE-SYN-06) F1B-003 · a save lands in the current list: a refresh that landed while it was saving is not undone",
+        "the merge rules (pure) F1B-001 · keepLocalChanges, overlayQueued, mergeCloudDelta, overlapStart and cursorAfter"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/syncRevisions.test.ts",
       "feature": "Sync revisions and rollback",
       "availability": "conditional",
