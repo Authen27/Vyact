@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1537 passing deterministic cases in 170 files. Zero failed, skipped or TODO cases at generation.**
+**1545 passing deterministic cases in 170 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -34,7 +34,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 113 |
 | react | contract-unit | conditional | 125 |
-| react | handler-integration | conditional | 104 |
+| react | handler-integration | conditional | 112 |
 | react | sql-integration | conditional | 119 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
@@ -216,7 +216,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateSenders.test.ts](../react/src/lib/__tests__/whatsappTemplateSenders.test.ts) | WhatsApp dispatch | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateValidation.test.ts](../react/src/lib/__tests__/whatsappTemplateValidation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 5 |
-| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 65 |
+| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 73 |
 
 ## 4. Roster
 

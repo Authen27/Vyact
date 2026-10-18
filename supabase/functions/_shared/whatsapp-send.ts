@@ -1,6 +1,6 @@
 // Vyact WhatsApp — the ONE guarded path for a proactive template send (W2, v10.42.0).
 //
-// `whatsapp-notify` (a member or a server job asking) and `whatsapp-dispatch` (the
+// `whatsapp-notify` (a server job asking; since v10.118.0 never a member) and `whatsapp-dispatch` (the
 // scheduler) both send through `guardedSend`, so every business-initiated message
 // meets the same rules, whoever triggered it:
 //   • the recipient has a verified identity linked to THIS household;
@@ -122,7 +122,9 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
   // Refusals that need no Meta call are recorded with a unique id, so they never
   // occupy the dedupe slot a real send will need later.
   const skip = async (reason: string): Promise<SendResult> => {
-    await audit(`out:${template}:${toProfileId}:${crypto.randomUUID()}`, 'skipped', { sent: false, reason });
+    const { error } = await audit(`out:${template}:${toProfileId}:${crypto.randomUUID()}`, 'skipped', { sent: false, reason });
+    // T2d (BE-WA-09): nothing was sent, so the answer stands; the missing audit row is logged, not hidden.
+    if (error) console.error('[whatsapp-send] refusal not audited', { template, reason, error: error.message });
     return { status: 'skipped', reason, template };
   };
 
@@ -163,14 +165,25 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
   } catch (e) {
     // W8b (audit BE-WA-11): a send Meta refused frees its dedupe slot — the audit row moves to a unique
     // id — so the next run can send it. It used to keep the slot, and that message was never sent.
-    await admin.from('whatsapp_inbound_messages')
-      .update({ wa_message_id: `${slot}:failed:${crypto.randomUUID()}`, status: 'failed',
-        last_error: (e as Error)?.message ?? String(e), payload: payloadWith({ sent: false, reason: 'meta_error' }) })
-      .eq('wa_message_id', slot);
+    await settleSlot(admin, slot, { wa_message_id: `${slot}:failed:${crypto.randomUUID()}`, status: 'failed',
+      last_error: (e as Error)?.message ?? String(e), payload: payloadWith({ sent: false, reason: 'meta_error' }) });
     return { status: 'failed', reason: 'meta_error', template };
   }
-  await admin.from('whatsapp_inbound_messages')
-    .update({ status: 'sent', provider_message_id: wamid, delivery_status: wamid ? 'accepted' : null, payload: payloadWith({ sent: true }) })
-    .eq('wa_message_id', slot);
+  await settleSlot(admin, slot,
+    { status: 'sent', provider_message_id: wamid, delivery_status: wamid ? 'accepted' : null, payload: payloadWith({ sent: true }) });
   return { status: 'sent', template };
+}
+
+/**
+ * T2d (audit BE-WA-09): settle a send's audit row, checking the write and trying it once more. A 'sent' that
+ * was never stored left the row 'sending', so "paid X" could not find the reminder; a refused send whose
+ * slot was never freed blocked that message for good. A second failure is logged: the message itself was
+ * (or was not) sent, and the answer says which.
+ */
+async function settleSlot(admin: SupabaseClient, slot: string, patch: Record<string, unknown>): Promise<void> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const { error } = await admin.from('whatsapp_inbound_messages').update(patch).eq('wa_message_id', slot);
+    if (!error) return;
+    if (attempt === 2) console.error('[whatsapp-send] audit row not settled', { slot, status: patch.status, error: error.message });
+  }
 }
