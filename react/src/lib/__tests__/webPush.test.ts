@@ -10,10 +10,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   b64url, fromB64url, concat, encryptPayload, vapidAuthorization, generateVapidKeys, sendWebPush, isPushEndpoint,
-  RECORD_SIZE, type VapidKeys,
+  RECORD_SIZE, MAX_PAYLOAD_BYTES, type VapidKeys,
 } from '../../../../supabase/functions/_shared/web-push';
 import {
-  skipReason, inQuietHours, payloadFor, testPayload, type SubscriptionRow, type NotificationRow,
+  skipReason, inQuietHours, payloadFor, fitPayload, PAYLOAD_LIMIT_BYTES, testPayload, type SubscriptionRow, type NotificationRow,
 } from '../../../../supabase/functions/_shared/web-push-rules';
 import { notificationsOnServer, type HouseholdRows } from '../serverEngine';
 import { budgetThresholdNotifs, staleBalanceNotifs, DEFAULT_PREFS } from '../notifications';
@@ -107,9 +107,12 @@ describe('Web Push crypto (RFC 8291 / 8292)', () => {
 
   it('CON-UNIT-WP-003 · only real push services are contacted; 201 is accepted, 404/410 retire the device', async () => {
     for (const ok of ['https://fcm.googleapis.com/fcm/send/x', 'https://web.push.apple.com/QK', 'https://updates.push.services.mozilla.com/wpush/v2/x',
-      'https://wns2-par02p.notify.windows.com/w/?token=x', 'https://api.push.apple.com/x']) expect(isPushEndpoint(ok), ok).toBe(true);
+      'https://wns2-par02p.notify.windows.com/w/?token=x']) expect(isPushEndpoint(ok), ok).toBe(true);
+    // v10.116.0 (T2b-2, BE-FN-07): the wildcards are gone — api.push.apple.com is Apple's native APNs, not
+    // web push, and any *.notify.windows.com host (the audit's nx-0000) could be registered and never answer.
     for (const bad of ['http://fcm.googleapis.com/x', 'https://fcm.googleapis.com.evil.com/x', 'https://evil.com/fcm.googleapis.com',
-      'https://fcm.googleapis.com:8443/x', 'https://169.254.169.254/latest', 'not a url']) expect(isPushEndpoint(bad), bad).toBe(false);
+      'https://fcm.googleapis.com:8443/x', 'https://169.254.169.254/latest', 'not a url',
+      'https://api.push.apple.com/x', 'https://nx-0000.notify.windows.com/w/x']) expect(isPushEndpoint(bad), bad).toBe(false);
 
     const keys = await generateVapidKeys('https://vyact.app');
     const sub = await subscriber();
@@ -185,11 +188,27 @@ describe('push rules', () => {
 
   it('CON-UNIT-WP-005 · the payload opens inside the app only; the test message states the device\'s local time', () => {
     expect(payloadFor(NOTIF)).toEqual({ title: NOTIF.title, body: '₹300 left', url: '/budgets?budgetId=b1', tag: NOTIF.dedupe_key, type: 'budget_threshold' });
-    for (const link of ['https://evil.com', '//evil.com/x', 'javascript:alert(1)', null]) {
+    for (const link of ['https://evil.com', '//evil.com/x', '/\\evil.com/x', 'javascript:alert(1)', null]) {
       expect(payloadFor({ ...NOTIF, deep_link: link }).url, String(link)).toBe('/');
     }
+    expect(payloadFor({ ...NOTIF, deep_link: '/' }).url).toBe('/');
     expect(testPayload(DAY, 'Asia/Kolkata').body).toContain('sent at 11:00');
     expect(testPayload(DAY, 'Asia/Kolkata').url).toBe('/settings');
+  });
+
+  it('CON-UNIT-WP-005b · T2b-2 (BE-FN-07): a notification too long for a push is shortened to fit, never refused', async () => {
+    const long = { ...NOTIF, title: 'Bill due — '.repeat(60), body: '₹ and a very long body. '.repeat(400) };
+    const p = payloadFor(long);
+    expect(new TextEncoder().encode(JSON.stringify(p)).length).toBeLessThanOrEqual(PAYLOAD_LIMIT_BYTES);
+    expect(PAYLOAD_LIMIT_BYTES).toBe(MAX_PAYLOAD_BYTES);                   // the limit encryptPayload enforces
+    expect(p.body.endsWith('…')).toBe(true);
+    expect(p.title).toBe(long.title);                                     // the body gives way first
+    expect(p.url).toBe(NOTIF.deep_link);
+    // It encrypts (the old payload threw payload_too_large on every run for a day).
+    const sub = await subscriber();
+    await expect(encryptPayload(enc.encode(JSON.stringify(p)), sub.p256dh, sub.authB64)).resolves.toBeInstanceOf(Uint8Array);
+    // Short ones are untouched.
+    expect(fitPayload(payloadFor(NOTIF))).toEqual(payloadFor(NOTIF));
   });
 });
 
@@ -318,7 +337,7 @@ describe('web-push function', () => {
     expect((await post(handler, { mode: 'test' }, { Authorization: 'Bearer user-jwt' })).status).toBe(429);
   });
 
-  it('CON-UNIT-WP-008 · dispatch: raises the app\'s notifications, pushes new P1s to eligible devices, stamps them, retires a gone device', async () => {
+  it('CON-UNIT-WP-008 · dispatch: raises the app\'s notifications as the server\'s, pushes only the server\'s new P1s to eligible devices, stamps them, retires a gone device', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-09-27T05:30:00Z'));
     const fetchMock = vi.fn().mockImplementation(async (url: string) =>
@@ -326,9 +345,10 @@ describe('web-push function', () => {
     vi.stubGlobal('fetch', fetchMock);
     const handler = await load();
     loader.loadHouseholdRows.mockResolvedValue(rows());
-    api.rpc.mockImplementation(async (name: string, args: { p?: string }) => {
+    api.rpc.mockImplementation(async (name: string, args: { p?: string; p_rows?: unknown[] }) => {
       if (name === 'web_push_cron_ok') return { data: args.p === 'cron-secret-of-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', error: null };
       if (name === 'web_push_vapid') return { data: keys, error: null };
+      if (name === 'raise_server_notifications') return { data: args.p_rows?.length ?? 0, error: null };
       return { data: null, error: null };
     });
     const pending: NotificationRow[] = [
@@ -343,7 +363,7 @@ describe('web-push function', () => {
         subRow('s4', dev2, { household_id: HID, user_id: 'u4' }),     // no longer a member
       ]]],
       memberships: [[[{ household_id: HID, user_id: 'u1' }, { household_id: HID, user_id: 'u2' }, { household_id: HID, user_id: 'u3' }]]],
-      notifications: [[[]], [null], [pending], [null]],
+      notifications: [[[]], [pending], [null]],
       push_deliveries: [[null]],
     });
 
@@ -354,11 +374,17 @@ describe('web-push function', () => {
     const res = await post(handler, {}, { 'x-cron-secret': 'cron-secret-of-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' }, '?mode=dispatch');
     expect(res.status).toBe(200);
     const out = await res.json();
-    // 1. Raised: the budget lines at 85% / 130% and the stale balance, as the app would.
-    const upsert = calls.notifications[1].upsert.mock.calls[0];
-    expect(upsert[1]).toEqual({ onConflict: 'household_id,dedupe_key', ignoreDuplicates: true });
-    expect(upsert[0].map((n: { type: string }) => n.type).sort()).toEqual(['budget_threshold', 'budget_threshold', 'stale_balance']);
+    // 1. Raised: the budget lines at 85% / 130% and the stale balance, as the app would — through the
+    //    server's own writer (T2b-2, DB-SEC-06), which takes over a device's row with the same key. Only the
+    //    server's rows count as already raised, so a device's copy never stops the server's.
+    expect(calls.notifications[0].eq).toHaveBeenCalledWith('source', 'server');
+    const raise = api.rpc.mock.calls.find(c => c[0] === 'raise_server_notifications')!;
+    expect((raise[1] as { p_rows: { type: string }[] }).p_rows.map(n => n.type).sort()).toEqual(['budget_threshold', 'budget_threshold', 'stale_balance']);
+    expect(calls.notifications.some(q => q.upsert.mock.calls.length || q.insert.mock.calls.length)).toBe(false);
     expect(out.raised).toBe(3);
+    expect(out.raiseDeferred).toBe(0);
+    // Only the server's rows are pushed: a device's row (even a viewer's) never reaches a lock screen.
+    expect(calls.notifications[1].eq).toHaveBeenCalledWith('source', 'server');
     // 2. Pushed: the P1 to u1 (accepted) and u2 (gone); u3 switched budgets off; u4 left; the P2 to nobody.
     expect(fetchMock.mock.calls.map(c => c[0])).toEqual(['https://fcm.googleapis.com/fcm/send/s1', 'https://fcm.googleapis.com/fcm/send/s2']);
     expect(JSON.parse((await receive(fetchMock.mock.calls[0][1].body, dev1)).text)).toEqual(payloadFor(pending[0]));
@@ -367,8 +393,39 @@ describe('web-push function', () => {
     expect(out.skipped).toEqual({ type_off: 1, not_a_member: 2, not_action_required: 2, device_disabled: 1 });
     expect(api.rpc).toHaveBeenCalledWith('web_push_mark_device', { p_id: 's2', p_status: 410, p_ok: false, p_gone: true });
     // 3. Stamped: both rows considered are done.
-    expect(calls.notifications[3].update).toHaveBeenCalledWith({ pushed_at: '2026-09-27T05:30:00.000Z' });
-    expect(calls.notifications[3].in).toHaveBeenCalledWith('id', ['n1', 'n2']);
+    expect(calls.notifications[2].update).toHaveBeenCalledWith({ pushed_at: '2026-09-27T05:30:00.000Z' });
+    expect(calls.notifications[2].in).toHaveBeenCalledWith('id', ['n1', 'n2']);
+    vi.useRealTimers();
+  });
+
+  it('CON-UNIT-WP-009 · T2b-2 (BE-FN-07): households take turns — at most 50 raised a run, and the next run starts where this one stopped', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const secret = 'cron-secret-of-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+    api.rpc.mockImplementation(async (name: string, args: { p?: string }) =>
+      (name === 'web_push_cron_ok' ? { data: args.p === secret, error: null } : { data: null, error: null }));
+    loader.loadHouseholdRows.mockResolvedValue({ ...rows(), transactions: [], budgets: [], budgetAllocations: [], accounts: [], recurring: [] });
+    const hids = Array.from({ length: 52 }, (_, i) => `h${String(i).padStart(2, '0')}`);
+    const handler = await load();
+    const run = async (at: string) => {
+      vi.setSystemTime(new Date(at));
+      loader.loadHouseholdRows.mockClear();
+      tableSequence({
+        push_subscriptions: [[hids.map((h, i) => subRow(`s${i}`, dev1, { household_id: h, user_id: `u${i}` }))]],
+        memberships: [[[]]],
+        notifications: [[[]]],
+      });
+      const out = await (await post(handler, {}, { 'x-cron-secret': secret }, '?mode=dispatch')).json();
+      return { out, loaded: loader.loadHouseholdRows.mock.calls.map(c => c[2] as string) };
+    };
+    const first = await run('2026-09-27T05:30:00Z');
+    expect(first.loaded).toHaveLength(50);
+    expect(first.out).toEqual(expect.objectContaining({ households: 52, raiseDeferred: 2 }));
+    const second = await run('2026-09-27T05:45:00Z');
+    expect(second.loaded).toHaveLength(50);
+    // Every household is raised within two runs: the two left out of the first lead the second.
+    const left = hids.filter(h => !first.loaded.includes(h));
+    expect(left).toHaveLength(2);
+    expect(second.loaded.slice(0, 2)).toEqual(left);
     vi.useRealTimers();
   });
 

@@ -6,6 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
+**Remediation status (updated 18 Oct 2026):** 136 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 18 Oct 2026):** 134 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 18 Oct 2026):** 127 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 18 Oct 2026):** 126 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
@@ -58,6 +59,20 @@ Two developers did the work:
 | Severity | Total | Closed | Closed by decision | Partly | Open | Owner decision | On hold (dev question) | Backlog |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| High | 29 | 20 | 5 | 1 | 0 | 0 | 3 | 0 |
+| Medium | 100 | 56 | 3 | 16 | 4 | 7 | 7 | 7 |
+| Low | 75 | 46 | 1 | 10 | 10 | 6 | 0 | 2 |
+| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
+| **Total** | **212** | **126** | **10** | **28** | **15** | **14** | **10** | **9** |
+
+**136 of 212 are resolved (64%): all 3 critical and 25 of 29 high.** The other 76 fall into four groups:
+
+| What the 76 need | Count |
+|---|---:|
+| Nothing but work: no decision, no blocker | 34 |
+| An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
+| An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
+| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 11 |
 | High | 29 | 19 | 5 | 2 | 0 | 0 | 3 | 0 |
 | Medium | 100 | 55 | 3 | 16 | 4 | 7 | 7 | 8 |
 | Low | 75 | 46 | 1 | 10 | 10 | 6 | 0 | 2 |
@@ -124,6 +139,7 @@ Two developers did the work:
 
 | PR | Version | Wave | Closed | Partly |
 |---|---|---|---|---|
+| #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-PUB-01, FE-UIS-02, ADM-01, ADM-02, BE-FN-07, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
 | #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-PUB-01, FE-UIS-02, ADM-01, ADM-02, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | BE-FN-07, XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
 | #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04 | XC-PRV-11 |
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
@@ -169,6 +185,8 @@ Two developers did the work:
 | #222 | v10.111.0 | Track F1b: row-level merge; queued writes survive pulls; 2-minute overlap, every page (owner, 18 Oct) | FE-SYN-06, FE-SYN-07, DB-OPS-10, INT-TXN-10 | — |
 | #223 | v10.112.0 | Track F1c: a split's sharing queued behind its transaction, repeat-safe (owner, 18 Oct) | INT-TXN-11 | — |
 | #225 | v10.114.0 | Track T2a: joining only by invitation, once; one membership each; names for known emails (owner, 18 Oct) | BE-WA-06, DB-INT-11, INT-HH-07, INT-HH-09, XC-PRV-12, INT-CON-07, INT-HH-06 | — |
+| #226 | v10.115.0 | Track T2b-1: a viewer's device no longer writes the household's alerts (app first) | DB-SEC-06 | — |
+| #227 | v10.116.0 | Track T2b-2: only the server's alerts are pushed; exact push hosts, 10 devices, fitted payloads, paging (owner, 18 Oct) | BE-FN-07, DB-SEC-06 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -224,11 +242,10 @@ Two developers did the work:
 
 ### 0.5 Open items by severity and impact
 
-**High (5). Each one is a money, privacy or release-safety risk.**
+**High (4). Each one is a money, privacy or release-safety risk.**
 
 | ID | Status | What is left | Next step |
 |---|---|---|---|
-| BE-FN-07 | Partly | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | Step 1 (M) |
 | DB-SEC-03 | On hold (dev question) | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | Answer D4/D5 |
 | OPS-01 | On hold (dev question) | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | Answer D8 |
 | OPS-06 | On hold (dev question) | Production error reporting and alerting. | Answer D9 |
@@ -236,6 +253,11 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
+**Medium (41)**
+- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+- *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
+- *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
+- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-SEC-09, INT-HH-08, OPS-11.
 **Medium (42)**
 - *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 **Medium (47)**
@@ -809,7 +831,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | ADM-01 | HIGH | Admin | Stored XSS on vyact.app: CMS category/slug break out of the inline script on /learn/<slug> | confirmed (adversarial: confirmed) | 2026-09 audit S4 (partially fixed: JSON-LD boundary hardened; the inline-script and href sinks remain, and the CSP S4 asked for was never added) | Closed | #165 |
 | ADM-02 | HIGH | Admin | God-mode admin access has no MFA/AAL2 requirement and no session limit, client or server | confirmed (adversarial: confirmed) | 2026-09 audit 7.1 — still open as described | Closed (decision) | #165 |
 | BE-FN-02 | HIGH | Backend | Scheduled 30-day deletion never executes, and signing in after the deadline silently cancels it | confirmed (adversarial: confirmed) | 2026-09 audit S6 ('Scheduled deletion is not demonstrably automated'). Confirmed still open. The post-deadline cancellation is new. | Closed (decision) | #167 |
-| BE-FN-07 | HIGH | Backend | One failing push endpoint aborts the whole web-push dispatch, which also does not scale | confirmed (adversarial: confirmed) |  | Partly | #165 |
+| BE-FN-07 | HIGH | Backend | One failing push endpoint aborts the whole web-push dispatch, which also does not scale | confirmed (adversarial: confirmed) |  | Closed | #165, v10.116.0 |
 | BE-WA-01 | HIGH | Backend | Removed members keep WhatsApp read access: Pip answers and scheduled pushes skip membership checks | confirmed (adversarial: confirmed) | 2026-09 audit S1 (partially resolved: write RPCs revalidate membership; WhatsApp reads and proactive sends still do not) | Closed | #166 |
 | DB-INT-05 | HIGH | Database | erase_household_data always rolls back: its own audit insert violates the activity_log CHECK | confirmed (adversarial: confirmed) | 2026-09 audit S6 (the onboarding cause is fixed; this second cause is still open) | Closed | #165 |
 | DB-SEC-03 | HIGH | Database | upsert_budget/replace_budgets ON CONFLICT (id) DO UPDATE has no household guard: cross-household budget overwrite and read | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
@@ -887,7 +909,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | DB-OPS-08 | MEDIUM | Database | Scheduler runs are unobservable, and web-push re-reads every subscribed ledger every 15 minutes | confirmed-with-caveats (adversarial: partial) |  | On hold (dev question) | — |
 | DB-OPS-10 | MEDIUM | Database | Delta-sync cursor relies on updated_at = now(), so out-of-order commits are skipped forever | confirmed (adversarial: confirmed) | 2026-09 audit F8 | Closed | v10.111.0 |
 | DB-OPS-12 | MEDIUM | Database | Documented pg_dump --no-privileges restore strips every REVOKE the security model depends on | confirmed-with-caveats (adversarial: partial) | TD-16 | Closed | #189 |
-| DB-SEC-06 | MEDIUM | Database | Any member, even a viewer, can insert P1 notifications that web-push sends to every member's lock screen | confirmed (adversarial: confirmed) |  | Backlog | — |
+| DB-SEC-06 | MEDIUM | Database | Any member, even a viewer, can insert P1 notifications that web-push sends to every member's lock screen | confirmed (adversarial: confirmed) |  | Closed | v10.115.0, v10.116.0 |
 | DB-SEC-08 | MEDIUM | Database | erase_household_data: email-code gate is client-only, and the erase misses message text and notifications | confirmed (adversarial: confirmed) | 2026-09 audit S6 | Closed | #167, v10.88.0 |
 | DB-SEC-09 | MEDIUM | Database | Tenant-consistency triggers (S3) skip asset_id, initiated_by, schedule and account links | confirmed (adversarial: confirmed) | 2026-09 audit S3 | Backlog | — |
 | DB-SEC-10 | MEDIUM | Database | No database authorization test suite: RLS and RPC role/tenant matrix untested | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
@@ -1305,6 +1327,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
+### C.1 Unresolved (76)
 ### C.1 Unresolved (78)
 ### C.1 Unresolved (85)
 ### C.1 Unresolved (86)
@@ -1312,7 +1335,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
-| BE-FN-07 | high | Partly | #165 | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | — | M |
 | XC-PRV-03 | high | Partly | #165, #189 | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screenshot are off (owner action from PR #165).… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). | M |
 | DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
 | OPS-01 | high | On hold (dev question) | — | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | D8 | S |
@@ -1333,6 +1355,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-ARC-06 | medium | Partly | #173, v10.96.0 | The recurring hand port is deleted (#173), and the money hand port is deleted in v10.96.0 (Track E, E2): WhatsApp's alerts and digests read spending through the bundled engine (the app's row mapping and spendRows). Left: the WhatsApp budget alert keeps its own 80% rule beside the app's budget_threshold generator (it reads the app's spending). | — | M |
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
+| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
@@ -1419,6 +1442,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
+### C.3 Resolved, with a residual note (51)
 ### C.3 Resolved, with a residual note (49)
 ### C.3 Resolved, with a residual note (42)
 ### C.3 Resolved, with a residual note (41)
@@ -1433,6 +1457,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-UIS-02 | high | Closed (decision) | #165 | D23: two-factor auth was removed for consumer and admin (accepted risk, partly mitigated by D24). |
 | ADM-01 | high | Closed | #165 | Defence in depth only. content_items.category and slug still have no CHECK (only source_url has one). The source_url CHECK is NOT VALID, so existing rows were never validated. The vyact.app CSP is Report-Only and allows 'unsafe-inline' scripts (react/vercel.json:105), so it would not block an injected inline script. E… |
 | ADM-02 | high | Closed (decision) | #165 | The session-limit half has no decision: there is no admin inactivity sign-out and no short refresh-token lifetime. Ask the owner whether to add one as a cheap compensating control, since MFA is not used. |
+| BE-FN-07 | high | Closed | #165, v10.116.0 | W0 (#165) stopped one endpoint aborting the run. v10.116.0 (Track T2b-2) finished the hardening list: exact push hosts (web.push.apple.com, wns2-*.notify.windows.com) in isPushEndpoint and register_push_subscription; at most 10 live devices a person (an 11th retires the least recently used); an oversize payload is sho… |
 | INT-PAR-01 | high | Closed (decision) | #170 | Dead code: serverEngine.ts:78-80 still builds a rates map with a stale comment calling it 'the store's rule'. Remove it with the rest of the inert rate plumbing (TD-45, TECH_DEBT.md:110). |
 | INT-TXN-01 | high | Closed | #176 | Corrected 13 Oct: both delete paths for a split row (SplitFormModal.tsx:381, Splits.tsx:107) also delete its shared split (deleteSharedSplitForTxn), and since #176 a split row never reaches the plain form. |
 | INT-TXN-07 | high | Closed | #178, #179, #180, v10.89.0 | Recurring EMIs moved onto their loans (#180); WhatsApp "paid … EMI" pays the loan (#180); a WhatsApp correction to an EMI now pays the loan too (v10.89.0). |
@@ -1457,6 +1482,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | BE-WA-08 | medium | Closed | v10.89.0 | v10.89.0: a WhatsApp correction to an EMI turns the entry into a loan payment (whatsapp_correct_to_loan: server split, expense removed, never twice); whatsapp_correct_last refuses loan_emi. |
 | DB-INT-11 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): duplicate memberships merged (highest role kept, references re-pointed, WhatsApp unlink only when no membership is left), then uq_memberships_household_user; the member-limit trigger counts with the household locked. JOIN-002, JOIN-006. |
 | DB-OPS-10 | medium | Closed | v10.111.0 | v10.111.0 (Track F1b; owner decision 18 Oct 2026: overlap window, not a commit-ordered revision): each delta pull re-reads 2 minutes behind its cursor, so a row whose transaction started before an already-pulled row but committed after it is fetched (F1B-008). Residual by design: a write transaction longer than 2 minu… |
+| DB-SEC-06 | medium | Closed | v10.115.0, v10.116.0 | v10.115.0 + v10.116.0 (Track T2b; owner decision 18 Oct 2026: "push only the server's"). Every notification records who raised it (source client \| server) and web-push pushes only the server's; raise_server_notifications (service role) takes over a device card with the same key and never rewrites its own. A device in… |
 | DB-SEC-08 | medium | Closed | #167, v10.88.0 | Server-side recency check (#167); the erase now also removes notifications, WhatsApp questions, agent conversations, relay messages and loan history (v10.88.0). |
 | INT-HH-07 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the client INSERT policy on memberships is dropped, so people join only through the definer accepts and handle_new_household; memberships_keep_identity refuses changing a membership's user or household; the legacy profile phone copies are cleared… |
 | INT-HH-09 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): accept_invitation_link and accept_invitation_by_id lock the invitation and then the household and claim it only where accepted_at is null (row_count checked); an existing member opening a link leaves it usable; the legacy accept_invitation(text/uu… |

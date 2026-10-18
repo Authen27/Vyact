@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.115.0`** (consumer)
+> **Current production version: `v10.116.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.116.0 — Only Vyact's own alerts reach a lock screen *(2026-10-18)*
+
+One migration (`20261101120000_t2b_server_notifications_push.sql`) and the `web-push` Edge Function. Track T2
+(security hardening), part b-2: audit DB-SEC-06 and BE-FN-07. Owner decision, 18 Oct 2026: "push only the
+server's". Needs v10.115.0 first (a viewer's device stops writing cards before the database refuses it).
+
+- **Only the alerts Vyact raises reach a lock screen.** Any member, a viewer included, could write a
+  notification into the household, and the server pushed it to every member's phone: a fake "security alert,
+  call this number" looked exactly like Vyact. Each card now records who raised it, and the server pushes only
+  its own. Devices still write cards for the bell. When the server raises a card a device already wrote (same
+  bill, same budget line), it takes that card over with its own words, so genuine alerts arrive as before.
+- **A device writes only its own kind of card.** Not as a viewer, never marked as the server's or as already
+  pushed, and its link stays inside Vyact. From the app only a card's read state changes; its words, link and
+  priority can't be edited. Viewers can mark cards read but can no longer delete the household's.
+- **Push goes only to the real push services.** Apple's web push host and Windows' notification hosts are named
+  exactly; the old wildcards let anyone register a host that never answers. A person keeps at most 10 devices:
+  registering an 11th retires the one least recently used.
+- **A long alert is shortened to fit, never dropped.** One over the push size limit failed every run for a day.
+  Now its body, then its title, is cut with "…".
+- **Households take turns.** The job raises at most 50 households a run, carrying on where the last run
+  stopped, so a large run can't time out before any push goes out.
+
+**Changes you may notice:**
+- "A split was shared with you" was a lock-screen alert only because the device that saw it wrote it. It now
+  shows in the bell only, like Pip's nudges.
+- A card is raised at the database's time, never the sender's.
+
+Tests: notificationsPushSql.test.ts (new, 6, PGlite over the real migrations) and webPush.test.ts (WP-003,
+WP-005, the new WP-005b and WP-009, WP-008 rewritten). The database rules, the takeover, the host list, the
+device cap, payload fitting and paging were each broken in turn (32 changes); every one made a test fail.
+
+**Before merging (owner):** confirm no registered device uses another push host. Run this in the SQL editor:
+`select substring(endpoint from '^https://([^/]+)') as host, count(*) from push_subscriptions group by 1;`.
+Every host must be `fcm.googleapis.com`, `android.googleapis.com`, a Mozilla push host, `web.push.apple.com`
+or `wns2-….notify.windows.com`. A device on any other host would stop receiving pushes, and could not
+register again.
 
 ## v10.115.0 — A viewer's device no longer writes the household's alerts *(2026-10-18)*
 

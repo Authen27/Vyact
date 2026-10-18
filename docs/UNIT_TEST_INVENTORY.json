@@ -1935,6 +1935,23 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/notificationsPushSql.test.ts",
+      "feature": "Server notifications and push SQL (T2b-2)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "T2b-2 migration: a device inserts only client cards (never as a viewer, never server-marked or pre-pushed, a link inside Vyact), only status changes from the app, viewers cannot delete, raise_server_notifications takes over a device card with the same key and never rewrites its own (service role only), exact push hosts and at most 10 live devices a person (PGlite over the real web-push and T2b-2 migrations; audit DB-SEC-06, BE-FN-07; owner decision 18 Oct 2026)",
+      "count": 6,
+      "tests": [
+        "push devices (BE-FN-07) T2B-007 · only the real push services: Apple's web push host and Windows' WNS hosts, not any *.push.apple.com or *.notify.windows.com",
+        "push devices (BE-FN-07) T2B-008 · at most 10 live devices a person: an 11th retires the oldest; refreshing one retires nothing; others are untouched",
+        "the server raises, and takes over a device's card (DB-SEC-06) T2B-006 · raise_server_notifications takes over a device card with the same key (its words, kept read state), adds new ones, never touches its own",
+        "what a device may write (DB-SEC-06) T2B-003 · a member writes its own kind of card; a viewer, a \"server\" card, a pre-pushed card and a link out of Vyact are refused",
+        "what a device may write (DB-SEC-06) T2B-004 · from the app only the read state changes — anyone in the household can mark read; nobody can reword, re-link or stamp a card",
+        "what a device may write (DB-SEC-06) T2B-005 · a viewer cannot delete the household's cards; a member can"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/notificationWrites.test.ts",
       "feature": "Notification writes (T2b-1)",
       "availability": "available",
@@ -3067,7 +3084,7 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "RFC 8291/8292 crypto / push rules / server-raised notifications / web-push handler (not a live push service)",
-      "count": 10,
+      "count": 12,
       "tests": [
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-001 · a message encrypted for a subscription is read back by an independent receiver; each send is freshly keyed",
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-002 · the VAPID token is ES256, verifies with the advertised public key, and names the push service origin",
@@ -3076,9 +3093,11 @@
         "notifications raised on the server CON-UNIT-WP-006 · the server raises exactly the app's notifications for the same rows (source and bundle), skipping what exists",
         "push rules CON-UNIT-WP-004 · P1 only, unread only, never a backlog, the device's switches, quiet hours in the device's own zone",
         "push rules CON-UNIT-WP-005 · the payload opens inside the app only; the test message states the device's local time",
+        "push rules CON-UNIT-WP-005b · T2b-2 (BE-FN-07): a notification too long for a push is shortened to fit, never refused",
         "web-push function CON-UNIT-W3-D12-005 · a push held back for quiet hours stays pending, goes out when they end, and reaches each device once",
         "web-push function CON-UNIT-WP-007 · a test goes to the caller's own devices, readable by each, with the push service's answer; signed out → 401; rate-limited",
-        "web-push function CON-UNIT-WP-008 · dispatch: raises the app's notifications, pushes new P1s to eligible devices, stamps them, retires a gone device"
+        "web-push function CON-UNIT-WP-008 · dispatch: raises the app's notifications as the server's, pushes only the server's new P1s to eligible devices, stamps them, retires a gone device",
+        "web-push function CON-UNIT-WP-009 · T2b-2 (BE-FN-07): households take turns — at most 50 raised a run, and the next run starts where this one stopped"
       ]
     },
     {

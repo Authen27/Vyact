@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1520 passing deterministic cases in 168 files. Zero failed, skipped or TODO cases at generation.**
+**1528 passing deterministic cases in 169 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -33,9 +33,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 113 |
-| react | contract-unit | conditional | 123 |
+| react | contract-unit | conditional | 125 |
 | react | handler-integration | conditional | 104 |
-| react | sql-integration | conditional | 104 |
+| react | sql-integration | conditional | 110 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 42 |
@@ -139,6 +139,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/netWorthProjection.test.ts](../react/src/lib/__tests__/netWorthProjection.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/netWorthSnapshots.test.ts](../react/src/lib/__tests__/netWorthSnapshots.test.ts) | Net worth history | unit | available | 7 |
+| [react/src/lib/__tests__/notificationsPushSql.test.ts](../react/src/lib/__tests__/notificationsPushSql.test.ts) | Server notifications and push SQL (T2b-2) | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/notificationWrites.test.ts](../react/src/lib/__tests__/notificationWrites.test.ts) | Notification writes (T2b-1) | unit | available | 2 |
 | [react/src/lib/__tests__/onboarding.test.ts](../react/src/lib/__tests__/onboarding.test.ts) | Onboarding | unit | available | 16 |
 | [react/src/lib/__tests__/onboardingWiring.test.ts](../react/src/lib/__tests__/onboardingWiring.test.ts) | Onboarding | unit | available | 8 |
@@ -204,7 +205,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/w8aAppFixes.test.ts](../react/src/lib/__tests__/w8aAppFixes.test.ts) | App fixes (W8a) | unit | available | 12 |
 | [react/src/lib/__tests__/w8bEdgeFixes.test.ts](../react/src/lib/__tests__/w8bEdgeFixes.test.ts) | Edge robustness (W8b) | contract-unit | available | 6 |
 | [react/src/lib/__tests__/w8dSiteFixes.test.ts](../react/src/lib/__tests__/w8dSiteFixes.test.ts) | Site, platform and docs (W8d) | contract-unit | available | 11 |
-| [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 10 |
+| [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 12 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 7 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts](../react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts) | WhatsApp EMI correction SQL | sql-integration | conditional | 6 |

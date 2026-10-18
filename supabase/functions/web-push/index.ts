@@ -30,6 +30,10 @@ const VAPID_SUBJECT = 'https://vyact.app';
 /** Rows older than this are never pushed (a device that was offline gets today's news, not last week's). */
 const PUSH_WINDOW_MS = 24 * 3600_000;
 const TEST_LIMIT_PER_10_MIN = 5;
+/** BE-FN-07 — households raised per run (they take turns), and the time a run may spend raising. */
+const RAISE_PER_RUN = 50;
+const RAISE_BUDGET_MS = 60_000;
+const RUN_EVERY_MS = 15 * 60_000;   // the pg_cron schedule
 const SUB_COLUMNS = 'id, user_id, household_id, endpoint, p256dh, auth, tz, prefs, created_at, disabled_at, user_agent';
 
 type Sub = SubscriptionRow & { user_agent: string | null };
@@ -77,9 +81,14 @@ Deno.serve(async (req: Request) => {
     const now = new Date();
     const results = [];
     for (const sub of subs as Sub[]) {
-      const outcome = await sendWebPush(sub, testPayload(now, sub.tz), keys, { ttlSeconds: 600, urgency: 'high' });
-      await record(admin, sub, null, 'test', outcome);
-      results.push({ device: deviceLabel(sub.user_agent), status: outcome.status, accepted: outcome.ok, gone: outcome.gone });
+      // T2b-2 (BE-FN-07): one device's failure never stops the test for the others.
+      try {
+        const outcome = await sendWebPush(sub, testPayload(now, sub.tz), keys, { ttlSeconds: 600, urgency: 'high' });
+        await record(admin, sub, null, 'test', outcome);
+        results.push({ device: deviceLabel(sub.user_agent), status: outcome.status, accepted: outcome.ok, gone: outcome.gone });
+      } catch {
+        results.push({ device: deviceLabel(sub.user_agent), status: 0, accepted: false, gone: false });
+      }
     }
     return json({ sent: results.length, results });
   }
@@ -129,30 +138,39 @@ async function dispatch(admin: SupabaseClient, now: Date) {
   const isMember = new Set(((members ?? []) as { household_id: string; user_id: string }[]).map((m) => `${m.household_id}:${m.user_id}`));
 
   // 1. Raise what the app would raise.
+  // v10.116.0 (T2b-2, audit DB-SEC-06): as the SERVER's own rows (`source = 'server'`). A device that wrote
+  // the same notification first (same dedupe key) has its row taken over, with the server's wording
+  // (raise_server_notifications), so a genuine push is never lost to a device's copy.
+  // BE-FN-07: households take turns: at most RAISE_PER_RUN per run, starting where the last run's slot
+  // points, and none once RAISE_BUDGET_MS has passed. The rest are raised on the next run (15 minutes).
   let raised = 0;
+  let raiseDeferred = 0;
   const problems: string[] = [];
-  for (const hid of households) {
+  const raiseStarted = Date.now();
+  const offset = (Math.floor(now.getTime() / RUN_EVERY_MS) * RAISE_PER_RUN) % households.length;
+  const turn = households.map((_, i) => households[(i + offset) % households.length]);
+  for (const [index, hid] of turn.entries()) {
+    if (index >= RAISE_PER_RUN || Date.now() - raiseStarted > RAISE_BUDGET_MS) { raiseDeferred++; continue; }
     try {
       const owner = subs.find((s) => s.household_id === hid)!;
       const rows = await loadHouseholdRows(admin, owner.user_id, hid);
-      const { data: keys } = await admin.from('notifications').select('dedupe_key').eq('household_id', hid);
+      const { data: keys } = await admin.from('notifications').select('dedupe_key').eq('household_id', hid).eq('source', 'server');
       const fresh = notificationsOnServer(rows, ((keys ?? []) as { dedupe_key: string }[]).map((k) => k.dedupe_key), hid);
       if (fresh.length) {
-        const { error: insErr } = await admin.from('notifications')
-          .upsert(fresh, { onConflict: 'household_id,dedupe_key', ignoreDuplicates: true });
-        if (insErr) throw new Error(`insert: ${insErr.message}`);
-        raised += fresh.length;
+        const { data: count, error: insErr } = await admin.rpc('raise_server_notifications', { p_rows: fresh });
+        if (insErr) throw new Error(`raise: ${insErr.message}`);
+        raised += Number(count ?? 0);
       }
     } catch (e) {
       problems.push(`${hid}: ${(e as Error)?.message ?? String(e)}`);   // one household never stops the rest
     }
   }
 
-  // 2. Push what is new.
+  // 2. Push what is new — only what the server raised (DB-SEC-06): a row a device wrote is never pushed.
   const since = new Date(now.getTime() - PUSH_WINDOW_MS).toISOString();
   const { data: pending, error: pErr } = await admin.from('notifications')
     .select('id, household_id, type, priority, title, body, status, created_at, deep_link, dedupe_key')
-    .in('household_id', households).is('pushed_at', null).gt('created_at', since).order('created_at');
+    .in('household_id', households).eq('source', 'server').is('pushed_at', null).gt('created_at', since).order('created_at');
   if (pErr) throw new Error(`pending: ${pErr.message}`);
   const keys = pending?.length ? await vapidKeys(admin) : null;
   // W3a (audit INT-TZC-05, BE-FN-08) — a push held back for QUIET HOURS is not done: it stays
@@ -195,5 +213,5 @@ async function dispatch(admin: SupabaseClient, now: Date) {
   // 3. A row is done once no device is still waiting for its quiet hours to end.
   const ids = pendingIds.filter((id) => !waiting.has(id));
   if (ids.length) await admin.from('notifications').update({ pushed_at: now.toISOString() }).in('id', ids);
-  return { households: households.length, raised, considered: pendingIds.length, deferred: waiting.size, pushed, skipped, problems };
+  return { households: households.length, raised, raiseDeferred, considered: pendingIds.length, deferred: waiting.size, pushed, skipped, problems };
 }
