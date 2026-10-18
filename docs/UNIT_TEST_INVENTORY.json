@@ -1851,6 +1851,22 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/namesFollowPerson.test.ts",
+      "feature": "Names follow the person",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "v10.113.0 migration: sign-up takes the form's name, else the provider's (Google full_name / name), else the email; a rename reaches every household copy that showed the old name (a blank never does); existing email-named Google accounts and stale copies are corrected, idempotent (focused PGlite fixture with the baseline sign-up triggers); Settings' fields follow the loaded profile until edited (owner, 18 Oct 2026)",
+      "count": 5,
+      "tests": [
+        "Settings shows the loaded name, not an empty box (app) NAME-005 · a field follows the loaded value until edited, then keeps the edit; Settings uses it for the name and the extra payment",
+        "names follow the person (database) NAME-001 · existing accounts: a Google account named after its email takes its Google name, everywhere; a chosen name stays",
+        "names follow the person (database) NAME-002 · sign-up takes the name from the form, else the provider, else the email",
+        "names follow the person (database) NAME-003 · a rename reaches every household copy that showed the old name; a blank name never does",
+        "names follow the person (database) NAME-004 · the migration is safe to run again"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/navigationVisibility.test.ts",
       "feature": "Navigation and category selection",
       "availability": "available",

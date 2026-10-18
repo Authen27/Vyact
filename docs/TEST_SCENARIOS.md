@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1505 passing deterministic cases in 165 files. Zero failed, skipped or TODO cases at generation.**
+**1510 passing deterministic cases in 166 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 113 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 104 |
-| react | sql-integration | conditional | 91 |
+| react | sql-integration | conditional | 96 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 42 |
@@ -134,6 +134,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/moneyModel.engines.test.ts](../react/src/lib/__tests__/moneyModel.engines.test.ts) | Money model | unit | available | 9 |
 | [react/src/lib/__tests__/moneyModel.invariants.test.ts](../react/src/lib/__tests__/moneyModel.invariants.test.ts) | Money model | unit | available | 19 |
 | [react/src/lib/__tests__/moneyModel.regression.test.ts](../react/src/lib/__tests__/moneyModel.regression.test.ts) | Money model | unit | available | 6 |
+| [react/src/lib/__tests__/namesFollowPerson.test.ts](../react/src/lib/__tests__/namesFollowPerson.test.ts) | Names follow the person | sql-integration | conditional | 5 |
 | [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/netWorthProjection.test.ts](../react/src/lib/__tests__/netWorthProjection.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/netWorthSnapshots.test.ts](../react/src/lib/__tests__/netWorthSnapshots.test.ts) | Net worth history | unit | available | 7 |

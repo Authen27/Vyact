@@ -2,7 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Download, FileText, Clipboard, ShieldAlert, Cloud, Trash2, PauseCircle, XOctagon } from 'lucide-react';
 import { useStore } from '../store';
-import { useTranslation } from '../hooks';
+import { useTranslation, useFollowedField } from '../hooks';
 import { fmt, today } from '../lib/format';
 import { CURRENCIES, LOCALES } from '../constants';
 import { FULLY_TRANSLATED, languageOptionLabel } from '../lib/i18n';
@@ -236,9 +236,11 @@ export default function Settings() {
     } finally { setDeleting(false); }
   }
 
-  const [name, setName]       = useState(profile.name);
+  // v10.113.0 — both follow the loaded profile until edited: opened before it loaded, the name box
+  // stayed empty and "Save Preferences" wrote a 0 extra payment over the real one (useState copied once).
+  const [name, setName, followName] = useFollowedField(profile.name);
   const [saving, setSaving]   = useState(false);
-  const [extraPay, setExtraPay] = useState(String(profile.extraPayment || 0));
+  const [extraPay, setExtraPay, followExtraPay] = useFollowedField(String(profile.extraPayment || 0));
   // W6 (audit FE-UIS-06): only the owner can change what lives on the household row. Everyone else
   // sees the values, read-only, instead of a "saved" toast for a write the database refuses.
   const myRole = useStore(s => s.myRole);
@@ -285,6 +287,7 @@ export default function Settings() {
       // W6 (audit FE-UIS-06): the name only. The email field saved nowhere (no profile column, not the
       // sign-in address) while saying "Profile saved"; the account email is shown, not edited, here.
       await updateProfile({ name });
+      followName();
       toast('Profile saved', 'success');
     } catch { toast('Save failed', 'error'); }
     finally { setSaving(false); }
@@ -329,6 +332,7 @@ export default function Settings() {
   async function saveDebtPrefs() {
     const ep = parseFloat(extraPay);
     await updateProfile({ extraPayment: isNaN(ep) ? 0 : ep });
+    followExtraPay();
     toast('Debt preferences saved', 'success');
   }
 
