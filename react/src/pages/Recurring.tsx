@@ -400,14 +400,13 @@ export default function Recurring() {
 
       {/* Track E, E6a (owner, 13 Oct 2026) — each live loan's EMI, mirrored from the loan: never a
           schedule, so it can never be scheduled twice. The switch is the loan's own autoRecord. */}
-      {/* v10.109.0 (owner, R-1) — always shown, with its own add: a loan's EMI starts on the loan. */}
-      {(
+      {/* v10.109.0 (owner, R-1) — a loan's EMI starts on the loan, so the panel carries its own add. It
+          shows once a loan exists: an empty panel pushed the schedule list under the floating Add button
+          (Lane A, recurring-lifecycle CON-E2E-038 at 1280×720). */}
+      {loanRows.length > 0 && (
         <Panel title="Loan EMIs" sub="From your loans · paid by the loan, never by a schedule"
           action={<button type="button" className="btn-secondary text-sm min-h-[36px] px-3" data-testid="add-loan-emi"
             onClick={() => openAddDebt({ mode: 'new', name: 'Loan', autoRecord: true })}>+ Add loan EMI</button>}>
-          {loanRows.length === 0 && (
-            <p className="px-4 py-3 text-[0.82rem] text-ink-mid">No loans yet. Add one, and its EMIs show here and in the bill calendar, recorded automatically if you choose.</p>
-          )}
           {loanRows.map(row => {
             const cat = getCat('loan_emi');
             const clears = clearsLabel(row.clearsOn);
