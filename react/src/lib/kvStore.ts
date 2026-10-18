@@ -209,6 +209,11 @@ export async function kvKeys(): Promise<string[]> {
  * not begin until the old session's data is actually gone.
  */
 export async function kvPurgeWhere(shouldRemove: (key: string) => boolean): Promise<number> {
+  // v10.110.0 (F1a, audit FE-SYN-04) — bump BEFORE the deletes as well: a read in flight checks the
+  // generation just before it writes, so with the bump only at the end, one landing mid-purge still
+  // matched and wrote a deleted key straight back. The bump after the deletes rejects a read that
+  // captured the generation while the purge ran.
+  generation++;
   const keys = await kvKeys();
   let removed = 0;
   for (const k of keys) {
@@ -216,8 +221,6 @@ export async function kvPurgeWhere(shouldRemove: (key: string) => boolean): Prom
     await kvRemove(k);          // clears IDB + both localStorage namespaces + memory
     removed++;
   }
-  // Bump AFTER the deletes, so a racing read that captured the old generation
-  // is rejected even if it resolves during the purge.
   generation++;
   return removed;
 }

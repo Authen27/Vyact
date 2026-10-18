@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.109.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.110.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -243,8 +243,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   **Since v10.67.0 (W3c, owner decision D15):**
   - The cache holds SERVER revisions. Write server rows with `cache.put`; never restamp `updated_at` with the device clock in cloud mode, because it becomes the next edit's precondition and fails as a false conflict.
   - A queued write belongs to the session user, or else the cache owner (`ownerForWrite`). Ownerless ops are adopted only at the session boundary (`adoptOwnerless` in `cacheInvalidation`), never at flush time.
-  - A write the database refuses (`isTerminalRejection`: 23xxx/22xxx/42501/P0001) is dead-lettered at once, with later ops for the same row, and the cache is rolled back from the op's `before` snapshot.
+  - A write the database refuses (`isTerminalRejection`: 23xxx/22xxx/42501/P0001, and since v10.110.0 a request the API refuses, PGRST1xx) is dead-lettered at once, with later ops for the same row, and the cache is rolled back from the op's `before` snapshot.
   - Network, JWT and schema-lag errors stay transient.
+  **Since v10.110.0 (F1a; owner decisions 18 Oct 2026):**
+  - **A transient failure is retried until it lands.** There is no retry cap: the backoff tops out at 5 minutes (`lib/sync/backoff.ts`). Never reintroduce a cap that sets a write aside for a network failure; the old one parked every queued expense after about 30 seconds of failures.
+  - **Set-aside writes belong to their owner.** Every count, clear, Dismiss and re-read in `lib/sync/deadLetter.ts` takes the cache owner. Ownerless legacy entries are adopted at the session boundary, as queued ops are. Dismiss re-reads the rows from the cloud, for failed writes as for conflicts.
+  - **"Synced" is the cloud read behind the screen**: `cloudReadAt` is the oldest of the synced entities' cloud reads as of their cache read. Never stamp `lastSyncedAt` with `Date.now()` in cloud mode. Without a cloud read this session the badge says "Syncing…".
+  - After `init` and `manualRefresh`, `settleFromCloud` waits for the background reads and refreshes once. It is one extra refresh, never a chain.
 - **The local store is a CACHE, and the cloud is the truth (v10.20.7, corrected
   in v10.20.8).** `lib/cacheInvalidation.ts` drops it at the session boundary
   when it cannot be trusted — a different user, or an older `CACHE_EPOCH`.
@@ -252,7 +257,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   because otherwise devices re-upload what you just deleted. The **pending write
   queue is never dropped** (that would be data loss); device prefs and
   `last_cloud_hid` also survive. Sign-out clears the cache — a signed-out device
-  must not hold the last user's ledger.
+  must not hold the last user's ledger. **Since v10.110.0 (F1a, FE-SYN-04):**
+  - The purge list reads `ENTITIES` from `dataAdapter.ts`, and F1A-002 fails when the adapter writes a key
+    nothing purges. Add a new per-household cache to the purge lists, never around them.
+  - The onboarding copy (`onboarding_<hid>`) goes when the PERSON changes, never on a same-user epoch reset.
+    Offline, an empty copy re-runs onboarding, which writes an opening balance, a paycheck and a budget again.
+  - The set-aside buckets (`sync_conflicts`, `sync_failed`) survive the purge, as the write queue does.
+  - `kvPurgeWhere` moves the generation before AND after it deletes.
   🔴 **The cache lives in IndexedDB (`kvStore`, DB `vyact`), NOT localStorage** —
   `kvSet` deletes the localStorage copy after a successful IDB write. v10.20.7
   purged only localStorage, so it cleared nothing in a browser, and its unit

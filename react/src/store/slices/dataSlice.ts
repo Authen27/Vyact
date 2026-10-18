@@ -123,7 +123,7 @@ export interface DataSlice {
   // are folded in via `extends` (TD-25).
 }
 
-const defaultProfile: Profile = {
+export const defaultProfile: Profile = {
   name: '', email: '', baseCurrency: 'USD', language: 'en',
   household: 'family', dateFormat: 'us', numberSystem: 'western',
   payoffStrategy: 'avalanche', extraPayment: 0,
@@ -286,6 +286,10 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
 
     set({ loading: false });
     void get().recordNetWorthSnapshot();
+    // v10.110.0 (F1a) — the first paint came from the device's copy; once the cloud reads it started
+    // have landed, paint again, so the screen and "Synced" show the cloud within a second of opening
+    // the app rather than at the next poll.
+    void get().settleFromCloud();
   },
 
   refresh: async () => {
@@ -368,9 +372,13 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       netWorthSnapshots,
       profile: mergedProfile,
       rates,
-      // Audit F8 — "last synced" means THIS pull completed and was applied.
-      // It is stamped here, after the stale-guard, never on a cached read.
-      lastSyncedAt: Date.now(),
+      // v10.110.0 (F1a, audit FE-SYN-08; owner: "last cloud time only") — "Synced" names the cloud read
+      // the rows just shown come from (the oldest across the synced entities). This refresh read the
+      // device's copy; stamping now said "Synced · just now" for hours while every cloud read failed.
+      // With no cloud read yet this session, the last time stands. Local-only mode has no cloud.
+      lastSyncedAt: typeof adapter.cloudReadAt === 'function'
+        ? adapter.cloudReadAt(currentHouseholdId) ?? prev.lastSyncedAt
+        : Date.now(),
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
     void get().recordNetWorthSnapshot();
@@ -454,11 +462,13 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
   switchHousehold: async (id) => {
     const { adapter, cloudEnabled } = get();
     await adapter.setActiveHousehold(id);
-    set({ currentHouseholdId: id });
+    // F1a (FE-SYN-08) — the sync time belongs to the household it was read for.
+    set({ currentHouseholdId: id, lastSyncedAt: null });
     if (cloudEnabled && id !== 'local') {
       try { setLocalString('last_cloud_hid', id); } catch { /* noop */ }
     }
     await get().refresh();
+    void get().settleFromCloud();         // F1a — paint the new household's cloud rows once they land
     void get().refreshNotifications();   // reload the new household's notifications (cross-device)
     void get().refreshSharedSplits();
     // v10.48.0 — this device's pushes follow the household it has open.

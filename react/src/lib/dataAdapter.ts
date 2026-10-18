@@ -26,10 +26,15 @@ import { expected } from './faults';
 // just gets its own bucket.
 // v7.3.0 — `savedViews` joins as a first-class entity (Money Map Item #4).
 //          Backed by `saved_views` table + `replace_saved_views` RPC.
-export type Entity =
-  | 'transactions' | 'budgets' | 'goals' | 'debts' | 'assets'
-  | 'members' | 'accounts' | 'savedViews' | 'recurring'
-  | 'budgetAllocations';   // v9.1 §4 — cloud-synced budget sub-limits
+// v10.110.0 (F1a, audit FE-SYN-04) — the entity list is a value, so the sign-out purge and the full
+// resync read the same list the type does (the purge named 'budget_allocations' while the cache key is
+// 'budgetAllocations', so budget lines outlived a sign-out).
+export const ENTITIES = [
+  'transactions', 'budgets', 'goals', 'debts', 'assets',
+  'members', 'accounts', 'savedViews', 'recurring',
+  'budgetAllocations',   // v9.1 §4 — cloud-synced budget sub-limits
+] as const;
+export type Entity = typeof ENTITIES[number];
 
 export interface DataAdapter {
   // households / profiles
@@ -155,6 +160,15 @@ export interface DataAdapter {
    *  wrong month in (first write wins). Adapters without a cache omit this.
    */
   positionIsCloudFresh?(householdId: string): boolean;
+  /**
+   * v10.110.0 (F1a, audit FE-SYN-08) — when the cloud read behind the rows the store last read was
+   *  applied (the oldest across the synced entities), or null when none has been this session. "Synced"
+   *  shows this time, never the time of a read served from the device's copy. Adapters without a cache
+   *  omit it.
+   */
+  cloudReadAt?(householdId: string): number | null;
+  /** v10.110.0 (F1a) — resolves once the background cloud reads started so far have landed or failed. */
+  cloudSettled?(): Promise<void>;
 }
 
 const ANON = 'local';

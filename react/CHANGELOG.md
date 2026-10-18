@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.109.0`** (consumer)
+> **Current production version: `v10.110.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,53 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.110.0 — Sync on the device: sign-out clears everything, writes retry until they land, "Synced" tells the truth *(2026-10-18)*
+
+App only. Track F1, part a (audit FE-SYN-04, FE-SYN-05, FE-SYN-08; owner decisions 18 Oct 2026).
+
+- **Sign-out clears every household copy on the device (FE-SYN-04).**
+  - What stayed behind before: budget lines (the purge named them `budget_allocations`; the cache key is
+    `budgetAllocations`), the net-worth history, the bell's notifications and the onboarding answers (take-home
+    pay, cash, debts).
+  - The purge now reads the adapter's own entity list, and a test fails when the adapter writes a key nothing
+    purges.
+  - The onboarding copy goes when the person changes (sign-out, or another user signing in). It stays on a
+    same-user cache reset: offline, an empty copy would send them back through onboarding, which writes again.
+  - The purge moves the cache generation before it deletes, so a cloud read landing mid-purge can no longer
+    write a deleted key back.
+  - An explicit sign-out waits until the purge has finished, and the in-memory profile, net-worth history and
+    sync time are cleared with the rest.
+  - Set-aside writes stay, as the write queue does.
+- **A write retries until it lands, and set-aside writes are their owner's (FE-SYN-05).**
+  - Before: a write that failed five times (about 30 seconds: no network, captive-portal Wi-Fi, a minute of
+    503s) was set aside for good.
+  - Now a failure that can pass is tried again, backing off to every 5 minutes, until it lands. That covers no
+    network, a timeout, a 5xx, a token to refresh, or a schema still deploying.
+  - Only a write the database refuses, or a conflict, is set aside. So is a request the API itself refuses
+    (PGRST1xx), which would otherwise hold back every later write to that entity.
+  - Counts, Dismiss and Refresh & re-apply act only on the signed-in person's entries. Before, the next person
+    on a shared device saw "4 changes failed to sync" about someone else's writes, and Dismiss deleted them.
+  - Entries from before owners were stamped go to the device's cache owner when they sign back in.
+  - Dismiss on a set-aside write re-reads its rows from the cloud, as Dismiss on a conflict already did.
+- **"Synced" names the cloud read behind the screen (FE-SYN-08; owner: last cloud time only).**
+  - Before: every refresh stamped "Synced · just now", even when it was served from the device's copy and
+    every cloud read was failing.
+  - The time is now when the cloud data on screen was read: the oldest across transactions, accounts, budgets
+    and their lines, debts, assets and recurring.
+  - While the cloud can't be reached, it keeps that time ("Synced · 2h ago"). Before the first cloud read of
+    the session lands, the badge says "Syncing…".
+  - After opening the app, tapping the badge or switching household, the app paints once more when the cloud
+    reads land. The screen shows the cloud within a second, not at the next 90-second poll. A switch of
+    household starts its own sync time.
+
+Tests:
+- syncDevice.test.ts (new, 12): purge coverage read from the adapter, onboarding kept on an epoch reset, the
+  generation moved first, the sign-out state, retry until it lands (ten failures, then success), what is set
+  aside, owner scoping and adoption, Dismiss re-reads, and the cloud-read time in the adapter, the store and
+  the badge;
+- updated deliberately: sync.test.ts CON-UNIT-072/074 (backoff to 5 minutes, no retry cap) and 077 (owner-scoped
+  counts), cacheInvalidation.test.ts CON-UNIT-130 (two bumps per purge).
 
 ## v10.109.0 — An EMI is set up on its loan; the Pulse Score is archived *(2026-10-18)*
 
