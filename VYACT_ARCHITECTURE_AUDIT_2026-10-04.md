@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 13 Oct 2026):** 119 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 18 Oct 2026):** 122 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -56,16 +56,16 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 19 | 5 | 2 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 43 | 2 | 17 | 12 | 7 | 7 | 12 |
+| Medium | 100 | 46 | 2 | 17 | 9 | 7 | 7 | 12 |
 | Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **110** | **9** | **31** | **23** | **14** | **10** | **15** |
+| **Total** | **212** | **113** | **9** | **31** | **20** | **14** | **10** | **15** |
 
-**119 of 212 are resolved (56%): all 3 critical and 24 of 29 high.** The other 93 fall into four groups:
+**122 of 212 are resolved (58%): all 3 critical and 24 of 29 high.** The other 90 fall into four groups:
 
-| What the 93 need | Count |
+| What the 90 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 44 |
+| Nothing but work: no decision, no blocker | 41 |
 | An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 18 |
@@ -111,19 +111,20 @@ Two developers did the work:
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
 | #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
 | #195 | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
-| (PR in review) | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
-| (PR in review) | v10.91.0 | Budget forecast counts real dates; single-key shortcuts removed (13 Oct) | FE-UIS-10, FE-MNY-16 | — |
-| (PR in review) | v10.92.0 | Admin activity feed without values, step 1 of 2 (13 Oct) | FE-PUB-01, ADM-03 | — |
-| (PR in review) | v10.93.0 (admin v1.4.5) | Admin audit without values, step 2 of 2; Privacy sentence (13 Oct) | FE-PUB-01, ADM-03 | — |
-| (PR in review) | v10.94.0 | Invitations addressed to a person: inbox functions and the invite email, step 1 of 2 (#9; R7 fixed) | — | — |
-| (PR in review) | v10.95.0 | Invitations in the bell: Join / Decline / Revoke, invite by email, step 2 of 2 (#9; R4 fixed) | — | — |
-| (PR in review) | v10.96.0 | Track E · E2: WhatsApp reads the app's spending; money port deleted (14 Oct) | — | XC-ARC-06 |
-| (PR in review) | v10.97.0 | Track E · E3: a loan payment counts in full as Loan / EMI spending (owner, 14 Oct) | — | — |
-| (PR in review) | v10.98.0 | Track E · E4: one spending baseline; two labelled cover figures (owner, 14 Oct) | FE-MNY-10 | — |
-| (PR in review) | v10.99.0 | Track E · E5: one budget-progress basis; not-planned spending (owner, 14 Oct) | FE-MNY-06, FE-UIC-08 | — |
-| (PR in review) | v10.100.0 | Track E · E6a: loan EMIs in Recurring; old EMI schedules hidden; EMIs in the budget forecast (owner, 13–14 Oct) | — | — |
-| (PR in review) | v10.101.0 | Track E · E6b: the leftover EMI schedules soft-deleted (migration; owner E-3, E-11) | — | — |
+| #196 | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
+| #197 | v10.91.0 | Budget forecast counts real dates; single-key shortcuts removed (13 Oct) | FE-UIS-10, FE-MNY-16 | — |
+| #198 | v10.92.0 | Admin activity feed without values, step 1 of 2 (13 Oct) | FE-PUB-01, ADM-03 | — |
+| #199 | v10.93.0 (admin v1.4.5) | Admin audit without values, step 2 of 2; Privacy sentence (13 Oct) | FE-PUB-01, ADM-03 | — |
+| #200 | v10.94.0 | Invitations addressed to a person: inbox functions and the invite email, step 1 of 2 (#9; R7 fixed) | — | — |
+| #201 | v10.95.0 | Invitations in the bell: Join / Decline / Revoke, invite by email, step 2 of 2 (#9; R4 fixed) | — | — |
+| #202 | v10.96.0 | Track E · E2: WhatsApp reads the app's spending; money port deleted (14 Oct) | — | XC-ARC-06 |
+| #203 | v10.97.0 | Track E · E3: a loan payment counts in full as Loan / EMI spending (owner, 14 Oct) | — | — |
+| #204 | v10.98.0 | Track E · E4: one spending baseline; two labelled cover figures (owner, 14 Oct) | FE-MNY-10 | — |
+| #205 | v10.99.0 | Track E · E5: one budget-progress basis; not-planned spending (owner, 14 Oct) | FE-MNY-06, FE-UIC-08 | — |
+| #206 | v10.100.0 | Track E · E6a: loan EMIs in Recurring; old EMI schedules hidden; EMIs in the budget forecast (owner, 13–14 Oct) | — | — |
+| #207 | v10.101.0 | Track E · E6b: the leftover EMI schedules soft-deleted (migration; owner E-3, E-11) | — | — |
 | #208 | v10.102.0 | Track E · E7: orphan loan accounts cleared; a local loan payment is one event (INV-7) | FE-MNY-04 | OPS-08 |
+| #221 | v10.110.0 | Track F1a: sign-out clears the device; writes retry until they land; honest "Synced" (owner, 18 Oct) | FE-SYN-04, FE-SYN-05, FE-SYN-08 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -191,9 +192,9 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (55)**
+**Medium (52)**
 - *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
-- *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, DB-OPS-10, INT-TXN-10, INT-TXN-11.
+- *Batch B, sync robustness:* FE-SYN-06, FE-SYN-07, DB-OPS-10, INT-TXN-10, INT-TXN-11.
 - *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-INT-11, DB-SEC-06, DB-SEC-09, INT-HH-07, INT-HH-08, INT-HH-09, OPS-11, XC-PRV-12.
@@ -787,11 +788,11 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-PLT-01 | MEDIUM | Frontend | Post-sign-in open redirect: SignIn.tsx ignores safeNext, and safeNext itself is bypassable | confirmed (adversarial: confirmed) |  | Closed | #165 |
 | FE-PLT-04 | MEDIUM | Frontend | No Content-Security-Policy on vyact.app, /learn or admin, while session tokens sit in localStorage | confirmed (adversarial: confirmed) | 2026-09 audit S4 (CSP half still open; the JSON-LD escaping half is fixed in api/_page.js:23) | Partly | #188, #189 |
 | FE-PUB-04 | MEDIUM | Frontend | Service worker answers /v/<n> video short links with the app shell, not the lesson redirect | confirmed (adversarial: confirmed) |  | Closed | #183 |
-| FE-SYN-04 | MEDIUM | Frontend | Sign-out and epoch purge miss allocations, net worth history, onboarding and dead-letter keys | confirmed (adversarial: confirmed) | 2026-09 audit S5 (partially addressed) | Open | — |
-| FE-SYN-05 | MEDIUM | Frontend | Dead-letter buckets are device-wide and the retry cap is 30 seconds, so Dismiss can delete other users' writes | confirmed (adversarial: confirmed) | TD-10 | Open | — |
+| FE-SYN-04 | MEDIUM | Frontend | Sign-out and epoch purge miss allocations, net worth history, onboarding and dead-letter keys | confirmed (adversarial: confirmed) | 2026-09 audit S5 (partially addressed) | Closed | v10.110.0 |
+| FE-SYN-05 | MEDIUM | Frontend | Dead-letter buckets are device-wide and the retry cap is 30 seconds, so Dismiss can delete other users' writes | confirmed (adversarial: confirmed) | TD-10 | Closed | v10.110.0 |
 | FE-SYN-06 | MEDIUM | Frontend | refresh() and store writes race: a stale snapshot can erase a just-saved entry from the store | confirmed (adversarial: confirmed) |  | Open | — |
 | FE-SYN-07 | MEDIUM | Frontend | Delta sync can miss rows for good and reports fresh after reading only one 500-row page | confirmed (adversarial: confirmed) | 2026-09 audit F8 (partially fixed: keyset cursor + drained full list; delta still single-page) | Open | — |
-| FE-SYN-08 | MEDIUM | Frontend | "Synced · just now" is stamped on cache-only reads even when every cloud pull fails | confirmed (adversarial: confirmed) | 2026-09 audit F8 (lastSyncedAt item still open as described) | Open | — |
+| FE-SYN-08 | MEDIUM | Frontend | "Synced · just now" is stamped on cache-only reads even when every cloud pull fails | confirmed (adversarial: confirmed) | 2026-09 audit F8 (lastSyncedAt item still open as described) | Closed | v10.110.0 |
 | FE-UIC-04 | MEDIUM | Frontend | fmt() drops the sign: overdrafts, negative nets and negative net worth render as positive | confirmed (adversarial: confirmed) |  | Closed | #177 |
 | FE-UIC-05 | MEDIUM | Frontend | Transaction edit picks the account from stale extras.paymentMethod and clears the FK | confirmed (adversarial: confirmed) |  | Closed | #186 |
 | FE-UIC-06 | MEDIUM | Frontend | Debts page and Net Worth liabilities list bypass the canonical projection | confirmed (adversarial: confirmed) | 2026-09 audit F3 (fixed for Dashboard/Ask; still open on Debts page and the Net Worth liabilities list) | Closed | #178, #179, #183 |
@@ -1246,11 +1247,11 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 | Secrets, PII and privacy compliance (XC-PRV) | Cross-cutting | 62 | 14 | 14 |
 | Architecture, maintainability and AI-assisted development risk (XC-ARC) | Cross-cutting | 58 | 15 | 15 |
 
-## Appendix C — Remediation status by finding (updated 13 Oct 2026)
+## Appendix C — Remediation status by finding (updated 18 Oct 2026)
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (93)
+### C.1 Unresolved (90)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1276,11 +1277,8 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-ARC-06 | medium | Partly | #173, v10.96.0 | The recurring hand port is deleted (#173), and the money hand port is deleted in v10.96.0 (Track E, E2): WhatsApp's alerts and digests read spending through the bundled engine (the app's row mapping and spendRows). Left: the WhatsApp budget alert keeps its own 80% rule beside the app's budget_threshold generator (it reads the app's spending). | — | M |
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
-| FE-SYN-04 | medium | Open | — | Batch B (sync robustness): sign-out and epoch purge miss allocations, net-worth history, onboarding and dead-letter keys. | — | S |
-| FE-SYN-05 | medium | Open | — | Batch B: dead-letter buckets are per user, and the retry cap needs to be sane. | — | S |
 | FE-SYN-06 | medium | Open | — | Batch B: race between refresh and store writes. | — | M |
 | FE-SYN-07 | medium | Open | — | Batch B: delta paging (only one 500-row page is read). | — | M |
-| FE-SYN-08 | medium | Open | — | Batch B: "Synced" must reflect a real cloud pull. | — | S |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | DB-OPS-10 | medium | Open | — | Batch B: a commit-order-safe delta cursor (with INT-TXN-10). | — | M |
 | INT-TXN-10 | medium | Open | — | Batch B: a commit-order-safe cursor (with DB-OPS-10), and pulls must not overwrite pending writes. | — | M |
@@ -1369,7 +1367,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (34)
+### C.3 Resolved, with a residual note (37)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1389,6 +1387,9 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PIP-07 | medium | Closed | v10.90.0 | v10.90.0: a capture's category is a real category of its type (the model's word resolved, else a keyword); when nothing places it, Pip asks "Which category?" with chips before any form opens (owner decision). |
 | FE-PIP-08 | medium | Closed | #182 | The model no longer receives the `vars` headline (#182); its facts carry total_assets, liquid_savings and liquid_by_source separately. Cosmetic: the unused headline still says "across your accounts". |
 | FE-PIP-11 | medium | Closed | v10.90.0 | v10.90.0: a number after ₹/Rs or before lakh/crore/k/million is an amount and must match a computed figure (scaled); HARMLESS covers plain counts only. |
+| FE-SYN-04 | medium | Closed | v10.110.0 | v10.110.0 (Track F1a; owner decision 18 Oct 2026: purge everything + test): the purge list reads ENTITIES from dataAdapter (budgetAllocations, with the old budget_allocations spelling) and adds net_worth_snapshots and the bell's notifications_ copy; F1A-002 fails when the adapter writes a key nothing purges. The onboa… |
+| FE-SYN-05 | medium | Closed | v10.110.0 | v10.110.0 (Track F1a; owner decision 18 Oct 2026: retry until it lands): no retry cap, backoff up to 5 minutes; only a refused write (now incl. PGRST1xx) or a conflict is set aside. Counts, clears, Dismiss and re-reads take the cache owner; ownerless legacy entries are adopted at the session boundary; Dismiss on a fai… |
+| FE-SYN-08 | medium | Closed | v10.110.0 | v10.110.0 (Track F1a; owner decision 18 Oct 2026: last cloud time only): lastSyncedAt is the cloud read behind the rows shown (HybridAdapter.cloudReadAt: the oldest of the synced entities as of their cache read), kept while reads fail, "Syncing…" before the first; settleFromCloud repaints once the background reads lan… |
 | FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
 | FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
 | FE-UIC-08 | medium | Closed | v10.99.0 | v10.99.0 (Track E, E5; owner decisions E-6 and 14 Oct 2026): one budget-progress function, lib/budgetProgress.ts, read by the Budgets page (hero, pace chart and cards), the Dashboard (pace banner and Budget progress panel), Reports' budget vs actual and Pip. A total counts all spending in its own period (an annual tot… |

@@ -6,6 +6,7 @@ import { sb, APP_URL } from './supabase';
 import { POLICY_VERSION } from './policyVersion';
 import { disablePush } from './webPush';
 import { deviceTimeZone } from './householdTimezone';
+import { clearCacheOnSignOut } from './cacheInvalidation';
 import type { MyInvitation } from './invitations';
 import type { Session, User } from '@supabase/supabase-js';
 
@@ -56,6 +57,9 @@ export async function signOut() {
   await disablePush().catch(() => undefined);
   const { error } = await sb().auth.signOut();
   if (error) throw error;
+  // v10.110.0 (F1a, audit FE-SYN-04) — the session change starts the purge without waiting for it;
+  // an explicit sign-out waits until this person's cached ledger is actually gone from the device.
+  await clearCacheOnSignOut().catch(() => undefined);
 }
 
 export async function requestPasswordReset(email: string) {

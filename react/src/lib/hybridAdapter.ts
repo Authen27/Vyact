@@ -19,7 +19,7 @@ import type {
   AccountDependencies, AccountMoveResult,
 } from '../types';
 import {
-  type DataAdapter, type Entity, LocalStorageAdapter,
+  type DataAdapter, type Entity, ENTITIES, LocalStorageAdapter,
 } from './dataAdapter';
 import ls from './localStorageCompat';
 import { cacheGeneration, isCacheGenerationCurrent } from './kvStore';
@@ -95,6 +95,42 @@ export class HybridAdapter implements DataAdapter {
     this.cloudAppliedAt.set(`${householdId}:${entity}`, Date.now());
   }
 
+  // v10.110.0 (F1a, audit FE-SYN-08) — `servedCloudAt`: the cloud read the most recent list() for a
+  // household:entity was served from (the last one applied before its cache read began). "Synced"
+  // shows the oldest of these across the entities the screens add up, so a refresh served from the
+  // device's copy while every cloud read fails no longer says "Synced · just now".
+  private servedCloudAt = new Map<string, number>();
+  private static readonly SYNCED_ENTITIES: readonly Entity[] =
+    ['transactions', 'accounts', 'budgets', 'budgetAllocations', 'debts', 'assets', 'recurring'];
+  private noteServed(freshKey: string, servedAt: number): void {
+    const appliedAt = this.cloudAppliedAt.get(freshKey);
+    if (appliedAt !== undefined && appliedAt <= servedAt) this.servedCloudAt.set(freshKey, appliedAt);
+  }
+  /** See DataAdapter.cloudReadAt. */
+  cloudReadAt(householdId: string): number | null {
+    let oldest: number | null = null;
+    for (const entity of HybridAdapter.SYNCED_ENTITIES) {
+      const at = this.servedCloudAt.get(`${householdId}:${entity}`);
+      if (at === undefined) return null;
+      oldest = oldest === null ? at : Math.min(oldest, at);
+    }
+    return oldest;
+  }
+
+  // F1a — the background cloud reads list() starts. `cloudSettled` lets the store paint the cloud's
+  // rows once they have landed (after its first paint from the device's copy), instead of at the next
+  // poll.
+  private inflight = new Set<Promise<void>>();
+  private track(read: Promise<void>): void {
+    this.inflight.add(read);
+    const done = () => { this.inflight.delete(read); };
+    read.then(done, done);
+  }
+  /** See DataAdapter.cloudSettled. */
+  async cloudSettled(): Promise<void> {
+    await Promise.allSettled([...this.inflight]);
+  }
+
   constructor(client: SupabaseClient) {
     this.cache = new LocalStorageAdapter();
     this.cloud = new SupabaseAdapter(client);
@@ -146,6 +182,7 @@ export class HybridAdapter implements DataAdapter {
         const fresh = await this.cloud.list<T>(entity, householdId);
         await this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen);
         this.servedFresh.set(freshKey, this.cloudAppliedAt.has(freshKey));
+        this.noteServed(freshKey, Date.now());
         return await this.cache.list<T>(entity, householdId);
       } catch {
         // Network error on first load — fall through to cached []. The
@@ -155,17 +192,18 @@ export class HybridAdapter implements DataAdapter {
       }
     }
     if (cursor) {
-      this.cloud.listSince(entity as Exclude<Entity, 'members'>, householdId, cursor)
+      this.track(this.cloud.listSince(entity as Exclude<Entity, 'members'>, householdId, cursor)
         .then(delta => this.applyCloudDelta(entity, householdId, delta, gen))
-        .catch(() => {/* network error — cache stays */});
+        .catch(() => {/* network error — cache stays */}));
     } else {
-      this.cloud.list<T>(entity, householdId)
+      this.track(this.cloud.list<T>(entity, householdId)
         .then(fresh => this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen))
-        .catch(() => {/* network error — cache stays */});
+        .catch(() => {/* network error — cache stays */}));
     }
     // Served from cache: fresh only if a cloud read had landed before this read began.
     const appliedAt = this.cloudAppliedAt.get(freshKey);
     this.servedFresh.set(freshKey, appliedAt !== undefined && appliedAt <= servedAt);
+    this.noteServed(freshKey, servedAt);
     return cached;
   }
 
@@ -268,8 +306,7 @@ export class HybridAdapter implements DataAdapter {
    *  empty cloud responses as transient again. Call when you suspect
    *  cache corruption or want to re-trust the cloud. */
   forceFullResync(householdId: string): void {
-    const entities: Entity[] = ['transactions','budgets','goals','debts','assets','members','accounts','savedViews','recurring','budgetAllocations'];
-    for (const e of entities) {
+    for (const e of ENTITIES) {
       try { ls.removeBoth(`cloud_synced_${householdId}_${e}`); } catch { /* noop */ }
       // TD-06: also drop the delta-sync cursor so the next list() refills it.
       try { ls.removeBoth(`cursor_${householdId}_${e}`); } catch { /* noop */ }
@@ -518,17 +555,9 @@ export class HybridAdapter implements DataAdapter {
             this.emitCacheChanged();
             continue;
           }
-          if (outcome.kind === 'failed') {
-            // TD-10 — retries exhausted: dead-letter to sync_failed.
-            deadLetter.recordFailed(op, e);
-            if (typeof console !== 'undefined') {
-              console.warn('[Vyact sync] Op exhausted retries — moved to dead-letter:', op.op, op.entity, e);
-            }
-            await outbox.ack(op.opId, this.workerId);
-            continue;
-          }
           // Transient — release back to pending with the backoff patch; the
-          // next flush after nextRetryAt claims it again.
+          // next flush after nextRetryAt claims it again. F1a (FE-SYN-05): with no cap,
+          // until it lands — a network failure never sets a write aside.
           await outbox.release(op, outcome.op);
         }
       }
@@ -552,12 +581,12 @@ export class HybridAdapter implements DataAdapter {
    * review. Surfaced by the SyncConflictBanner (TD-03 phase B).
    */
   pendingConflictCount(): number {
-    return deadLetter.pendingConflictCount();
+    return deadLetter.pendingConflictCount(cacheOwnerUid());
   }
 
-  /** Drop all dead-lettered conflict ops (SyncConflictBanner "Dismiss"). */
+  /** Drop the signed-in person's dead-lettered conflict ops (SyncConflictBanner "Dismiss"). */
   clearConflicts(): void {
-    deadLetter.clearConflicts();
+    deadLetter.clearConflicts(cacheOwnerUid());
   }
 
   /**
@@ -566,15 +595,32 @@ export class HybridAdapter implements DataAdapter {
    * stayed on screen until a full resync happened to run).
    */
   async dismissConflicts(): Promise<void> {
-    const targets = deadLetter.conflictTargets();
-    deadLetter.clearConflicts();
+    const owner = cacheOwnerUid();
+    const targets = deadLetter.conflictTargets(owner);
+    deadLetter.clearConflicts(owner);
+    await this.rereadFromCloud(targets);
+  }
+
+  /**
+   * F1a (audit FE-SYN-05) — "Dismiss" for set-aside writes: the rows they touched are read again from
+   * the cloud, as for conflicts. A write the database refused is already rolled back; one set aside by
+   * an older app after its retries ran out still showed on screen as if it had saved.
+   */
+  async dismissFailed(): Promise<void> {
+    const owner = cacheOwnerUid();
+    const targets = deadLetter.deadLetterTargets('sync_failed', owner);
+    deadLetter.clearFailed(owner);
+    await this.rereadFromCloud(targets);
+  }
+
+  private async rereadFromCloud(targets: { householdId: string; entity: string }[]): Promise<void> {
     const gen = cacheGeneration();
     for (const { householdId, entity } of targets) {
       try {
         const cached = await this.cache.list(entity as Entity, householdId);
         const fresh = await this.cloud.list(entity as Entity, householdId);
         await this.applyCloudList(entity as Entity, householdId, cached as unknown[], fresh as unknown[], gen);
-      } catch (e) { expected(e, `sync:dismissConflicts:${entity}`); }
+      } catch (e) { expected(e, `sync:dismiss:${entity}`); }
     }
     this.emitCacheChanged();
   }
@@ -600,16 +646,17 @@ export class HybridAdapter implements DataAdapter {
   }
 
   /**
-   * R4 (sync fix) — number of ops that exhausted their retries and are now in
-   * the `sync_failed` dead-letter bucket, surfaced so "all synced" can't lie.
+   * R4 (sync fix) — the signed-in person's writes in the `sync_failed` dead-letter
+   * bucket (refused by the database; or, from older apps, out of retries), surfaced
+   * so "all synced" can't lie. F1a: only that person's.
    */
   pendingFailedCount(): number {
-    return deadLetter.pendingFailedCount();
+    return deadLetter.pendingFailedCount(cacheOwnerUid());
   }
 
-  /** Drop the dead-lettered failed ops after the user has reviewed them. */
+  /** Drop the signed-in person's set-aside writes after they have reviewed them. */
   clearFailed(): void {
-    deadLetter.clearFailed();
+    deadLetter.clearFailed(cacheOwnerUid());
   }
 
   /**

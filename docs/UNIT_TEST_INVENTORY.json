@@ -2656,12 +2656,35 @@
       "owner": "dataAdapter / kvStore / cacheInvalidation / HybridAdapter",
       "count": 6,
       "tests": [
-        "sync/backoff — TD-26 CON-UNIT-072 · exponential backoff 2/4/8/16/32s capped at 60s; MAX_RETRIES=5",
+        "sync/backoff — TD-26 CON-UNIT-072 · exponential backoff 2/4/8/16/32s … capped at 5 minutes; no retry cap",
         "sync/conflict — TD-26 CON-UNIT-073 · a ConcurrencyConflictError is terminal (never retried)",
-        "sync/conflict — TD-26 CON-UNIT-074 · a transient error retries with incremented attempts + backoff, then dead-letters at the cap",
+        "sync/conflict — TD-26 CON-UNIT-074 · a transient error retries with incremented attempts + backoff, and never runs out (F1a)",
         "sync/deadLetter — TD-26 CON-UNIT-077 · record → count → clear on both buckets; retry drains into the outbox owner-stamped",
         "sync/syncQueue — TD-26 CON-UNIT-075 · isQueueOpIdValid: upsert/remove require a UUID; id-less ops are always valid",
         "sync/syncQueue — TD-26 CON-UNIT-076 · enqueue/readQueue/writeQueue round-trip; the poisoned-op replay partitions cleanly"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/syncDevice.test.ts",
+      "feature": "Sync on the device (F1a)",
+      "availability": "conditional",
+      "layer": "store-integration",
+      "owner": "F1a: sign-out clears every cache key written for a household (coverage read from the adapter), the purge moves the generation first, a network failure is retried until it lands, set-aside writes are their owner's alone, \"Synced\" names the cloud read behind the screen (fake IndexedDB, mocked cloud; owner decisions 18 Oct 2026)",
+      "count": 12,
+      "tests": [
+        "\"Synced\" names the cloud read behind the screen (FE-SYN-08) F1A-011 · no time while every cloud read fails; the time of the read the rows came from, never \"now\"",
+        "\"Synced\" names the cloud read behind the screen (FE-SYN-08) F1A-012 · the store shows that time, keeps the last one when there is none, and paints again once the cloud reads land",
+        "a failed write is retried until it lands, and set-aside writes are their owner's (FE-SYN-05) F1A-006 · a write that fails ten times with no network stays queued and on screen, then lands",
+        "a failed write is retried until it lands, and set-aside writes are their owner's (FE-SYN-05) F1A-007 · set aside: a refused write and a request the API refuses; retried: network, JWT and schema lag",
+        "a failed write is retried until it lands, and set-aside writes are their owner's (FE-SYN-05) F1A-008 · another person on the device neither sees nor dismisses someone's set-aside write",
+        "a failed write is retried until it lands, and set-aside writes are their owner's (FE-SYN-05) F1A-009 · a set-aside entry from before owners were stamped goes to the cache owner when they sign back in",
+        "a failed write is retried until it lands, and set-aside writes are their owner's (FE-SYN-05) F1A-010 · Dismiss on a set-aside write re-reads its rows, so the screen shows the cloud's version",
+        "sign-out clears the device (FE-SYN-04) F1A-001 · every cache key written for a household goes at sign-out; set-aside writes and device settings stay",
+        "sign-out clears the device (FE-SYN-04) F1A-002 · every key the local adapter reads or writes is purgeable (a new cache cannot be missed)",
+        "sign-out clears the device (FE-SYN-04) F1A-003 · a same-user epoch reset keeps the onboarding copy; a change of person removes it",
+        "sign-out clears the device (FE-SYN-04) F1A-004 · the purge moves the cache generation BEFORE deleting, so a read landing mid-purge cannot write back",
+        "sign-out clears the device (FE-SYN-04) F1A-005 · signing out clears the profile, the net-worth history and the sync time from memory; an explicit sign-out waits for the purge"
       ]
     },
     {

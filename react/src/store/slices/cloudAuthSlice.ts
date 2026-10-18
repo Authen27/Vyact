@@ -14,6 +14,7 @@ import { setLocalString } from '../localJson';
 import { invalidateCacheForSession, clearCacheOnSignOut } from '../../lib/cacheInvalidation';
 import { forgetPushOnDevice } from '../../lib/webPush';
 import { stampHouseholdTimezone } from '../../lib/householdTimezone';
+import { defaultProfile } from './dataSlice';
 
 export interface CloudAuthSlice {
   cloudEnabled: boolean;
@@ -32,6 +33,8 @@ export const SIGNED_OUT_STATE = {
   budgetAllocations: [], recurringSchedules: [], notifications: [],
   sharedSplitsOwned: [], sharedSplitsWithMe: [],
   myInvitations: [], householdInvitations: [],
+  // v10.110.0 (F1a, audit FE-SYN-04) — the profile and the net-worth history went with nothing.
+  profile: defaultProfile, netWorthSnapshots: [], lastSyncedAt: null,
 } satisfies Partial<Store>;
 
 export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> = (set, get) => ({
