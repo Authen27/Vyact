@@ -4,8 +4,17 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.5`**
+> **Current production version: `v1.4.6`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.4.6 — The Pulse Score is archived *(2026-10-18)*
+
+Ships with consumer v10.109.0 (owner decision, 16 Oct 2026: "Archive the concept of Pulse").
+
+- The Dashboard's "Pulse improved 30d %" placeholder is gone, and so are the unused Pulse fields in the types.
+- Intelligence colours the consumer's renamed `status` intent bucket. Rows written before keep `pulse`.
 
 ---
 

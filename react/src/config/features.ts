@@ -22,7 +22,6 @@ export const FEATURES = {
     reviewAfterEntries: 10,
   },
   dashboard: {
-    showPulse: false,
     showDebtSummary: false,
   },
   onboarding: {

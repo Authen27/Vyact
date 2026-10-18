@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.108.0`** (consumer)
+> **Current production version: `v10.109.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.109.0 — An EMI is set up on its loan; the Pulse Score is archived *(2026-10-18)*
+
+App, the bundled engine, admin v1.4.6 and one content migration. Owner decisions, 16 Oct 2026, from the review of
+Track E.
+
+- **R-1: an EMI request opens the loan, never a schedule.**
+  - **The bug.** Asking Pip to "set up my car EMI 15,000 monthly" drafted a Recurring schedule in Loan / EMI.
+    Recurring hides EMI schedules since v10.100.0, and they never post, so the saved schedule vanished.
+  - **Pip.** An EMI request is answered with no model call:
+    - with no matching loan, Pip opens **Add loan** pre-filled with the name ("Car loan"), the EMI, the next
+      EMI date (from "on the 5th") and **Record each EMI automatically** switched on;
+    - with a matching loan, Pip states its EMI and next date, and offers a **Record … automatically** chip
+      when that is off. The chip opens that loan with the switch on;
+    - with several loans and no name, Pip lists them.
+  - **Recurring.** The Loan EMIs section always shows, with **+ Add loan EMI**. A Loan / EMI draft saved there
+    becomes Add loan. Turning on Record automatically for a loan without a paying account or next date opens
+    the loan with the switch already on.
+  - **WhatsApp.** The hand-off says where to do it in the app.
+- **The Pulse Score is archived.**
+  - Pip no longer states a score: "how am I doing?" leads with this month's cash flow and savings rate, then
+    the cushion or the budgets over. Asked for "my pulse score", Pip says it was retired.
+  - The Pip summary no longer carries it, and the Dashboard's hidden Pulse card, its switch and advice line
+    are gone.
+  - The metering bucket is now `status`.
+  - Its code stays, unused.
+  - Migration `20261029120000_unpublish_pulse_content.sql` sets every published Learn or Insights item that
+    names Pulse (whole word, so "impulse" is untouched) back to draft, for you to reword.
+- **Demo.** The demo budget plans the mortgage ($2,340) and loan EMIs ($745), on a $4,800 total, so it no longer
+  reads $1,175 over with the mortgage "not planned".
+
+Tests:
+- emiHandoffPulse.test.ts (new, 11): the hand-off, the chip, WhatsApp, the store's seed guard, the forms, Pulse
+  gone from Pip and the summary, and the demo budget;
+- pulseContentSql.test.ts (new, 2, PGlite): the content migration, whole word, idempotent;
+- updated deliberately: dashboardPresentation (no Pulse flag);
+- retired with the feature: the e2e Pulse spec and its backlog placeholders.
 
 ## v10.108.0 — The 15-second promo on the landing page *(2026-10-18)*
 

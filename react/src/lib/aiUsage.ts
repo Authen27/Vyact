@@ -9,7 +9,7 @@ import { supabase, isCloudEnabled } from './supabase';
 
 export type Intent =
   | 'spending' | 'savings' | 'budget' | 'debt' | 'networth'
-  | 'goals' | 'pulse' | 'planning' | 'help' | 'other';
+  | 'goals' | 'status' | 'planning' | 'help' | 'other';
 
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
@@ -20,7 +20,8 @@ const INTENT_PATTERNS: [Intent, RegExp][] = [
   ['debt',      /\b(debt|debts|loan|owe|emi|mortgage|credit card|payoff|interest|apr|avalanche|snowball)\b/i],
   ['networth',  /\b(net worth|networth|wealth|asset|assets|liabilit|balance sheet|portfolio)\b/i],
   ['goals',     /\b(goal|goals|target|milestone|vacation|down ?payment|retire)\b/i],
-  ['pulse',     /\b(pulse|score|financial health|how am i doing|am i okay)\b/i],
+  // v10.109.0: 'pulse' until the Pulse Score was archived; older rows keep that label.
+  ['status',    /\b(pulse|score|financial health|how am i doing|am i okay)\b/i],
   ['planning',  /\b(plan|planner|recommend|advice|should i|how can i|optimi[sz]e|strategy)\b/i],
   ['help',      /\b(help|how do i|how to|what can you|guide|explain|tutorial)\b/i],
 ];

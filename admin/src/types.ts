@@ -16,7 +16,6 @@ export interface User {
   households: number;
   subscriptionTier: SubTier;
   country: string;
-  pulseScore?: number;
   template?: string;
 }
 
@@ -84,8 +83,6 @@ export interface KpiSnapshot {
   multiMemberPct: number;
   // Retention
   d90RetentionPct: number;
-  // Pulse Score
-  pulseImproved30dPct: number;
   // Recurring
   reminderConfirmedPct: number;
   // Planner
