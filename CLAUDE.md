@@ -876,6 +876,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     plain form has no shares; saving a split there erased it.
   - A participant who had paid keeps the day they paid (`paidOnFor`).
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving: by name if they are already known to you (on a split you share, or in one of your households), otherwise by email, neutrally ("If they aren't on Vyact yet, the email invites them"); `lib/splitParticipants.ts`. Since v10.114.0 (T2a, XC-PRV-12; owner "known emails only") `resolve_participant_names` returns names only for those known emails (at most 200 per call); never widen it to answer for any email, which let anyone map emails to Vyact users and their names. The invitation names the sender's name and email.
+- **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **A person's name is theirs, everywhere (v10.113.0; owner, 18 Oct 2026).**
   - Sign-up (`handle_new_user`) takes the form's `display_name`, else the provider's `full_name` / `name`
     (Google), else the email before "@".
