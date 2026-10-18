@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.112.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.113.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -827,6 +827,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     plain form has no shares; saving a split there erased it.
   - A participant who had paid keeps the day they paid (`paidOnFor`).
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
+- **A person's name is theirs, everywhere (v10.113.0; owner, 18 Oct 2026).**
+  - Sign-up (`handle_new_user`) takes the form's `display_name`, else the provider's `full_name` / `name`
+    (Google), else the email before "@".
+  - `memberships.display_name` is a copy of the profile name. `trg_profiles_sync_member_name` updates every
+    copy that still showed the old name; a blank name never propagates. Never read a person's name from
+    the email when a profile name exists.
+  - A form field seeded from data that may still be loading uses `useFollowedField` (hooks.ts), never
+    `useState(profile.x)`, which copies once. Settings' name box stayed empty that way, and its extra
+    payment saved a 0 over the real value.
 - **A split's sharing is a queued step (v10.112.0, F1c; audit INT-TXN-11; owner decisions 18 Oct 2026).**
   - Create, edit and delete QUEUE a `shareSplit` op (`HybridAdapter.queueSplitShare`) behind the
     transaction. Never call the cloud for a share directly from the form or the store.

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.112.0`** (consumer)
+> **Current production version: `v10.113.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,31 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.113.0 — Your name shows as your name *(2026-10-18)*
+
+App and one migration (`20261030120000_names_follow_the_person.sql`). Owner report, 18 Oct 2026: "why does
+the name of the account go empty or prefilled by email IDs".
+
+- **The name box in Settings is no longer empty.** It copied your name once, when Settings opened. Opened
+  before your profile had loaded (just after sign-in, a cold start, a household switch), it stayed empty.
+  It now shows your loaded name until you start typing. The extra-payment box had the same fault, and worse:
+  it showed 0, and "Save Preferences" wrote that 0 over the real amount. It now follows the loaded value too.
+- **Signing in with Google gives you your Google name.** Sign-up read the name only from the sign-up form,
+  else used the part of your email before "@", so every Google account was named after its email
+  ("uday.kr27"). It now takes the form's name, else the provider's (`full_name` / `name`), else the email.
+  - Existing accounts still named after their email take the name their provider sent. A name you chose
+    yourself is never replaced.
+- **Your name follows you into every household.** A member's name in a household is a copy taken when they
+  joined, and a rename never reached it, so members lists, "who paid" and splits kept the old, email-style
+  name. A rename now updates every household copy that showed the old name (a blank name never does), and
+  copies already out of step were brought up to date. No screen sets a household-specific name today; if one
+  is ever added, the rename leaves it alone.
+
+Tests: namesFollowPerson.test.ts (new, 5; PGlite with the baseline sign-up triggers and the WhatsApp column
+guard): existing accounts corrected, sign-up order (form, provider, email), a rename reaching only the copies
+that showed the old name, idempotent, and the Settings fields following the loaded profile. Each was checked
+to fail with its fix undone.
 
 ## v10.112.0 — A split is shared even when it's saved offline *(2026-10-18)*
 
