@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.118.0`** (consumer)
+> **Current production version: `v10.119.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,45 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.119.0 — A loan that records its EMIs always has an account to pay from *(2026-10-19)*
+
+One migration (`20261104120000_loan_paying_account.sql`) and the app. Follow-up to T2c (v10.117.0). Owner
+decisions, 19 Oct 2026:
+- deleting an account such a loan pays from is refused, and "Move and delete" carries the loan;
+- archiving it is refused until the loan pays from another account;
+- loans whose paying account is already gone are kept, with "Record automatically" switched off.
+
+- **An EMI no longer goes unrecorded without a word.** Vyact records a loan's EMI on its day from the loan's
+  paying account. A payment refuses an account that is deleted, archived, a card, or missing, so a loan whose
+  paying account had been deleted or archived simply stopped recording, every 30 minutes, with nobody told.
+  The EMI-day reminder still said "Vyact records this EMI on the day".
+- **Your existing loans.** Any loan in that state now has "Record automatically" switched off, so its EMI
+  shows as Pay on its day. Turn it back on from Recurring or the loan's form with a paying account. No loan,
+  balance or entry changes.
+- **Deleting an account a loan records from** is refused. The delete sheet names the loan. "Move, then delete"
+  carries the loan to the other account with the rest of the history.
+- **Archiving it** is refused too, saying which loan. Change the loan's paying account in Debts first.
+- **A loan can only be set to record automatically from a live bank or cash account of its own household.**
+  The database checks it, as the loan form already did.
+- **A loan you pay by hand** keeps its paying account only as the form's default. Deleting that account clears
+  the default; it no longer blocks the delete.
+
+**Correction to v10.117.0's note:** it said such EMIs had landed on the deleted account. They had not; they
+were never recorded (see the first point). That entry now says so.
+
+Tests:
+- loanPayingAccountSql.test.ts (new, 6, PGlite over the real T2c and v10.119.0 migrations);
+- loanPayingAccount.test.ts (new, 4, the store in local-only mode).
+Each rule was broken in turn (19 changes), and every one made a test fail.
+
+**Before merging (owner, optional, SQL editor):** the loans this release switches off.
+```sql
+select d.household_id, d.name, a.name as paying_account, a.deleted_at is not null as deleted, a.is_archived
+  from debts d left join accounts a on a.id = d.funding_account_id
+ where d.deleted_at is null and d.auto_record and d.paid_off_at is null and coalesce(d.direction, 'owed_by_me') = 'owed_by_me'
+   and (a.id is null or a.household_id <> d.household_id or a.kind not in ('bank', 'cash') or a.deleted_at is not null or a.is_archived);
+```
 
 ## v10.118.0 — WhatsApp messages from Vyact are Vyact's, and none is left waiting *(2026-10-19)*
 
@@ -104,9 +143,10 @@ guards".
 
 **Changes you may notice:**
 - None in normal use: the app offers no deleted account, and no way to archive or delete Cash in Hand.
-- A loan set to "Record automatically" from an account that has since been deleted stops recording its EMIs
-  until its paying account is changed. Before, those EMIs landed on the deleted account and vanished from
-  every balance.
+- *(Corrected in v10.119.0.)* A loan set to "Record automatically" from an account that has since been deleted
+  does not record its EMIs. This was already so before this release: a loan payment has always refused a
+  deleted or archived paying account. This note first said such EMIs had landed on the deleted account; they
+  had not, they were never recorded. v10.119.0 closes the gap.
 
 Tests: ledgerIntegritySql.test.ts (new, 9, PGlite over the real migrations). Each rule was broken in turn
 (33 changes), and every one made a test fail.

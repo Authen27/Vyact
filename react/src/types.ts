@@ -390,6 +390,9 @@ export interface AccountDependencies {
   /** Shared splits on this account's transactions that are not yet closed. */
   openSplits: { id: string; txnId: string }[];
   loanEvents: number;
+  /** v10.119.0 — live loans that record their EMIs automatically from this account. While there are any,
+   *  it can't be deleted or archived; a move carries them (owner, 19 Oct 2026). */
+  loans: { id: string; name: string }[];
 }
 
 /** v10.24.0 (R2) — result of moving an account's history, then deleting it. */

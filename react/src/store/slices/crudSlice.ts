@@ -14,7 +14,7 @@ import type {
 import { uid } from '../../lib/format';
 import { can } from '../../lib/permissions';
 import { track } from '../../lib/analytics';
-import { hasDependencies, localAccountDependencies, moveDestinations } from '../../lib/accountsView';
+import { hasDependencies, localAccountDependencies, loansRecordingFrom, moveDestinations } from '../../lib/accountsView';
 import { withRow, withRows, withoutRow } from '../../lib/rowMerge';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -233,6 +233,17 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     if ((accounts.find(x => x.id === a.id)?.kind ?? a.kind) === 'cash' && a.isArchived === true) {
       throw new Error('Cash in Hand cannot be archived — every household keeps exactly one.');
     }
+    // v10.119.0 (owner, 19 Oct 2026) — nor can an account a loan records its EMIs from: the payment would be
+    // refused and the EMI would go unrecorded without a word. The database refuses it too
+    // (accounts_guard_lifecycle); this says why before anything is written.
+    if (a.id && a.isArchived === true && !accounts.find(x => x.id === a.id)?.isArchived) {
+      const loans = loansRecordingFrom(a.id, get().debts);
+      if (loans.length) {
+        const names = loans.map(l => l.name).join(', ');
+        throw new Error(`${names} ${loans.length === 1 ? 'records its EMIs' : 'record their EMIs'} from this account. `
+          + `Change ${loans.length === 1 ? 'its' : 'their'} paying account first.`);
+      }
+    }
 
     // 🔒 A PATCH MUST NOT ERASE WHAT IT DOES NOT MENTION.
     //
@@ -294,7 +305,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     if (cloudEnabled && currentHouseholdId !== 'local' && typeof adapter.accountDependencies === 'function') {
       return adapter.accountDependencies(currentHouseholdId, id);
     }
-    return localAccountDependencies(id, transactions, recurringSchedules);
+    return localAccountDependencies(id, transactions, recurringSchedules, get().debts);
   },
   deleteAccountPermanently: async (id) => {
     const { adapter, currentHouseholdId, cloudEnabled, accounts } = get();
@@ -309,6 +320,11 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     } else {
       if (hasDependencies(await get().accountDependencies(id))) {
         throw new Error('This account has history attached — archive it, or move its history first.');
+      }
+      // v10.119.0 — as delete_account does: a loan that does not record automatically only had this as its
+      // default paying account.
+      for (const d of get().debts.filter(x => x.fundingAccountId === id)) {
+        await get().upsertDebt({ ...d, fundingAccountId: undefined });
       }
       await adapter.remove('accounts', currentHouseholdId, id);
     }
@@ -356,11 +372,17 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
           toAccountId: s.transactionTemplate.toAccountId === fromId ? toId : s.transactionTemplate.toAccountId,
         },
       }));
+    // v10.119.0 — the loans paid from it are paid from the destination now, as the RPC does.
+    const movedDebts: Debt[] = get().debts
+      .filter(d => d.fundingAccountId === fromId)
+      .map(d => ({ ...d, fundingAccountId: toId }));
     for (const t of movedTxns) await adapter.upsert('transactions', currentHouseholdId, t);
     for (const s of movedSchedules) await adapter.upsert('recurring', currentHouseholdId, s);
+    for (const d of movedDebts) await adapter.upsert('debts', currentHouseholdId, d);
     set(state => ({
       transactions: withRows(state.transactions, movedTxns),
       recurringSchedules: withRows(state.recurringSchedules, movedSchedules),
+      debts: withRows(state.debts, movedDebts),
     }));
 
     const folded = round2((source.openingBalance ?? 0) + (source.reconciliationOffset ?? 0));

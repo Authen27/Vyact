@@ -1749,6 +1749,38 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/loanPayingAccount.test.ts",
+      "feature": "Loan paying account (v10.119.0)",
+      "availability": "available",
+      "layer": "store-integration",
+      "owner": "v10.119.0: only live auto-recording loans count as an account dependency; archiving an account a loan records from is refused naming the loan; local delete refused while one does and clears a hand-paid default; local move carries every loan (store in local-only mode with fake IndexedDB; owner decisions 19 Oct 2026)",
+      "count": 4,
+      "tests": [
+        "a loan's paying account LPA-001 · only live loans that record automatically count, and they make the account \"in use\"",
+        "a loan's paying account LPA-002 · archiving an account a loan records from is refused, saying which loan; nothing is written",
+        "a loan's paying account LPA-003 · deleting it is refused while a loan records from it; a loan that pays by hand loses only its default",
+        "a loan's paying account LPA-004 · moving the account's history carries every loan paid from it to the destination"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/loanPayingAccountSql.test.ts",
+      "feature": "Loan paying account SQL (v10.119.0)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "v10.119.0 migration: loans recording automatically from an unusable account switched off (and only those); a loan records automatically only from a live bank/cash account of its own household; account_dependencies lists such loans and delete_account refuses while there are any (clearing a hand-paid loan's default); archiving from the app refused naming the loan; move_account_and_delete carries every loan (PGlite over T2c and v10.119.0; owner decisions 19 Oct 2026)",
+      "count": 6,
+      "tests": [
+        "loans that record automatically (v10.119.0) LPA-SQL-001 · the migration switched recording off for every live loan with no usable paying account, and nothing else",
+        "loans that record automatically (v10.119.0) LPA-SQL-002 · a loan records automatically only from a live bank or cash account of its own household",
+        "loans that record automatically (v10.119.0) LPA-SQL-003 · account_dependencies lists the loans recording from an account; delete_account refuses while there are any",
+        "loans that record automatically (v10.119.0) LPA-SQL-004 · from the app, archiving an account a loan records from is refused, naming the loan",
+        "loans that record automatically (v10.119.0) LPA-SQL-005 · moving the history carries every loan paid from the account, then deletes it",
+        "loans that record automatically (v10.119.0) LPA-SQL-006 · deleting an account only a hand-paid loan names clears that default; nothing records from a deleted account"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/loanPayment.test.ts",
       "feature": "Cloud adapter contracts",
       "availability": "conditional",
