@@ -7,6 +7,17 @@
 //      ("… isn't on Vyact yet. Send them an invite?"). A "No" takes them out of the split.
 //
 // Pure: the split form and the tests both use it.
+import { nameList } from './confirmCopy';
+
+/**
+ * F1c (v10.112.0, INT-TXN-11) — what the Split form says on save. Sharing is queued behind the
+ * transaction and sent by sync; offline, it says who it will be shared with once the device is back
+ * online, instead of the old "sharing failed".
+ */
+export function splitSavedNotice(editing: boolean, sharedOnceOnline: string[]): string {
+  if (sharedOnceOnline.length) return `Split saved. It's shared with ${nameList(sharedOnceOnline)} once you're online.`;
+  return editing ? 'Split updated' : 'Split added';
+}
 
 /** A plain address check: something@domain.tld, no spaces. The server is the real check. */
 export const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*\.[^\s@.]{2,}$/;

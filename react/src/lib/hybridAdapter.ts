@@ -34,6 +34,8 @@ import * as deadLetter from './sync/deadLetter';
 import { classifyFlushError } from './sync/conflict';
 import { cacheOwnerUid } from './cacheInvalidation';
 import { cursorAfter, mergeCloudDelta, overlapStart, overlayQueued, withRow } from './rowMerge';
+import { syncSharedSplit, type SplitShareIntent } from './sharedSplits';
+import { sendSplitEmail, type SplitEmailResult } from './splitEmail';
 
 export class HybridAdapter implements DataAdapter {
   cache: LocalStorageAdapter;
@@ -132,7 +134,10 @@ export class HybridAdapter implements DataAdapter {
     await Promise.allSettled([...this.inflight]);
   }
 
+  private client: SupabaseClient;
+
   constructor(client: SupabaseClient) {
+    this.client = client;
     this.cache = new LocalStorageAdapter();
     this.cloud = new SupabaseAdapter(client);
     if (typeof window !== 'undefined') {
@@ -570,6 +575,7 @@ export class HybridAdapter implements DataAdapter {
                   ? rows : withRow(rows, saved as { id: string }));
             }
           }
+          else if (op.op === 'shareSplit')    await this.shareSplit(op);
           else if (op.op === 'remove')        await this.cloud.remove(op.entity!, op.householdId, op.id!);
           else if (op.op === 'replaceAll')    await this.cloud.replaceAll(op.entity!, op.householdId, op.payload as unknown[]);
           else if (op.op === 'updateProfile') await this.cloud.updateProfile(op.householdId, op.payload as Partial<Profile>);
@@ -620,6 +626,39 @@ export class HybridAdapter implements DataAdapter {
       const nextWake = await outbox.nextWakeAt(ownerUid);
       if (nextWake !== null) this.scheduleFlush(nextWake);
     });
+  }
+
+  // ── v10.112.0 (F1c, audit INT-TXN-11; owner: "today's calls, repeat-safe") — split sharing ──
+  // The Split form used to share a split straight after QUEUEING its transaction: offline, or before the
+  // transaction had landed, the cloud refused it (foreign key), the form said "sharing failed" and
+  // nothing tried again, so the others never saw what they owed. Sharing is now a queued step of its
+  // own: it waits for its transaction (outbox), is retried until it lands like every write, and each
+  // run makes the cloud match the split (`syncSharedSplit`), so a repeat is harmless.
+
+  /** Queue a split's sharing (create, edit or delete). Works offline; sync sends it once its transaction lands. */
+  async queueSplitShare(householdId: string, intent: SplitShareIntent): Promise<void> {
+    await outbox.enqueueOp({ ts: Date.now(), op: 'shareSplit', householdId, payload: intent }, await this.ownerForWrite());
+    void this.flushQueue();
+  }
+
+  private async shareSplit(op: outbox.StoredOp): Promise<void> {
+    const result = await syncSharedSplit(this.client, op.householdId, op.payload as SplitShareIntent);
+    // The people added in this run are emailed once (the server also claims one email per share per
+    // event, so even a repeat never sends twice). Best-effort, never holding up the queue.
+    const email = result?.added ? sendSplitEmail({ splitId: result.splitId, event: 'shared' }) : Promise.resolve(null);
+    void email.then(outcome => this.emitSplitShared(outcome));
+  }
+
+  private splitListeners = new Set<(email: SplitEmailResult | null) => void>();
+  /** F1c — a queued split share landed (with the email outcome when people were added). */
+  onSplitShared(listener: (email: SplitEmailResult | null) => void): () => void {
+    this.splitListeners.add(listener);
+    return () => { this.splitListeners.delete(listener); };
+  }
+  private emitSplitShared(email: SplitEmailResult | null): void {
+    for (const listener of this.splitListeners) {
+      try { listener(email); } catch (e) { unexpected(e, 'sync:splitListener'); }
+    }
   }
 
   // ── Queue / dead-letter surface (delegated to ./sync/*) ─────
