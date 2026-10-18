@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.111.0`** (consumer)
+> **Current production version: `v10.112.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.112.0 — A split is shared even when it's saved offline *(2026-10-18)*
+
+App only, no migration. Track F1, part c (audit INT-TXN-11; owner decisions 18 Oct 2026: the share is queued
+behind its transaction and sent by sync; "today's calls, repeat-safe").
+
+- **The bug.** Saving a split queued its transaction (that works offline), then shared it with the others
+  straight away. Offline, or before the transaction had reached the cloud, the cloud refused the share (it
+  must point at a transaction it has), the form said "Split saved, but sharing failed", and nothing tried
+  again: the others never saw what they owed and no email went.
+- **Now sharing is a queued step of its own.**
+  - Create, edit and delete each queue it right behind the transaction. It waits until its transaction has
+    landed, and is then retried until it lands too, like every save since v10.110.0.
+  - It has its own place in the queue, so a share that keeps failing never holds up the household's
+    transactions.
+  - Each run makes the cloud match the split, from whatever is there: it creates the shared split, or for an
+    edit adds new people, removes unpaid shares no longer wanted and changes unpaid amounts (a paid share is
+    never touched), or removes it when the split is deleted. A run cut off half-way is finished by the next,
+    and a repeat changes nothing.
+  - The people added are emailed once the step lands (only them, once). The Splits page re-reads its shared
+    splits then.
+  - If the database refuses the transaction itself, its share is set aside with it and both show in the
+    failed-changes banner.
+- **What the form says.** Online: "Split added" / "Split updated", as before. Offline: "Split saved. It's
+  shared with Ravi and Meera once you're online." The "sharing failed" message is gone.
+- The one-shot create / update / delete calls this replaces are removed (`syncSharedSplit` in
+  `lib/sharedSplits.ts` is the one writer).
+
+Tests:
+- splitShareQueue.test.ts (new, 7; an in-memory cloud that enforces the transaction's foreign key): the
+  step converges (a run cut off half-way, a repeat with no writes, an edit around a paid share, delete); it
+  waits for its transaction and wakes the queue only through it; a failing share never holds up
+  transactions; offline to online end to end (the transaction's first send fails, the share waits, then
+  both land, emailed once, and a resend changes nothing); a refused transaction sets its share aside; the
+  store and the form queue it. Each guard was checked to fail with its fix undone.
+- updated deliberately: sharedSplitsWorkflow (create and edit go through `syncSharedSplit`).
 
 ## v10.111.0 — A save stays on screen until it lands; a pull never misses a late row *(2026-10-18)*
 

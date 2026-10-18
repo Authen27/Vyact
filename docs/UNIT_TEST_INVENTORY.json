@@ -2607,6 +2607,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/splitShareQueue.test.ts",
+      "feature": "Split sharing through the sync queue (F1c)",
+      "availability": "conditional",
+      "layer": "store-integration",
+      "owner": "F1c: a split's sharing is a queued step that waits for its transaction, retries until it lands in its own lane (never holding up transactions), and makes the cloud match the split each run (repeat-safe: a run cut off half-way is finished, a repeat writes nothing, paid shares untouched, new people emailed once); the store and the Split form queue it (fake IndexedDB, an in-memory cloud enforcing the transaction FK; owner decisions 18 Oct 2026)",
+      "count": 7,
+      "tests": [
+        "sharing through the sync queue (INT-TXN-11) F1C-004 · a split saved offline is shared once online: the transaction first, then its shares, emailed once",
+        "sharing through the sync queue (INT-TXN-11) F1C-005 · a network failure while sharing is retried until it lands, and later transactions still go",
+        "sharing through the sync queue (INT-TXN-11) F1C-006 · a share whose transaction the database refused is set aside with it, never stuck",
+        "the Split form and the store queue the sharing F1C-007 · create, edit and delete queue a step (cloud only); the form no longer reports a failed share",
+        "the share step makes the cloud match the split, repeat-safe (syncSharedSplit) F1C-001 · creates, repeats with no writes, finishes a run cut off half-way, edits around paid shares and deletes",
+        "the share step waits for its transaction, in its own lane (outbox) F1C-002 · it is claimed only after its transaction has landed, and wakes the queue only through it",
+        "the share step waits for its transaction, in its own lane (outbox) F1C-003 · a share step that keeps failing never holds up the household's transactions"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/storage.test.ts",
       "feature": "Storage and synchronization",
       "availability": "available",

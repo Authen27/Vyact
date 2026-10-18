@@ -3,7 +3,9 @@ import type { Entity } from '../dataAdapter';
 
 export interface QueueOp {
   ts: number;
-  op: 'upsert' | 'remove' | 'replaceAll' | 'updateProfile' | 'upsertRate';
+  /** `shareSplit` (v10.112.0, F1c): a split's sharing, payload `SplitShareIntent`; it waits behind its
+   *  transaction's own queued writes (outbox `claimDue`). */
+  op: 'upsert' | 'remove' | 'replaceAll' | 'updateProfile' | 'upsertRate' | 'shareSplit';
   entity?: Entity;
   householdId: string;
   payload?: unknown;

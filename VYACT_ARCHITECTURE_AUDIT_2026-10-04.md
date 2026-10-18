@@ -6,6 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
+**Remediation status (updated 18 Oct 2026):** 127 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 18 Oct 2026):** 126 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 18 Oct 2026):** 122 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
@@ -57,6 +58,16 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 19 | 5 | 2 | 0 | 0 | 3 | 0 |
+| Medium | 100 | 51 | 2 | 17 | 4 | 7 | 7 | 12 |
+| Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
+| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
+| **Total** | **212** | **118** | **9** | **31** | **15** | **14** | **10** | **15** |
+
+**127 of 212 are resolved (60%): all 3 critical and 24 of 29 high.** The other 85 fall into four groups:
+
+| What the 85 need | Count |
+|---|---:|
+| Nothing but work: no decision, no blocker | 36 |
 | Medium | 100 | 50 | 2 | 17 | 5 | 7 | 7 | 12 |
 | Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
@@ -137,6 +148,7 @@ Two developers did the work:
 | #208 | v10.102.0 | Track E · E7: orphan loan accounts cleared; a local loan payment is one event (INV-7) | FE-MNY-04 | OPS-08 |
 | #221 | v10.110.0 | Track F1a: sign-out clears the device; writes retry until they land; honest "Synced" (owner, 18 Oct) | FE-SYN-04, FE-SYN-05, FE-SYN-08 | — |
 | #222 | v10.111.0 | Track F1b: row-level merge; queued writes survive pulls; 2-minute overlap, every page (owner, 18 Oct) | FE-SYN-06, FE-SYN-07, DB-OPS-10, INT-TXN-10 | — |
+| #223 | v10.112.0 | Track F1c: a split's sharing queued behind its transaction, repeat-safe (owner, 18 Oct) | INT-TXN-11 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -204,6 +216,8 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
+**Medium (47)**
+- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 **Medium (48)**
 - *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Batch B, sync robustness:* INT-TXN-11.
@@ -274,7 +288,7 @@ Plus **R1** (high, new): see §0.3.
 - *Decided 13 Oct:* #181 keeps the full EMI on the Loan / EMI budget line; the Pip relay (BE-PIP-06) stays for now (backlog); "Erase all data" deletes the household's shared splits; admins see who/when/what only (ADM-03). Also decided: the full EMI will count as spending everywhere (a reporting rule, reversing part of D19) and each loan's EMI will be mirrored in Recurring, as their own track after the current batch.
 
 **Step 4. Larger scheduled work.**
-- **Batch B, sync robustness** (8 findings, M–L): FE-SYN-04..08, INT-TXN-10/11, DB-OPS-10, as one PR train.
+- **Batch B, sync robustness: done** (Track F1; v10.110.0–v10.112.0, #221–#223; owner decisions 18 Oct): FE-SYN-04..08, INT-TXN-10/11 and DB-OPS-10 are closed.
 - **Engineering hygiene:** XC-ARC-06/08/09/11, GATE-04, XC-ARC-10.
 - **Admin:** ADM-05/08/10/11/14.
 - **Database hygiene (W8e):** R6, INT-CON-07, INT-HH-06/DB-INT-11, FE-PUB-08. The owner deferred these on 8 Oct; ask again, because R6 is advisor-flagged.
@@ -866,6 +880,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-PAR-08 | MEDIUM | Integration | Deployed engine bundle can drift from the app: Edge deploy is neither gated on CI nor checks the bundle | confirmed (adversarial: confirmed) | TD-33 | On hold (dev question) | — |
 | INT-TXN-08 | MEDIUM | Integration | Rejected writes are retried as transient, then dead-lettered while the optimistic row stays forever | confirmed-with-caveats (adversarial: partial) | TD-10 (retry cap resolved; terminal-error handling and rollback still open) | Closed | #171 |
 | INT-TXN-10 | MEDIUM | Integration | Delta sync still not guaranteed current: pulls overwrite pending local writes; commit-order cursor gap | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F8 (pagination and composite cursor fixed; 'overlay pending local writes' still open; commit-order gap new) | Closed | v10.111.0 |
+| INT-TXN-11 | MEDIUM | Integration | Split sharing is a separate online write that races the queued transaction and is never retried | confirmed (adversarial: confirmed) | 2026-09 audit 8.5 (still open) | Closed | v10.112.0 |
 | INT-TXN-11 | MEDIUM | Integration | Split sharing is a separate online write that races the queued transaction and is never retried | confirmed (adversarial: confirmed) | 2026-09 audit 8.5 (still open) | Open | — |
 | INT-TXN-12 | MEDIUM | Integration | WhatsApp correction checks category fit against the wrong message; alias by kind picks arbitrary account | confirmed (adversarial: confirmed) |  | Owner decision | v10.89.0 |
 | INT-TZC-04 | MEDIUM | Integration | WhatsApp: untagged entries use the database's UTC current_date while 'yesterday' uses IST; dispatch hard-codes IST | confirmed (adversarial: confirmed) |  | Closed | #169 |
@@ -1268,6 +1283,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
+### C.1 Unresolved (85)
 ### C.1 Unresolved (86)
 ### C.1 Unresolved (90)
 
@@ -1295,6 +1311,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-ARC-06 | medium | Partly | #173, v10.96.0 | The recurring hand port is deleted (#173), and the money hand port is deleted in v10.96.0 (Track E, E2): WhatsApp's alerts and digests read spending through the bundled engine (the app's row mapping and spendRows). Left: the WhatsApp budget alert keeps its own 80% rule beside the app's budget_threshold generator (it reads the app's spending). | — | M |
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
+| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | FE-SYN-06 | medium | Open | — | Batch B: race between refresh and store writes. | — | M |
 | FE-SYN-07 | medium | Open | — | Batch B: delta paging (only one 500-row page is read). | — | M |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
@@ -1383,6 +1400,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
+### C.3 Resolved, with a residual note (42)
 ### C.3 Resolved, with a residual note (41)
 ### C.3 Resolved, with a residual note (37)
 
@@ -1420,6 +1438,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | DB-SEC-08 | medium | Closed | #167, v10.88.0 | Server-side recency check (#167); the erase now also removes notifications, WhatsApp questions, agent conversations, relay messages and loan history (v10.88.0). |
 | INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
 | INT-TXN-10 | medium | Closed | v10.111.0 | v10.111.0 (Track F1b): a cloud pull leaves every row with a queued write as the device has it: overlayQueued for full pulls (a row created offline survives, a queued delete stays deleted), mergeCloudDelta for deltas, read from outbox.queuedWrites under the list lock where upsert/remove queue their op. A same-row edit… |
+| INT-TXN-11 | medium | Closed | v10.112.0 | v10.112.0 (Track F1c; owner decisions 18 Oct 2026: queued behind the transaction, sent by sync; "today's calls, repeat-safe"): create, edit and delete queue a shareSplit outbox op behind the transaction; the outbox claims it only after every earlier write of its transaction has landed (own lane, never holding up trans… |
 | FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
 | FE-MNY-15 | low | Closed | #184 | Nothing for the export. There is still no restore (the owner-only 'Restore from backup' is in the plan's backlog), so the round-trip test from the recommendation has nothing to run against. |
 | FE-MNY-16 | low | Closed | #170, #181, #186, v10.91.0 | v10.91.0: the forecast counts each bill's real dates in the period through ruleOf/expandRRule, as the bill calendar does (owner decision); the unused _shared port is deleted. Suggest still proposes a monthly average, by design. |

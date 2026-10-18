@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.111.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.112.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -827,6 +827,16 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     plain form has no shares; saving a split there erased it.
   - A participant who had paid keeps the day they paid (`paidOnFor`).
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
+- **A split's sharing is a queued step (v10.112.0, F1c; audit INT-TXN-11; owner decisions 18 Oct 2026).**
+  - Create, edit and delete QUEUE a `shareSplit` op (`HybridAdapter.queueSplitShare`) behind the
+    transaction. Never call the cloud for a share directly from the form or the store.
+  - The outbox claims it only after every earlier write of its transaction has landed
+    (`waitsForItsTransaction`). It has its own lane, so it never holds up transactions.
+  - It is retried until it lands, and each run is `syncSharedSplit`. That function makes the cloud match
+    the split from whatever is there, so a repeat is harmless.
+    - Paid shares are never changed or removed.
+    - New shares are inserted last; only the people a run added are emailed.
+  - Offline, the form says the split is "shared … once you're online", never "sharing failed".
 - **A household invitation can be addressed to a person (v10.94.0; owner decisions 13 Oct 2026; #9).**
   - `invitations.invited_email` is the LABEL the inviter typed (a legacy name). The invitee's address is
     `recipient_email` (lower-case, checked), or null for a link-only invitation.

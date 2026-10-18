@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1498 passing deterministic cases in 164 files. Zero failed, skipped or TODO cases at generation.**
+**1505 passing deterministic cases in 165 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | sql-integration | conditional | 91 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
-| react | store-integration | conditional | 35 |
+| react | store-integration | conditional | 42 |
 | react | unit | available | 447 |
 | react | unit | conditional | 235 |
 | react | unit | infrastructure | 229 |
@@ -179,6 +179,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/splitEmailHandler.test.ts](../react/src/lib/__tests__/splitEmailHandler.test.ts) | Split email handler | handler-integration | conditional | 5 |
 | [react/src/lib/__tests__/splitEmailResult.test.ts](../react/src/lib/__tests__/splitEmailResult.test.ts) | Split sharing rules | unit | available | 2 |
 | [react/src/lib/__tests__/splitParticipants.test.ts](../react/src/lib/__tests__/splitParticipants.test.ts) | Split sharing rules | unit | available | 4 |
+| [react/src/lib/__tests__/splitShareQueue.test.ts](../react/src/lib/__tests__/splitShareQueue.test.ts) | Split sharing through the sync queue (F1c) | store-integration | conditional | 7 |
 | [react/src/lib/__tests__/storage.test.ts](../react/src/lib/__tests__/storage.test.ts) | Storage and synchronization | storage-integration | available | 6 |
 | [react/src/lib/__tests__/supabaseAdapter.test.ts](../react/src/lib/__tests__/supabaseAdapter.test.ts) | Cloud adapter contracts | contract-unit | conditional | 14 |
 | [react/src/lib/__tests__/sync.test.ts](../react/src/lib/__tests__/sync.test.ts) | Storage and synchronization | storage-integration | available | 6 |

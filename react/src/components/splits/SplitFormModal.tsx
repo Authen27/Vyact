@@ -31,7 +31,7 @@ import { CURRENCIES } from '../../constants';
 import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { resolveParticipantNames } from '../../lib/sharedSplits';
-import { participantEmailProblem, needsConfirmation, confirmQuestion, paidOnFor, type ConfirmItem } from '../../lib/splitParticipants';
+import { participantEmailProblem, needsConfirmation, confirmQuestion, paidOnFor, splitSavedNotice, type ConfirmItem } from '../../lib/splitParticipants';
 import { editPatch } from '../../lib/txnEdit';
 import Modal from '../ui/Modal';
 import type { Transaction } from '../../types';
@@ -372,6 +372,7 @@ export default function SplitFormModal(props: Props) {
       });
       await upsertTransaction(txn);
 
+      let sharedOnceOnline: string[] = [];
       if (cloudActive) {
         const emailed = split.participants.filter(p => !p.isYou && p.email);
         const cloudInput = {
@@ -383,15 +384,20 @@ export default function SplitFormModal(props: Props) {
           date: txn.date,
           participants: emailed.map(p => ({ email: p.email!, share: p.share })),
         };
+        // F1c (v10.112.0, INT-TXN-11): sharing is QUEUED behind the transaction and sent by sync,
+        // offline included, retried until it lands. Only the device's own queue can refuse it here.
         try {
           if (editing) await updateSharedSplitForTxn(cloudInput);
           else if (emailed.length) await createSharedSplitForTxn(cloudInput);
+          if (emailed.length && typeof navigator !== 'undefined' && !navigator.onLine) {
+            sharedOnceOnline = emailed.map(p => p.name || p.email!);
+          }
         } catch (e) {
-          toast(`Split saved, but sharing failed: ${(e as Error).message}`, 'error');
+          toast(`Split saved, but its sharing couldn't be queued on this device: ${(e as Error).message}`, 'error');
         }
       }
 
-      toast(editing ? 'Split updated' : 'Split added', 'success');
+      toast(splitSavedNotice(editing, sharedOnceOnline), 'success');
       onClose();
     } catch (e) {
       toast(`Save failed: ${(e as Error).message}`, 'error');
