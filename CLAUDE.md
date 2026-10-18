@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.113.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.114.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -684,6 +684,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - **A household that has members always has an owner** — a deferred trigger raises `household_needs_an_owner`. Ownership moves only through `transfer_ownership` (owner only, to an existing member).
   - **Never add a member-callable bulk replace/restore.** The `replace_*` RPCs let any member seize or wipe a household and were dropped; a future restore is an owner-only command.
   - Role checks in SQL use `is distinct from` / `coalesce`, never `<>` on a value that is NULL for a non-member (`NULL <> 'owner'` let anyone through).
+  - **People join only by accepting an invitation (v10.114.0, T2a; audit INT-HH-07, INT-HH-09, DB-INT-11).**
+    - There is no client INSERT policy on `memberships`. The ways in are `handle_new_household`,
+      `accept_invitation_link` and `accept_invitation_by_id`, all definer functions.
+    - A membership's person and household never change (`memberships_keep_identity`).
+    - There is one membership per person per household (`uq_memberships_household_user`).
+    - An accept locks the invitation and then the household, and claims the invitation only `where accepted_at is null`.
+    - The member-limit trigger counts with the household locked.
+    - Someone already in the household opening a link leaves it usable.
+    - Never add a client path that inserts a membership for another user id.
   - A WhatsApp link ends with the membership (trigger), and the webhook / `guardedSend` re-check membership (`isLiveMember`).
   - Platform admins read household ledgers only through SECURITY DEFINER aggregate RPCs, never row by row.
   - Admins see who did what and when in a household's activity log, never the values (owner decision
@@ -826,6 +835,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     (`openEditTxn` / `openAddTxn` route on `isSplitRow`; `/transactions/:id/edit` redirects). The
     plain form has no shares; saving a split there erased it.
   - A participant who had paid keeps the day they paid (`paidOnFor`).
+- **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving: by name if they are already known to you (on a split you share, or in one of your households), otherwise by email, neutrally ("If they aren't on Vyact yet, the email invites them"); `lib/splitParticipants.ts`. Since v10.114.0 (T2a, XC-PRV-12; owner "known emails only") `resolve_participant_names` returns names only for those known emails (at most 200 per call); never widen it to answer for any email, which let anyone map emails to Vyact users and their names. The invitation names the sender's name and email.
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **A person's name is theirs, everywhere (v10.113.0; owner, 18 Oct 2026).**
   - Sign-up (`handle_new_user`) takes the form's `display_name`, else the provider's `full_name` / `name`

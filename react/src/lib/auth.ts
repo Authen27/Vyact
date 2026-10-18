@@ -145,8 +145,11 @@ export async function declineInvitation(invitationId: string): Promise<boolean> 
 }
 
 export async function listInvitations(householdId: string) {
+  // v10.114.0 (T2a, INT-HH-09): pending means not accepted AND not expired, as the database counts it
+  // (an expired invitation used to show as pending, and block a Couple household's invite).
   const { data, error } = await sb().from('invitations')
     .select('*').eq('household_id', householdId).is('accepted_at', null)
+    .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;

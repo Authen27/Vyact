@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1510 passing deterministic cases in 166 files. Zero failed, skipped or TODO cases at generation.**
+**1518 passing deterministic cases in 167 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 113 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 104 |
-| react | sql-integration | conditional | 96 |
+| react | sql-integration | conditional | 104 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 42 |
@@ -116,6 +116,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 21 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
 | [react/src/lib/__tests__/householdAuthzSql.test.ts](../react/src/lib/__tests__/householdAuthzSql.test.ts) | Household authorization SQL | sql-integration | conditional | 8 |
+| [react/src/lib/__tests__/householdJoinSql.test.ts](../react/src/lib/__tests__/householdJoinSql.test.ts) | Household joining SQL (T2a) | sql-integration | conditional | 8 |
 | [react/src/lib/__tests__/householdTimezoneSql.test.ts](../react/src/lib/__tests__/householdTimezoneSql.test.ts) | Household time zone SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/householdTypes.test.ts](../react/src/lib/__tests__/householdTypes.test.ts) | Household types | unit | available | 5 |
 | [react/src/lib/__tests__/invitationInboxSql.test.ts](../react/src/lib/__tests__/invitationInboxSql.test.ts) | Invitation inbox SQL | sql-integration | conditional | 10 |

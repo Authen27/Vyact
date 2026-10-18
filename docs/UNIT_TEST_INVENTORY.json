@@ -1499,6 +1499,25 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/householdJoinSql.test.ts",
+      "feature": "Household joining SQL (T2a)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "T2a migration: no client membership INSERT (join only by invitation), a membership cannot be re-pointed, duplicates merged into one (highest role, references moved, WhatsApp kept) and a unique index, accepts single-use with the invitation and household locked, an existing member never burns a link, HOUSEHOLD_FULL on a second partner, legacy accepts dropped, leave_household null-safe, names only for known emails (focused PGlite fixture with today's membership RLS; owner decisions 18 Oct 2026)",
+      "count": 8,
+      "tests": [
+        "joining by invitation (INT-HH-09, DB-INT-11) JOIN-004 · a link is single-use: Sam joins once; the next person is refused; the link was claimed atomically",
+        "joining by invitation (INT-HH-09, DB-INT-11) JOIN-005 · someone already in the household opening a link leaves it usable for the person it was for",
+        "joining by invitation (INT-HH-09, DB-INT-11) JOIN-006 · a Couple household takes one partner: the next join is HOUSEHOLD_FULL; the counts run with the household locked",
+        "joining by invitation (INT-HH-09, DB-INT-11) JOIN-007 · the legacy accept functions are gone; leaving is null-safe and keeps the last owner",
+        "memberships (INT-HH-07, DB-INT-11, INT-HH-06) JOIN-001 · an owner can no longer add a stranger directly; roles still change; a membership can't be re-pointed",
+        "memberships (INT-HH-07, DB-INT-11, INT-HH-06) JOIN-002 · a duplicate membership was merged into one (highest role kept), with what pointed at it, and WhatsApp stays linked",
+        "memberships (INT-HH-07, DB-INT-11, INT-HH-06) JOIN-003 · the old phone copies on profiles are cleared (the migration acts as the service role)",
+        "the participant name lookup (XC-PRV-12; owner: known emails only) JOIN-008 · names only for people already known to the caller; a stranger's email gets nothing; at most 200"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/householdTimezoneSql.test.ts",
       "feature": "Household time zone SQL",
       "availability": "conditional",
@@ -2616,7 +2635,7 @@
       "count": 4,
       "tests": [
         "who a split is shared with CON-UNIT-SPL-001 · only a valid email, never your own, never twice",
-        "who a split is shared with CON-UNIT-SPL-002 · only people new to the split are confirmed; an account holder by name, anyone else as an invitation",
+        "who a split is shared with CON-UNIT-SPL-002 · only people new to the split are confirmed; someone you know by name, anyone else by email",
         "who a split is shared with CON-UNIT-SPL-003 · created vs open vs settled: settled means everyone but you has paid",
         "who a split is shared with CON-UNIT-SPL-004 · the invitation names the sender (name and email), says why, shows the split and links to sign up on Splits"
       ]
