@@ -6,12 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 18 Oct 2026):** 138 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
-**Remediation status (updated 18 Oct 2026):** 136 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
-**Remediation status (updated 18 Oct 2026):** 134 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
-**Remediation status (updated 18 Oct 2026):** 127 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
-**Remediation status (updated 18 Oct 2026):** 126 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
-**Remediation status (updated 18 Oct 2026):** 122 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 18 Oct 2026):** 141 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -61,80 +56,19 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 20 | 5 | 1 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 58 | 3 | 16 | 4 | 7 | 7 | 5 |
-| Low | 75 | 46 | 1 | 10 | 10 | 6 | 0 | 2 |
+| Medium | 100 | 60 | 3 | 15 | 4 | 7 | 7 | 4 |
+| Low | 75 | 47 | 1 | 9 | 10 | 6 | 0 | 2 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **128** | **10** | **28** | **15** | **14** | **10** | **7** |
+| **Total** | **212** | **131** | **10** | **26** | **15** | **14** | **10** | **6** |
 
-**138 of 212 are resolved (65%): all 3 critical and 25 of 29 high.** The other 74 fall into four groups:
+**141 of 212 are resolved (67%): all 3 critical and 25 of 29 high.** The other 71 fall into four groups:
 
-| What the 74 need | Count |
-| Medium | 100 | 56 | 3 | 16 | 4 | 7 | 7 | 7 |
-| Low | 75 | 46 | 1 | 10 | 10 | 6 | 0 | 2 |
-| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **126** | **10** | **28** | **15** | **14** | **10** | **9** |
-
-**136 of 212 are resolved (64%): all 3 critical and 25 of 29 high.** The other 76 fall into four groups:
-
-| What the 76 need | Count |
+| What the 71 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 34 |
+| Nothing but work: no decision, no blocker | 32 |
 | An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
-| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 9 |
-| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 11 |
-| High | 29 | 19 | 5 | 2 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 55 | 3 | 16 | 4 | 7 | 7 | 8 |
-| Low | 75 | 46 | 1 | 10 | 10 | 6 | 0 | 2 |
-| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **124** | **10** | **29** | **15** | **14** | **10** | **10** |
-
-**134 of 212 are resolved (63%): all 3 critical and 24 of 29 high.** The other 78 fall into four groups:
-
-| What the 78 need | Count |
-|---|---:|
-| Nothing but work: no decision, no blocker | 35 |
-| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **124** | **10** | **29** | **15** | **14** | **10** | **10** |
-
-**134 of 212 are resolved (63%): all 3 critical and 24 of 29 high.** The other 78 fall into four groups:
-
-| What the 78 need | Count |
-|---|---:|
-| Nothing but work: no decision, no blocker | 35 |
-| Medium | 100 | 51 | 2 | 17 | 4 | 7 | 7 | 12 |
-| Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
-| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **118** | **9** | **31** | **15** | **14** | **10** | **15** |
-
-**127 of 212 are resolved (60%): all 3 critical and 24 of 29 high.** The other 85 fall into four groups:
-
-| What the 85 need | Count |
-|---|---:|
-| Nothing but work: no decision, no blocker | 36 |
-| Medium | 100 | 50 | 2 | 17 | 5 | 7 | 7 | 12 |
-| Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
-| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **117** | **9** | **31** | **16** | **14** | **10** | **15** |
-
-**126 of 212 are resolved (59%): all 3 critical and 24 of 29 high.** The other 86 fall into four groups:
-
-| What the 86 need | Count |
-|---|---:|
-| Nothing but work: no decision, no blocker | 37 |
-| Medium | 100 | 46 | 2 | 17 | 9 | 7 | 7 | 12 |
-| Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
-| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **113** | **9** | **31** | **20** | **14** | **10** | **15** |
-
-**122 of 212 are resolved (58%): all 3 critical and 24 of 29 high.** The other 90 fall into four groups:
-
-| What the 90 need | Count |
-|---|---:|
-| Nothing but work: no decision, no blocker | 41 |
-| An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
-| An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
-| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 12 |
+| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 8 |
 
 **Status words.**
 - **Closed:** fixed in code on main, checked at file:line.
@@ -150,7 +84,6 @@ Two developers did the work:
 | PR | Version | Wave | Closed | Partly |
 |---|---|---|---|---|
 | #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-PUB-01, FE-UIS-02, ADM-01, ADM-02, BE-FN-07, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
-| #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-PUB-01, FE-UIS-02, ADM-01, ADM-02, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | BE-FN-07, XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
 | #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04 | XC-PRV-11 |
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
 | #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, BE-FN-09, OPS-11 |
@@ -172,7 +105,7 @@ Two developers did the work:
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
 | #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, INT-PAR-05, XC-PRV-09 |
-| #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-13, INT-PAR-10 | BE-WA-09, BE-PIP-04, BE-WA-12 |
+| #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-09, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | BE-PIP-04 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
@@ -198,6 +131,7 @@ Two developers did the work:
 | #226 | v10.115.0 | Track T2b-1: a viewer's device no longer writes the household's alerts (app first) | DB-SEC-06 | — |
 | #227 | v10.116.0 | Track T2b-2: only the server's alerts are pushed; exact push hosts, 10 devices, fitted payloads, paging (owner, 18 Oct) | BE-FN-07, DB-SEC-06 | — |
 | #228 | v10.117.0 | Track T2c: no entry on a deleted account; Cash in Hand stays; every link inside its household (owner, 18 Oct) | DB-INT-09, DB-SEC-09 | — |
+| #229 | v10.118.0 | Track T2d: WhatsApp templates are the server's alone; every inbox write checked; the sweep runs every 5 minutes (owner, 18–19 Oct) | BE-WA-07, BE-WA-09, BE-WA-12 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -264,32 +198,14 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (39)**
-- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+**Medium (37)**
+- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
-- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, INT-HH-08, OPS-11.
-**Medium (41)**
-- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
-- *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
-- *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
-- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-SEC-09, INT-HH-08, OPS-11.
-**Medium (42)**
-- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
-**Medium (47)**
-- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
-**Medium (48)**
-- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
-- *Batch B, sync robustness:* INT-TXN-11.
-**Medium (52)**
-- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
-- *Batch B, sync robustness:* FE-SYN-06, FE-SYN-07, DB-OPS-10, INT-TXN-10, INT-TXN-11.
-- *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
-- *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
-- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-SEC-06, DB-SEC-09, INT-HH-08, OPS-11.
+- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, INT-HH-08, OPS-11.
 
-**Low and info (31)**
-- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, BE-WA-12, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16, INT-PAR-11.
+**Low and info (30)**
+- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16, INT-PAR-11.
 - *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, DB-INT-15, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
 - *Backlog:* FE-PUB-08, BE-PIP-06.
 
@@ -881,8 +797,6 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-SYN-05 | MEDIUM | Frontend | Dead-letter buckets are device-wide and the retry cap is 30 seconds, so Dismiss can delete other users' writes | confirmed (adversarial: confirmed) | TD-10 | Closed | v10.110.0 |
 | FE-SYN-06 | MEDIUM | Frontend | refresh() and store writes race: a stale snapshot can erase a just-saved entry from the store | confirmed (adversarial: confirmed) |  | Closed | v10.111.0 |
 | FE-SYN-07 | MEDIUM | Frontend | Delta sync can miss rows for good and reports fresh after reading only one 500-row page | confirmed (adversarial: confirmed) | 2026-09 audit F8 (partially fixed: keyset cursor + drained full list; delta still single-page) | Closed | v10.111.0 |
-| FE-SYN-06 | MEDIUM | Frontend | refresh() and store writes race: a stale snapshot can erase a just-saved entry from the store | confirmed (adversarial: confirmed) |  | Open | — |
-| FE-SYN-07 | MEDIUM | Frontend | Delta sync can miss rows for good and reports fresh after reading only one 500-row page | confirmed (adversarial: confirmed) | 2026-09 audit F8 (partially fixed: keyset cursor + drained full list; delta still single-page) | Open | — |
 | FE-SYN-08 | MEDIUM | Frontend | "Synced · just now" is stamped on cache-only reads even when every cloud pull fails | confirmed (adversarial: confirmed) | 2026-09 audit F8 (lastSyncedAt item still open as described) | Closed | v10.110.0 |
 | FE-UIC-04 | MEDIUM | Frontend | fmt() drops the sign: overdrafts, negative nets and negative net worth render as positive | confirmed (adversarial: confirmed) |  | Closed | #177 |
 | FE-UIC-05 | MEDIUM | Frontend | Transaction edit picks the account from stale extras.paymentMethod and clears the FK | confirmed (adversarial: confirmed) |  | Closed | #186 |
@@ -915,11 +829,10 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | BE-WA-03 | MEDIUM | Backend | Replies to pending questions are re-parsed as new ledger entries after a retry or a lost pending turn | confirmed (adversarial: confirmed) |  | Closed | #187 |
 | BE-WA-04 | MEDIUM | Backend | Webhook returns 200 to Meta even when the inbox row was not stored, so the message is lost | confirmed (adversarial: confirmed) |  | Closed | #187 |
 | BE-WA-06 | MEDIUM | Backend | OTP attempt limit is bypassable by parallel requests and resets on every resend | confirmed (adversarial: confirmed) |  | Closed (decision) | v10.114.0 |
-| BE-WA-07 | MEDIUM | Backend | whatsapp-notify lets any member send any template, with arbitrary text and button payloads, from Vyact's number | confirmed (adversarial: confirmed) |  | Backlog | — |
+| BE-WA-07 | MEDIUM | Backend | whatsapp-notify lets any member send any template, with arbitrary text and button payloads, from Vyact's number | confirmed (adversarial: confirmed) |  | Closed | v10.118.0 |
 | BE-WA-08 | MEDIUM | Backend | "No, that was X" can give an entry the wrong category type, and allows Loan/EMI | confirmed (adversarial: confirmed) |  | Closed | v10.89.0 |
-| BE-WA-09 | MEDIUM | Backend | STOP and other consent/state writes ignore Supabase errors yet reply "Done" | confirmed (adversarial: confirmed) |  | Partly | #187 |
+| BE-WA-09 | MEDIUM | Backend | STOP and other consent/state writes ignore Supabase errors yet reply "Done" | confirmed (adversarial: confirmed) |  | Closed | #187, v10.118.0 |
 | DB-INT-09 | MEDIUM | Database | Account and asset tombstones are not enforced: in-use and cash accounts can be deleted, and live rows land on deleted ones | confirmed (adversarial: confirmed) |  | Closed | v10.117.0 |
-| DB-INT-09 | MEDIUM | Database | Account and asset tombstones are not enforced: in-use and cash accounts can be deleted, and live rows land on deleted ones | confirmed (adversarial: confirmed) |  | Backlog | — |
 | DB-INT-11 | MEDIUM | Database | No unique (household_id, user_id) on memberships; invite accept and member limit race | confirmed (adversarial: confirmed) |  | Closed | v10.114.0 |
 | DB-INT-13 | MEDIUM | Database | WhatsApp account alias matches by kind with 'limit 1', booking money to an arbitrary account | confirmed (adversarial: confirmed) |  | Owner decision | — |
 | DB-OPS-03 | MEDIUM | Database | Repo no longer reproduces prod: budget owner/admin guard and other objects exist only in prod | confirmed (adversarial: confirmed) | TD-20 | On hold (dev question) | — |
@@ -942,7 +855,6 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-TXN-08 | MEDIUM | Integration | Rejected writes are retried as transient, then dead-lettered while the optimistic row stays forever | confirmed-with-caveats (adversarial: partial) | TD-10 (retry cap resolved; terminal-error handling and rollback still open) | Closed | #171 |
 | INT-TXN-10 | MEDIUM | Integration | Delta sync still not guaranteed current: pulls overwrite pending local writes; commit-order cursor gap | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F8 (pagination and composite cursor fixed; 'overlay pending local writes' still open; commit-order gap new) | Closed | v10.111.0 |
 | INT-TXN-11 | MEDIUM | Integration | Split sharing is a separate online write that races the queued transaction and is never retried | confirmed (adversarial: confirmed) | 2026-09 audit 8.5 (still open) | Closed | v10.112.0 |
-| INT-TXN-11 | MEDIUM | Integration | Split sharing is a separate online write that races the queued transaction and is never retried | confirmed (adversarial: confirmed) | 2026-09 audit 8.5 (still open) | Open | — |
 | INT-TXN-12 | MEDIUM | Integration | WhatsApp correction checks category fit against the wrong message; alias by kind picks arbitrary account | confirmed (adversarial: confirmed) |  | Owner decision | v10.89.0 |
 | INT-TZC-04 | MEDIUM | Integration | WhatsApp: untagged entries use the database's UTC current_date while 'yesterday' uses IST; dispatch hard-codes IST | confirmed (adversarial: confirmed) |  | Closed | #169 |
 | INT-TZC-05 | MEDIUM | Integration | Due-day P1 pushes raised at 05:30 IST land in the default quiet hours and are then marked sent | confirmed (adversarial: confirmed) | TD-22 (resolved v10.48.0) — this is a new defect in its implementation | Closed | #169 |
@@ -1014,7 +926,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 | Backlog | — |
 | BE-PIP-07 | LOW | Backend | Gateway failures are silent in logs but over-share config details with end users | not independently verified (low/info) | TD-43 | Closed | #187 |
 | BE-WA-11 | LOW | Backend | A failed Meta send permanently uses up the dedupe slot; the daily cap check is racy | not independently verified (low/info) |  | Closed | #187 |
-| BE-WA-12 | LOW | Backend | Replay relies on unrelated traffic, and stale claims replay without limit | not independently verified (low/info) | TD-35 (webhook inbox recovery marked resolved in v10.40.0; the scheduler and stale-claim cap are still missing) | Partly | #187 |
+| BE-WA-12 | LOW | Backend | Replay relies on unrelated traffic, and stale claims replay without limit | not independently verified (low/info) | TD-35 (webhook inbox recovery marked resolved in v10.40.0; the scheduler and stale-claim cap are still missing) | Closed | #187, v10.118.0 |
 | BE-WA-13 | LOW | Backend | Numbered follow-ups still answer after ANSWERS OFF | not independently verified (low/info) |  | Closed | #187 |
 | DB-INT-14 | LOW | Database | Money CHECKs have NULL and allowlist gaps (budget scope, allocations, categories) | not independently verified (low/info) |  | Open | — |
 | DB-INT-15 | LOW | Database | Split sharing matches on auth.users.email without requiring email_confirmed_at | not independently verified (low/info) |  | Owner decision | — |
@@ -1344,12 +1256,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (74)
-### C.1 Unresolved (76)
-### C.1 Unresolved (78)
-### C.1 Unresolved (85)
-### C.1 Unresolved (86)
-### C.1 Unresolved (90)
+### C.1 Unresolved (71)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1364,7 +1271,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-UIS-09 | medium | Partly | #190 | Aurora A1 (#190, after the review baseline) gave light-theme status text darker shades (MIST1). Not re-measured; the secondary-text contrast decision is still open (W8 §3); no contrast test. | Owner: accept darker secondary text | S |
 | FE-UIS-12 | medium | Partly | #183, #190 | Chunk-load recovery and the e2e route are fixed (#183); the crash screen was redesigned (#190). Left: reporting crashes anywhere, on hold for D9. | D9 (error reporting) | S |
 | BE-FN-09 | medium | Partly | #168 | Surface the 'settled' and 'closed' send results through readSplitEmailResult/splitEmailNotice, as the create and edit paths do. | — | XS |
-| BE-WA-09 | medium | Partly | #187 | Check the error on the drainInbox done/failed updates and on guardedSend's 'sent' and failure updates. If needed, also make a failed Meta opt-out write return non-2xx so Meta redelivers. | — | XS |
 | INT-HH-08 | medium | Partly | #183 | Decide whether admins may edit household settings, then align RLS or permissions.ts and the Households rename/type controls. Gate the Debts payoff toggle with a catch. Split language into a per-user write so members can change their own language. Surface onboarding sync failures. | Backlog batch E (owner: not now); also needs an owner decision on admin vs owner-only household settings | S |
 | INT-PAR-05 | medium | Partly | #186 | Have the WhatsApp nudge count via the bundled staleAccounts (or match its fallback and boundary exactly). Add the audit's test that the three surfaces return the same count for one fixture. | — | XS |
 | OPS-05 | medium | Partly | #189 | A consumer preview fails closed on the production URL, with a postbuild gate (#189). Left: the admin-preview half (scope the production Supabase env to Production in Vercel; ADM-09 is backlog). | Owner: Vercel env scoping | XS |
@@ -1374,15 +1280,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| FE-SYN-06 | medium | Open | — | Batch B: race between refresh and store writes. | — | M |
-| FE-SYN-07 | medium | Open | — | Batch B: delta paging (only one 500-row page is read). | — | M |
-| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| INT-TXN-11 | medium | Open | — | Batch B: queue and retry split sharing with the transaction. | — | S |
 | XC-ARC-08 | medium | Open | — | The retired Money Map flag still chooses the account pickers (TransactionFormModal.tsx:181, SplitFormModal.tsx:139 getMoneyMapMode). | — | S |
 | XC-ARC-09 | medium | Open | — | `deno check` / lint for Edge Functions in CI (W8 §4). | — | S |
 | XC-ARC-11 | medium | Open | — | A lint rule against empty catches on write paths (W8 §4). | — | S |
@@ -1404,16 +1301,11 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | ADM-06 | medium | Backlog | — | Remove email and userId from segments for non-super callers, or move segments to an is_admin('super') function. Remove `or is_admin('content')` from ai_usage_select. Add a SQL test as a content admin. | — | S |
 | ADM-07 | medium | Backlog | — | Keep one page-to-minimum-role table for permissions.ts and Layout.tsx, aligned with the RPC gates. Add a SQL matrix test for each tier (super, roles, content, non-admin) against every admin RPC and every is_admin policy. | D10 (the server-side authz matrix half overlaps XC-ARC-13 / DB-SEC-10, which DEVELOPER_INPUTS.md:141-142 holds for D10) | M |
 | ADM-09 | medium | Backlog | — | Add a preview guard to admin/vite.config.ts (fail or blank the config for VERCEL_ENV=preview outside staging/develop). Remove the PROD fallback constants and stop relying on the committed .env.production. Point previews at vyact-test. Add a PUB-026-style test. Correct ENVIRONMENTS.md:32 now. | D8 (DEVELOPER_INPUTS.md:93-94 puts OPS-05's admin-preview part on hold for D8) | S |
-| BE-WA-07 | medium | Backlog | — | Allow members only a short event allowlist (e.g. partner_split_prompt); compute values server-side from ids; ignore the client dedupeKey for templates whose payload drives a write (bill_*, recurring_auto_logged); require reads consent for affordability_reply. | Owner backlog (plan 'decided not now') | S |
-| DB-INT-09 | medium | Backlog | — | Batch E (owner: not now). | — | S |
-| DB-SEC-06 | medium | Backlog | — | Batch E (owner: not now). | — | S |
-| DB-SEC-09 | medium | Backlog | — | Batch E (owner: not now). | — | S |
 | ADM-10 | low | Partly | #188 | Set allowed_mime_types = ['image/png','image/jpeg','image/webp'] and a file_size_limit on the bucket (a migration or a dashboard setting). | — | XS |
 | ADM-11 | low | Partly | #188 | Run a one-off backfill, e.g. author_name = 'Vyact' where author_name contains '@', and restore re-dated published_at values if the old dates are known. Limiting anon columns is FE-PUB-08 (backlog). | — | XS |
 | ADM-14 | low | Partly | #188 | Fix the Dashboard KPI. Either return per-currency MRR (active and trialing) from admin_dashboard_kpis (migration), or replace the tile with the per-currency helper and drop the 'USD' and '$' labels. | — | S |
 | BE-FN-11 | low | Partly | #165 | Codify the auth config (an [auth] section, or a checked-in auth snapshot verified by a script). Build the cron URLs from a Vault project_url secret instead of the literal prod host. | — | S |
 | BE-PIP-04 | low | Partly | #187 | A learned recipe is deterministic only when trusted (#187). No confirmation or promotion flow was built; the pipeline is not connected to any entrypoint, so nothing is exposed today. | — | S |
-| BE-WA-12 | low | Partly | #187 | Add a migration that schedules mode=sweep every 5 minutes with a Vault-held service secret (same pattern as the dispatch secret). Send a final 'please resend' notice when a stale claim exhausts its attempts. | — | S |
 | INT-HH-13 | low | Partly | #184 | Purge the exited household's cache entries and delta cursors. Route to Households/create when no household remains after a leave. | — | XS |
 | INT-HH-14 | low | Partly | #188 | Count members server-side (a group-by RPC, or select('id, memberships(count)')) and paginate the households list. | W8 plan §4 (larger items, not planned) | S |
 | OPS-07 | low | Partly | #189 | `permissions: contents: read` is on every workflow. Left: a separate Supabase token or environment for vyact-test deploys (owner). | Owner: separate token | XS |
@@ -1461,12 +1353,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (53)
-### C.3 Resolved, with a residual note (51)
-### C.3 Resolved, with a residual note (49)
-### C.3 Resolved, with a residual note (42)
-### C.3 Resolved, with a residual note (41)
-### C.3 Resolved, with a residual note (37)
+### C.3 Resolved, with a residual note (56)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1499,7 +1386,9 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
 | BE-WA-03 | medium | Closed | #187 | Residual edge only: the reopen runs only on a returned 'retry'. If the worker dies after resolvePending (a stale claim is replayed), or an exception escapes processInboundTurn, the question stays closed. The audit's stronger design (resolve the pending turn inside the action's RPC transaction, or keep it on the inbox… |
 | BE-WA-06 | medium | Closed (decision) | v10.114.0 | Closed by owner decision, 18 Oct 2026: "ignore the whole OTP track cause it serves no use case anymore". The compare-and-set attempt claim (W8b) stays; no further work. Note: Settings' Link WhatsApp still calls whatsapp-send-otp / whatsapp-verify-otp; retiring that flow would be its own change. |
+| BE-WA-07 | medium | Closed | v10.118.0 | v10.118.0 (Track T2d; owner: T2 reopens Batch E): whatsapp-notify takes the service key only; a member's JWT, of any role, is 403 service_only. The app never called it; its one caller is whatsapp-verify-otp's welcome, as the service. W0-007, W0-012. |
 | BE-WA-08 | medium | Closed | v10.89.0 | v10.89.0: a WhatsApp correction to an EMI turns the entry into a loan payment (whatsapp_correct_to_loan: server split, expense removed, never twice); whatsapp_correct_last refuses loan_emi. |
+| BE-WA-09 | medium | Closed | #187, v10.118.0 | W8b (#187) checked prefs, opt-out and pending-turn writes. v10.118.0 (Track T2d) checks the rest: the inbox claim, done/failed and delivery-status writes (setInboxStatus tries twice, then logs and leaves the row for the sweep; a failed claim leaves the message pending), guardedSend's sent and slot-freeing writes (sett… |
 | DB-INT-09 | medium | Closed | v10.117.0 | v10.117.0 (Track T2c; owner decisions 18 Oct 2026, T2 reopens Batch E): "all three guards": accounts_guard_lifecycle refuses, from the app, archiving / deleting / converting Cash in Hand, a tombstone not set by delete_account or move_account_and_delete (transaction-local flag), and lifting a tombstone; the client DELE… |
 | DB-INT-11 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): duplicate memberships merged (highest role kept, references re-pointed, WhatsApp unlink only when no membership is left), then uq_memberships_household_user; the member-limit trigger counts with the household locked. JOIN-002, JOIN-006. |
 | DB-OPS-10 | medium | Closed | v10.111.0 | v10.111.0 (Track F1b; owner decision 18 Oct 2026: overlap window, not a commit-ordered revision): each delta pull re-reads 2 minutes behind its cursor, so a row whose transaction started before an already-pulled row but committed after it is fetched (F1B-008). Residual by design: a write transaction longer than 2 minu… |
@@ -1518,6 +1407,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PIP-14 | low | Closed (decision) | #170 | Moot under D14: one currency per household, nothing converted. |
 | FE-UIS-15 | low | Closed | #184, #186 | Owner decision: non-English options are labelled "Preview: navigation only". |
 | FE-UIS-16 | low | Closed | #184 | Expired invitations no longer count toward the member limit (migration 20261007120000:62). The recommendation's optional dirty-form confirm was not added. |
+| BE-WA-12 | low | Closed | #187, v10.118.0 | W8b (#187) counted stale claims as attempts. v10.118.0 (Track T2d; owner: every 5 minutes) adds pg_cron whatsapp-inbox-sweep with a Vault secret (whatsapp_sweep_cron_ok); the sweep also claims messages left pending over 2 minutes (inside 24 h), and a stale claim that runs out of attempts sends one "Sorry, I couldn't p… |
 | INT-CON-07 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): leave_household reads the caller's role null-safely: a non-member leaves nothing, the last owner cannot leave. JOIN-007. |
 | INT-HH-06 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the unique (household_id, user_id) index is in place (with the merge); the W1a deferred owner trigger already guards continuity. The owner's read-only check for households left ownerless before that trigger is listed in the PR. |
 | GATE-03 | low | Closed | #185, #188 | Live-verified 12 Oct: no .map is served for the vyact.app or admin entry chunks. |
