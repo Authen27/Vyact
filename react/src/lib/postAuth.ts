@@ -46,6 +46,9 @@ export function postAuthPath(next?: string | null): string {
   let stored: string | null = null;
   try {
     pendingInvite = sessionStorage.getItem('pending_invite_token');
+    // v10.114.0 (T2a, audit INT-HH-09) — used once. It was never removed, so every later sign-in in
+    // that tab (another person on a shared tablet included) was sent to the same invitation.
+    sessionStorage.removeItem('pending_invite_token');
     stored = sessionStorage.getItem(KEY);
     sessionStorage.removeItem(KEY);
   } catch { /* ignore */ }

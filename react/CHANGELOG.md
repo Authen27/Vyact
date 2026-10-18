@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.113.0`** (consumer)
+> **Current production version: `v10.114.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,46 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.114.0 — Joining a household only by invitation, once *(2026-10-18)*
+
+App and one migration (`20261031120000_t2a_memberships_invitations.sql`). Track T2 (security hardening), part a:
+audit INT-HH-07, INT-HH-09, DB-INT-11, INT-HH-06, INT-CON-07 and XC-PRV-12. Owner decisions, 18 Oct 2026:
+T2 reopens Batch E, and the name lookup answers for "known emails only".
+
+- **People join a household only by accepting an invitation.** An owner or admin could add any user to their
+  household directly, with no consent, and then read that person's profile: a user id was enough, and one
+  shows up when someone settles your split. The app never did this, so nothing changes in it; the database
+  now refuses it. A membership can no longer be moved to another person or household, either.
+- **One membership per person per household.** Nothing stopped two (a double tap on Accept was enough). Any
+  duplicate is merged into one, keeping the highest role, and the entries and schedules that pointed at the
+  other move with it. WhatsApp stays linked through the merge.
+- **An invitation is used once, into a household with room.** Two people opening one link at the same moment
+  could both get in, giving a Couple household three members. Accepting now locks the invitation and the
+  household, and claims the invitation only while it is still unused. Someone already in the household
+  opening a link no longer uses it up. The two old accept functions, unused by the app, are gone.
+- **The invite link is followed once.** Signed out, the link was remembered in the browser tab and never
+  forgotten, so every later sign-in in that tab (another person's on a shared tablet included) was sent to it.
+- **Pending invitations are the ones that can still be used.** An expired invitation showed as pending, and
+  counted against a Couple household's one place.
+- **Names come back only for people you already know** (owner: "known emails only"). The Split form's name
+  lookup let anyone signed in check thousands of emails and learn which belong to Vyact users, and their
+  names. It now answers only for people on a split you share or in one of your households, at most 200 at a
+  time.
+  - A new person is confirmed by email: "Share this split with priya@example.com? If they aren't on Vyact
+    yet, the email invites them." The old "isn't on Vyact yet" would be untrue for someone with an account.
+- **Smaller.** Leaving a household reads your role null-safely (nothing changed for real members). The old
+  phone copies on profiles, read by nothing since the WhatsApp identity move, are cleared (dropped next
+  release).
+
+Tests:
+- householdJoinSql.test.ts (new, 8; PGlite running the member-limit, invitation-inbox and T2a migrations over
+  today's membership RLS): a direct add refused and roles still changing; a re-point refused; a duplicate
+  merged with its references and WhatsApp kept; the phone copies cleared; a link used once; an existing member
+  leaving it usable; a second partner refused HOUSEHOLD_FULL with the link left unused; the locks present;
+  the legacy accepts gone; leaving null-safe; names for known emails only, and the 200 cap. Each guard was
+  checked to fail with its fix undone.
+- updated deliberately: splitParticipants CON-UNIT-SPL-002 (the neutral wording).
 
 ## v10.113.0 — Your name shows as your name *(2026-10-18)*
 
