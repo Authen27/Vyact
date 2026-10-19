@@ -6,6 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
+**Remediation status (updated 19 Oct 2026):** 157 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 19 Oct 2026):** 153 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 19 Oct 2026):** 152 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 19 Oct 2026):** 151 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
@@ -60,6 +61,17 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 20 | 5 | 1 | 0 | 0 | 3 | 0 |
+| Medium | 100 | 69 | 4 | 10 | 1 | 5 | 7 | 4 |
+| Low | 75 | 52 | 1 | 8 | 7 | 5 | 0 | 2 |
+| Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
+| **Total** | **212** | **146** | **11** | **19** | **9** | **11** | **10** | **6** |
+
+**157 of 212 are resolved (74%): all 3 critical and 25 of 29 high.** The other 55 fall into four groups:
+
+| What the 55 need | Count |
+|---|---:|
+| Nothing but work: no decision, no blocker | 20 |
+| An owner decision (11 waiting only on it; 4 partly done, with the rest waiting on it) | 15 |
 | Medium | 100 | 67 | 3 | 11 | 1 | 7 | 7 | 4 |
 | Low | 75 | 51 | 1 | 9 | 7 | 5 | 0 | 2 |
 | Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
@@ -126,6 +138,10 @@ Two developers did the work:
 
 | PR | Version | Wave | Closed | Partly |
 |---|---|---|---|---|
+| #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-PUB-01, FE-UIS-02, ADM-01, ADM-02, BE-FN-07, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, XC-PRV-08, FE-PUB-03 | XC-PRV-03, XC-PRV-11, BE-FN-11 |
+| #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04, INT-HH-06 | XC-PRV-11 |
+| #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07, XC-PRV-08 | XC-PRV-11 |
+| #168 | v10.64.0 | W1c abuse limits | FE-PIP-09, BE-FN-06, BE-FN-09, BE-PIP-02, BE-PIP-03, FE-PIP-18 | OPS-11 |
 | #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-PUB-01, FE-UIS-02, ADM-01, ADM-02, BE-FN-07, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
 | #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04, INT-HH-06 | XC-PRV-11 |
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
@@ -148,15 +164,16 @@ Two developers did the work:
 | #181 | v10.77.0 | W4h budget suggest | FE-MNY-16 | — |
 | #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-06, FE-PIP-08, FE-PIP-12 | — |
 | #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-10, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-12, INT-HH-08 |
-| #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
+| #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, XC-PRV-08, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
+| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, INT-HH-09, INT-PAR-05, XC-PRV-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10 |
 | #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, INT-HH-09, INT-PAR-05, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, XC-PRV-09 |
 | #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, INT-HH-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, INT-PAR-05, XC-PRV-09 |
 | #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-06, BE-WA-09, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | BE-PIP-04 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
-| #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
+| #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, XC-PRV-14, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07 |
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
-| #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
+| #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08, XC-PRV-08 | — |
 | #195 | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
 | #196 | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
 | #197 | v10.91.0 | Budget forecast counts real dates; single-key shortcuts removed (13 Oct) | FE-UIS-10, FE-MNY-16 | — |
@@ -183,6 +200,8 @@ Two developers did the work:
 | #232 | v10.121.0 | Track T5b: no silent catches (gate); post-await writes land in their own household; Money Map flag retired; split mark-paid queued; settled/closed email notices (owner, 19 Oct) | BE-FN-09, XC-ARC-08, XC-ARC-11, XC-ARC-10 | — |
 | #233 | v10.122.0 | Track T5c: WhatsApp budget alert and stale nudge on the app rules; Pip usage counted once (owner, 19 Oct) | FE-PIP-09, INT-PAR-05, XC-ARC-06 | — |
 | #234 | v10.123.0 | Track T5d: each project's scheduled jobs call that project, from Vault project_url written by its deploy (owner, 19 Oct) | DB-OPS-07 | BE-FN-11 |
+| #235 | v10.124.0 | Track T4a: consent recorded by the server at sign-up; splits match confirmed emails only (owner, 19 Oct) | XC-PRV-09, DB-INT-15 | — |
+| #236 | v10.125.0 | Track T4b: GA4 asks first; re-consent on change; 18+; processors and DPDP named; OpenRouter keeps no data; download scope; CSP reports (owner, 19 Oct) | XC-PRV-08, XC-PRV-09, XC-PRV-10, XC-PRV-14 | XC-PRV-03, FE-PLT-04, XC-PRV-11 |
 | #235 | v10.124.0 | Track T4a: consent recorded by the server at sign-up; splits match confirmed emails only (owner, 19 Oct) | DB-INT-15 | XC-PRV-09 |
 
 ### 0.3 New issues found during this review (not in the audit)
@@ -246,10 +265,19 @@ Two developers did the work:
 | DB-SEC-03 | On hold (dev question) | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | Answer D4/D5 |
 | OPS-01 | On hold (dev question) | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | Answer D8 |
 | OPS-06 | On hold (dev question) | Production error reporting and alerting. | Answer D9 |
-| XC-PRV-03 | Partly | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screens… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). |
+| XC-PRV-03 | Partly | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): GA4 asks first ("ask first, off until yes" on the web; on in the Android app through its permissions). One consent script (react/api/_consent.js) on index.html (injected at build) and the public pages: Consent Mode v2 starts denied, gtag.js loads only after Allow (banner, Settings → Usage analytics, Cookie Policy), No thanks… | Step 1 (M) |
 
 Plus **R1** (high, new): see §0.3.
 
+**Medium (27)**
+- *Ready to do (no decision):* FE-PLT-04, FE-UIC-10, FE-UIS-03, FE-UIS-07.
+- *Owner decision:* FE-MNY-08, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-11.
+- *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
+- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, INT-HH-08, OPS-11.
+
+**Low and info (24)**
+- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-12, XC-ARC-14, DB-OPS-16.
+- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
 **Medium (30)**
 - *Ready to do (no decision):* FE-UIC-10, FE-UIS-03, FE-UIS-07, XC-PRV-08, XC-PRV-09.
 **Medium (33)**
@@ -841,7 +869,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-TZC-03 | HIGH | Integration | Client 'today' and 'this month' are UTC, so entries, bills and month boundaries use the wrong local day | confirmed (adversarial: confirmed) |  | Closed | #169 |
 | OPS-01 | HIGH | Platform & Ops | Production release is ungated: Vercel ships the app regardless of CI, migrations or Edge deploy | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (still open); TD-33 (marked resolved, regressed when the consumer job was removed) | On hold (dev question) | — |
 | OPS-06 | HIGH | Platform & Ops | No production observability: faults go nowhere, cron/pg_net results unchecked, no alerting | confirmed (adversarial: confirmed) | 2026-09 audit 10.4 (still open, now worse: the in-app transport is gone); TD-43 | On hold (dev question) | — |
-| XC-PRV-03 | HIGH | Cross-cutting | Session replay (Contentsquare) and Userback screenshots run on every finance screen, undisclosed, no consent | confirmed (adversarial: confirmed) |  | Partly | #165, #189 |
+| XC-PRV-03 | HIGH | Cross-cutting | Session replay (Contentsquare) and Userback screenshots run on every finance screen, undisclosed, no consent | confirmed (adversarial: confirmed) |  | Partly | #165, #189, v10.125.0 |
 | FE-MNY-06 | MEDIUM | Frontend | Dashboard insight chips use the static asset/debt arrays and raw budgets, contradicting the net-worth card | confirmed (adversarial: confirmed) | 2026-09 audit F3/F5 (partially open: NW card fixed, insight chips not) | Closed | #186, v10.99.0 |
 | FE-MNY-08 | MEDIUM | Frontend | Split expenses debit only 'your share' from the paying account, so bank balances and reconciliations drift | confirmed (adversarial: confirmed) |  | Owner decision | — |
 | FE-MNY-10 | MEDIUM | Frontend | Essential and typical monthly spend have two definitions: Pip and Net Worth disagree with the Reports runway | confirmed (adversarial: confirmed) |  | Closed | v10.98.0 |
@@ -854,7 +882,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-PIP-10 | MEDIUM | Frontend | Pip mixes UTC month keys with local day windows; the WhatsApp engine runs in UTC | confirmed (adversarial: confirmed) |  | Closed | #169 |
 | FE-PIP-11 | MEDIUM | Frontend | Figure guard: small-number exemption ignores currency and magnitude ('12 lakh' passes) | confirmed (adversarial: confirmed) | 2026-09 audit A1 (partially fixed: 100 removed and the year band guarded; the HARMLESS and magnitude hole remains) | Closed | v10.90.0 |
 | FE-PLT-01 | MEDIUM | Frontend | Post-sign-in open redirect: SignIn.tsx ignores safeNext, and safeNext itself is bypassable | confirmed (adversarial: confirmed) |  | Closed | #165 |
-| FE-PLT-04 | MEDIUM | Frontend | No Content-Security-Policy on vyact.app, /learn or admin, while session tokens sit in localStorage | confirmed (adversarial: confirmed) | 2026-09 audit S4 (CSP half still open; the JSON-LD escaping half is fixed in api/_page.js:23) | Partly | #188, #189 |
+| FE-PLT-04 | MEDIUM | Frontend | No Content-Security-Policy on vyact.app, /learn or admin, while session tokens sit in localStorage | confirmed (adversarial: confirmed) | 2026-09 audit S4 (CSP half still open; the JSON-LD escaping half is fixed in api/_page.js:23) | Partly | #188, #189, v10.125.0 |
 | FE-PUB-04 | MEDIUM | Frontend | Service worker answers /v/<n> video short links with the app shell, not the lesson redirect | confirmed (adversarial: confirmed) |  | Closed | #183 |
 | FE-SYN-04 | MEDIUM | Frontend | Sign-out and epoch purge miss allocations, net worth history, onboarding and dead-letter keys | confirmed (adversarial: confirmed) | 2026-09 audit S5 (partially addressed) | Closed | v10.110.0 |
 | FE-SYN-05 | MEDIUM | Frontend | Dead-letter buckets are device-wide and the retry cap is 30 seconds, so Dismiss can delete other users' writes | confirmed (adversarial: confirmed) | TD-10 | Closed | v10.110.0 |
@@ -944,6 +972,10 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-PRV-02 | MEDIUM | Cross-cutting | Recipient email and household-invite bearer tokens sent to GA4/Contentsquare via page URLs | confirmed-with-caveats (adversarial: partial) |  | Closed | #165 |
 | XC-PRV-04 | MEDIUM | Cross-cutting | Email-code re-auth for erase/delete is client-side only; any session can wipe data immediately | confirmed (adversarial: confirmed) |  | Closed | #167 |
 | XC-PRV-07 | MEDIUM | Cross-cutting | WhatsApp message content and phone numbers are retained forever and survive unlink, erase and deletion | confirmed (adversarial: confirmed) |  | Closed | #167 |
+| XC-PRV-08 | MEDIUM | Cross-cutting | 'Erase household data' and the data export cover only the core ledger tables | confirmed (adversarial: confirmed) | 2026-09 audit S6 (household erasure) — onboarding bug fixed; table coverage still incomplete | Closed (decision) | #165, #167, #184, v10.88.0, v10.125.0 |
+| XC-PRV-09 | MEDIUM | Cross-cutting | Consent record is unreliable: wrong version stored, errors swallowed, Google sign-in skips it | confirmed (adversarial: confirmed) |  | Closed | #186, v10.124.0, v10.125.0 |
+| XC-PRV-10 | MEDIUM | Cross-cutting | Pip questions and figures routed through OpenRouter with no provider data policy enforced | confirmed-with-caveats (adversarial: partial) |  | Closed | v10.125.0 |
+| XC-PRV-11 | MEDIUM | Cross-cutting | Privacy notice lacks DPDP/GDPR basics: controller, grievance contact, breach process, child accounts | confirmed-with-caveats (adversarial: partial) |  | Partly | #165, #166, #167, v10.125.0 |
 | XC-PRV-08 | MEDIUM | Cross-cutting | 'Erase household data' and the data export cover only the core ledger tables | confirmed (adversarial: confirmed) | 2026-09 audit S6 (household erasure) — onboarding bug fixed; table coverage still incomplete | Partly | #165, #167, #184, v10.88.0 |
 | XC-PRV-09 | MEDIUM | Cross-cutting | Consent record is unreliable: wrong version stored, errors swallowed, Google sign-in skips it | confirmed (adversarial: confirmed) |  | Partly | #186, v10.124.0 |
 | XC-PRV-10 | MEDIUM | Cross-cutting | Pip questions and figures routed through OpenRouter with no provider data policy enforced | confirmed-with-caveats (adversarial: partial) |  | Owner decision | — |
@@ -1024,7 +1056,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-ARC-12 | LOW | Cross-cutting | Money model lives in CHECKs and prose; domain types and adapter generics do not encode it | confirmed-with-caveats (adversarial: partial) | 2026-09 audit sections 8.3/8.4 (still open) | Open | — |
 | XC-ARC-14 | LOW | Cross-cutting | Release cadence outpaces stabilisation: 40 minor releases in 27 days, AI-heavy, one maintainer | confirmed-with-caveats (adversarial: partial) | TD-25 (resolved; regressed), TD-28 | Open | — |
 | XC-ARC-15 | LOW | Cross-cutting | Repo carries 82 tracked binaries, duplicated handoffs and a 9.7k-line migration concat | not independently verified (low/info) | TD-41 (related) | Owner decision | — |
-| XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  | Partly | #189 |
+| XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  | Closed | #189, v10.125.0 |
 | BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  | Owner decision | — |
 | DB-OPS-16 | INFO | Database | pg_trgm sits in public but nothing uses it; TD-34's stated blocker does not exist in the repo | not independently verified (low/info) | TD-34 | Open | — |
 | INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 | Closed | #169, #170, #173, v10.120.0 |
@@ -1325,8 +1357,9 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 19 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.125.0. See §0 for the method, the summary, the conflicts and the action plan.
 
+### C.1 Unresolved (55)
 ### C.1 Unresolved (59)
 ### C.1 Unresolved (60)
 ### C.1 Unresolved (61)
@@ -1335,10 +1368,11 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
-| XC-PRV-03 | high | Partly | #165, #189 | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screenshot are off (owner action from PR #165).… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). | M |
+| XC-PRV-03 | high | Partly | #165, #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): GA4 asks first ("ask first, off until yes" on the web; on in the Android app through its permissions). One consent script (react/api/_consent.js) on index.html (injected at build) and the public pages: Consent Mode v2 starts denied, gtag.js loads only after Allow (banner, Settings → Usage analytics, Cookie Policy), No thanks clears the _ga cookies; lib/analytics se… | — | M |
 | DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
 | OPS-01 | high | On hold (dev question) | — | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | D8 | S |
 | OPS-06 | high | On hold (dev question) | — | Production error reporting and alerting. | D9 | M |
+| FE-PLT-04 | medium | Partly | #188, #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026) ("collect reports, then enforce"): vyact.app's report-only policy now reports to /api/csp-report (report-uri + Reporting-Endpoints), which logs the directive, the blocked host and the page path only. T4B-008. Left: switch to an enforced Content-Security-Policy after about a week of clean reports. | — | XS |
 | FE-PLT-04 | medium | Partly | #188, #189 | Live-verified 12 Oct: vyact.app sends Content-Security-Policy-Report-Only, and admin.vyact.app enforces a strict CSP. Left: switch vyact.app to enforced after a period of clean reports. | Owner: enforce after clean reports | XS |
 | FE-UIC-10 | medium | Partly | #186 | Dot-grouped, comma-decimal input ('1.234,56', '1.234') is still read about 1000x too small. This is silent in the account opening balance, card limit and reconcile fields. The parser does not use the locale or the household currency's convention, which the audit recommended (Intl.NumberFormat parts). Add the audit's '1.234,56' test case. | — | S |
 | FE-UIS-03 | medium | Partly | #170 | The currency part is fixed (a re-run keeps the household currency). A re-run can still duplicate bill schedules, and the wiring is neither idempotent nor atomic. | — | S |
@@ -1348,6 +1382,8 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | OPS-05 | medium | Partly | #189 | A consumer preview fails closed on the production URL, with a postbuild gate (#189). Left: the admin-preview half (scope the production Supabase env to Production in Vercel; ADM-09 is backlog). | Owner: Vercel env scoping | XS |
 | OPS-08 | medium | Partly | #178, v10.102.0 | INV-7 atomicity is tested for loan payments in Postgres (#178: pay_loan with a force-failed leg, reverse_loan_payment) and, since v10.102.0, for a local-only household (payLoan undoes its earlier writes when a later one fails; TE7-001..003). The RLS isolation matrix is still on hold for D10. | D10 | M |
 | OPS-11 | medium | Partly | #168 | The per-user cap now fails closed (parseDailyCallCap: only "off" disables it). A global LLM spend ceiling is backlog (owner: not now). | Backlog: global ceiling | S |
+| XC-PRV-11 | medium | Partly | #165, #166, #167, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): Privacy adds the DPDP section (rights, nomination, Grievance Officer, Data Protection Board), a processor list with regions, withdrawal of optional processing in Settings (analytics), §10 breach and §12 18+ only (no child accounts; Terms too). SECURITY.md has the breach runbook (DPDP Board, 72 hours, GDPR). POLICY_VERSION bumped with re-consent (XC-PRV-09). T4B-006… | Owner: legal entity, address, Grievance Officer, Supabase region | M |
+| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186, v10.124.0 | v10.124.0 (T4a; owner, 19 Oct 2026: "server record + accept on change"): handle_new_user stamps tos_*/privacy_* from the sign-up metadata's policy_version, so the record no longer depends on the browser tab (PGlite T4A-001). Left (T4b): the sign-up form sends the version, and a person whose record is not the current POLICY_VERSION is asked to accept it. | — | S |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
@@ -1358,8 +1394,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | DB-INT-13 | medium | Owner decision | — | A WhatsApp alias matches by kind with "limit 1". Pick the default account, or ask? (W8 §3) | Owner: alias with two accounts | S |
 | INT-TXN-12 | medium | Owner decision | v10.89.0 | Correction half fixed in v10.89.0: the category fit is checked against the entry being corrected (whatsapp_last_logged), not the last message. Left: a WhatsApp alias with two matching accounts — pick the default, or ask? (W8 §3) | Owner: alias with two accounts | S |
 | XC-ARC-05 | medium | Owner decision | — | Restructure CLAUDE.md and freeze old docs? (W8 §3) | Owner: docs restructure | S |
-| XC-PRV-10 | medium | Owner decision | — | (1) In router.ts, always send provider: { data_collection: 'deny', allow_fallbacks: false } for base_url openrouter.ai, plus a router unit test. (2) Record the OpenRouter account privacy/ZDR setting. (3) Name OpenRouter and its upstream providers and regions in Privacy §5/§11, and amend 'exactly two things' to mention account and asset names (v10.39 egress). | W8 plan §3 owner decision: whether and how the Privacy page names OpenRouter (bundled with XC-PRV-11's legal entity and grievance officer).… | XS |
-| XC-PRV-11 | medium | Owner decision | #165, #166, #167 | Owner to supply the legal entity, address and grievance officer. Then: add a DPDP section (rights, nomination, Board complaint route); add a complete processor table with regions; offer in-app withdrawal for optional processing; add a breach/incident runbook (72-hour GDPR, DPDP Board) to SECURITY.md; handle children (guardian attestation and date of birth for a 'Child' invite, or stop offering it, and rewrite §12);… | W8 plan §3 owner decision: legal entity and grievance officer/DPO identity to publish, and policy on minors (age 16 vs DPDP 18, parental co… | M |
 | DB-OPS-03 | medium | On hold (dev question) | — | Capture production-only objects (the upsert_budget guard, RLS on migration_issues, _backup_v9_*) as a migration. | D4 | S |
 | DB-OPS-08 | medium | On hold (dev question) | — | Scheduler observability (cron / pg_net results). | D9 | M |
 | DB-SEC-10 | medium | On hold (dev question) | — | RLS/RPC role × tenant test matrix. Interim: a PGlite test for each new SQL function. | D10 | M |
@@ -1379,7 +1413,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | INT-HH-13 | low | Partly | #184 | Purge the exited household's cache entries and delta cursors. Route to Households/create when no household remains after a leave. | — | XS |
 | INT-HH-14 | low | Partly | #188 | Count members server-side (a group-by RPC, or select('id, memberships(count)')) and paginate the households list. | W8 plan §4 (larger items, not planned) | S |
 | OPS-07 | low | Partly | #189 | `permissions: contents: read` is on every workflow. Left: a separate Supabase token or environment for vyact-test deploys (owner). | Owner: separate token | XS |
-| XC-PRV-14 | low | Partly | #189 | Replace the remaining work email in CHANGELOG.md:3962 and the migration comment, and regenerate schema.sql. Editing an applied migration's comment is harmless, but check the migrations gate. Add home.html to .gitignore. Widen the test regex to any non-placeholder domain. The history purge is declined by the owner. | — | XS |
 | ADM-05 | low | Open | — | Restrict writes to is_admin('super'). Add a CHECK or FK that ties category to the expense ids. Add a parity test of category_classifications rows against NEEDS_WANTS_MAP. Log changes once an admin audit exists. | — | S |
 | ADM-08 | low | Open | — | Add admin_list_households(p_limit, p_offset, p_query) with a GROUP BY member_count, a paginated admin_list_users with server-side search, and totals from count='exact' or the RPC. | — | M |
 | DB-INT-14 | low | Open | — | CHECK gaps (budget scope, allocations, categories); needs a migration (W8 §4). | — | S |
@@ -1419,6 +1452,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
+### C.3 Resolved, with a residual note (72)
 ### C.3 Resolved, with a residual note (68)
 ### C.3 Resolved, with a residual note (67)
 ### C.3 Resolved, with a residual note (66)
@@ -1477,6 +1511,9 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-ARC-08 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the Money Map flag (getMoneyMapMode, `money_map`) and the assets + debts picker derivation (buildAccounts) are deleted; both forms list the household's accounts in every build. In local-only builds (Lane A, the guest demo) the legacy list of… |
 | XC-ARC-09 | medium | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): every Edge Function is type-checked under strict TypeScript (`typecheck:edge`, scripts/typecheck/edge.tsconfig.json, Deno globals stubbed; 12 errors fixed) in the automation gates, and .github/workflows/edge.yml runs `deno check` (1 more error fixed) and… |
 | XC-ARC-11 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the gate No silent catches (scripts/silent-catch-check.mjs, TypeScript AST, app + admin + Edge; tests in scripts/__tests__) refuses any catch block or empty .catch callback that neither reports nor says why (`fault-ok: <reason>`). All 134 we… |
+| XC-PRV-08 | medium | Closed (decision) | #165, #167, #184, v10.88.0, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): closed by the owner's scope decision ("Download should limit to transactions, splits, debts, accounts, networth, recurring schedules, households"). lib/backup.ts holds exactly that (household = name, type, currency, members' names and roles); no budgets, goals or pro… |
+| XC-PRV-09 | medium | Closed | #186, v10.124.0, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): the sign-up form sends policy_version for handle_new_user to record (T4a). AuthGate reads profiles.privacy_version and asks anyone on an older version (or none, e.g. a Google sign-up) to accept PolicyUpdateSheet (what changed, Accept or Sign out), never over the lega… |
+| XC-PRV-10 | medium | Closed | v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026) ("Name both; OpenRouter keeps no data"): router.ts sends provider: { data_collection: 'deny' } on every openrouter.ai request, after params.extra so no config row can change it (fallbacks stay allowed, but only to providers that keep no data). Privacy §5/§11 name AWS… |
 | XC-ARC-08 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the Money Map flag (getMoneyMapMode, `money_map`) and the assets + debts picker derivation (buildAccounts) are deleted; both forms list the household's accounts in every build. In local-only builds (Lane A, the guest demo) the legacy list of… |
 | XC-ARC-09 | medium | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): every Edge Function is type-checked under strict TypeScript (`typecheck:edge`, scripts/typecheck/edge.tsconfig.json, Deno globals stubbed; 12 errors fixed) in the automation gates, and .github/workflows/edge.yml runs `deno check` (1 more error fixed) and… |
 | XC-ARC-11 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the gate No silent catches (scripts/silent-catch-check.mjs, TypeScript AST, app + admin + Edge; tests in scripts/__tests__) refuses any catch block or empty .catch callback that neither reports nor says why (`fault-ok: <reason>`). All 134 we… |
@@ -1497,5 +1534,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | GATE-04 | low | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): react/tsconfig.tests.json + the `typecheck:tests` gate compile the unit tests and the JS and Edge code they import; 121 errors fixed without changing an assertion (a fixture used a payment mode that never existed; a schedule fixture lacked two fields). |
 | OPS-13 | low | Closed | #185, #189 | The ignoreCommand regression introduced in #185 was fixed in #189. |
 | XC-ARC-10 | low | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): store/landIn.ts: `commit(householdId, update)` lands a post-await write only if that household is still open, in every household-scoped action of the crud, data, recurring and notify slices (38 writes), plus the role, household invitations a… |
+| XC-PRV-14 | low | Closed | #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): the work email in react/CHANGELOG.md and the migration comment became manu@example.com (schema.sql regenerated); home.html is gitignored; W8d-PRV14-001 fails on any address outside the example and Vyact domains across the docs, schema.sql and every migration. The his… |
 | INT-PAR-11 | info | Closed | #169, #170, #173, v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): the `test:tz` gate runs 10 date-sensitive suites under UTC, Asia/Kolkata, Europe/London, America/New_York and Pacific/Kiritimati (a planted UTC-day today() passes in UTC and fails in three zones), and scripts/deno-smoke.ts loads the engine bundle and shar… |
 | GATE-05 | info | Closed | #189 | Triaged (docs/SECURITY_AUDIT_TRIAGE.md), with a CI npm-audit gate. The moderate React Router advisory is mitigated by safeNext; its full fix is v7. |

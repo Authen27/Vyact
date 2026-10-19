@@ -1469,12 +1469,13 @@
       "availability": "available",
       "layer": "unit",
       "owner": "analytics funnel events / post-auth next",
-      "count": 4,
+      "count": 5,
       "tests": [
         "funnel events CON-UNIT-FUN-001 · every event carries platform (web / pwa)",
         "funnel events CON-UNIT-FUN-002 · sign_up once, on a new account's first sign-in, with its ref; never for an existing account",
         "funnel events CON-UNIT-FUN-003 · an email user who verifies hours later still counts, with household_created; the account flag and the 24 h window hold",
-        "funnel events CON-UNIT-FUN-004 · GA user_id is a SHA-256 of the user id, never the id itself, and clears on sign-out"
+        "funnel events CON-UNIT-FUN-004 · GA user_id is a SHA-256 of the user id, never the id itself, and clears on sign-out",
+        "funnel events CON-UNIT-FUN-005 · nothing goes to Google before analytics is on (T4b, XC-PRV-03)"
       ]
     },
     {
@@ -2395,6 +2396,26 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/privacyCompliance.test.tsx",
+      "feature": "Privacy and consent in the app (T4b)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "T4b (audit XC-PRV-03, XC-PRV-08, XC-PRV-09, XC-PRV-10, XC-PRV-11, FE-PLT-04): GA4 asks first on the web (denied by default, Allow loads it with a redacted address, No thanks clears its cookies), on in the Android app, nothing on previews; sign-up sends the policy version and an older record is asked again (18+); the Privacy, Cookies and Terms pages name the processors, DPDP rights, grievance and breach; the download holds exactly the owner's list; Pip through OpenRouter asks for providers that keep no data; CSP reports logged by host and path only",
+      "count": 9,
+      "tests": [
+        "\"Download my data\" holds exactly the owner's list (XC-PRV-08) T4B-007 · household, transactions, splits, debts, accounts, net worth and recurring schedules; no budgets, goals or profile",
+        "CSP violations are reported somewhere (FE-PLT-04) T4B-008 · both report formats log the directive, the blocked host and the page path only; the policy stays report-only",
+        "Pip through OpenRouter asks for providers that keep no data (XC-PRV-10) T4B-009 · every OpenRouter request carries data_collection: deny; other endpoints do not, and a config row cannot change it",
+        "analytics is asked for first on the web, and on in the Android app (XC-PRV-03) T4B-001 · vyact.app, not chosen: consent defaults to denied, the banner asks, nothing loads; Allow starts GA with a redacted address",
+        "analytics is asked for first on the web, and on in the Android app (XC-PRV-03) T4B-002 · \"No thanks\" (or turning it off later) stops sending and clears Google's cookies; the choice is kept",
+        "analytics is asked for first on the web, and on in the Android app (XC-PRV-03) T4B-003 · the Android app counts without a banner (its permissions); previews and stage count nothing; the app reads the state",
+        "consent is recorded with the account, and asked again on change (XC-PRV-09) T4B-004 · sign-up sends the policy version it showed, for the server to record (T4a)",
+        "consent is recorded with the account, and asked again on change (XC-PRV-09) T4B-005 · the sheet says what changed and asks to accept (18 or older); AuthGate asks only when the record is older, never over the legal pages",
+        "the pages say what is true (XC-PRV-10, XC-PRV-11, XC-PRV-03) T4B-006 · Privacy names the processors and where, the DPDP rights, grievance and breach, and 18+; the old untrue lines are gone"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/publicPages.test.ts",
       "feature": "Formatting and structured content",
       "availability": "available",
@@ -2404,7 +2425,7 @@
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
-        "analytics gating and deep links (#3, #4, #20) CON-UNIT-PUB-009 · GA loads only on vyact.app / www.vyact.app; elsewhere events go nowhere",
+        "analytics gating and deep links (#3, #4, #20) CON-UNIT-PUB-009 · GA can run only on vyact.app / www.vyact.app, and only once the visitor allows it (T4b); elsewhere nothing is queued",
         "analytics gating and deep links (#3, #4, #20) CON-UNIT-PUB-010 · every Learn topic maps to a real app route; sign-up links carry ref and next",
         "first paint is not blocked by third parties CON-UNIT-PUB-019 · landing.html does not fetch the app bundle during load: it boots on interaction (or a saved session) and tracks CTA clicks until then",
         "first paint is not blocked by third parties PUB-018 · index.html and Learn pages keep analytics and fonts off the critical path",
@@ -3113,7 +3134,7 @@
       "tests": [
         "W7a · small app fixes W7a-HH13-001 · leaving or deleting the open household lands on one the person is still in (INT-HH-13)",
         "W7a · small app fixes W7a-MNY14-001 · a steady salary is not \"income varies\" early in a month; real variance still is (FE-MNY-14)",
-        "W7a · small app fixes W7a-MNY15-001 · \"Full backup\" carries accounts, allocations, recurring bills and net-worth history (FE-MNY-15, FE-UIS-06)",
+        "W7a · small app fixes W7a-MNY15-001 · the download carries accounts, recurring bills and net-worth history (FE-MNY-15, FE-UIS-06; since T4b, exactly the owner's list)",
         "W7a · small app fixes W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)",
         "W7a · small app fixes W7a-PIP18-001 · the dead askVyact `backend` flag is gone from the app and the engine bundle (FE-PIP-18)",
         "W7a · small app fixes W7a-UIC14-001 · the Reconcile sheet reads a card's \"-23,990\" as owed and refuses negative cash (FE-UIC-14)",

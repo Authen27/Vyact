@@ -154,7 +154,9 @@ const isEnabled = (): boolean => {
   // Disable for Playwright runs (the e2e oracle is mounted) and Vitest.
   if (window.__vt_store !== undefined) return false;
   if (import.meta.env.MODE === 'test') return false;
-  return typeof window.gtag === 'function';
+  // T4b (v10.125.0, XC-PRV-03) — only once analytics is on: allowed on the web, or the Android app. The
+  // consent script (api/_consent.js) sets it; before, every event went to the queue whatever the visitor chose.
+  return typeof window.gtag === 'function' && (window as { __vyGaOn?: boolean }).__vyGaOn === true;
 };
 
 export function track(name: EventName, params: EventParams = {}): void {

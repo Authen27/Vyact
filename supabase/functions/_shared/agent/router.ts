@@ -258,6 +258,13 @@ const FORBIDDEN_KEY_ENV = [
   /^VAPID_/i,
 ];
 
+/** OpenRouter's API (openrouter.ai and its subdomains), whose requests ask for providers that keep no data. */
+export function isOpenRouterEndpoint(endpoint: string): boolean {
+  let host: string;
+  try { host = new URL(endpoint).hostname.toLowerCase(); } catch { return false; }
+  return host === 'openrouter.ai' || host.endsWith('.openrouter.ai');
+}
+
 /** A plausible env-var name. Rejects paths, spaces and lower-case typos. */
 const KEY_ENV_NAME = /^[A-Z][A-Z0-9_]{2,63}$/;
 
@@ -604,6 +611,10 @@ export async function chatCompletion(
   for (const [k, v] of Object.entries(params.extra ?? {})) {
     if (EXTRA_KEYS.has(k)) body[k] = v;
   }
+  // T4b (v10.125.0; audit XC-PRV-10; owner, 19 Oct 2026: "OpenRouter keeps no data"). OpenRouter hands a
+  // request to one of many model providers, and some keep or train on what they receive. Every request
+  // through it asks for only those that don't; the Privacy Policy says so. Not a config-row choice.
+  if (isOpenRouterEndpoint(check.endpoint)) body.provider = { data_collection: 'deny' };
 
   // 5. Timeout. Bounded on our side so a hung provider can never hang the edge
   //    function until the platform kills it.

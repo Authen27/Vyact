@@ -25,21 +25,21 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1576 passing deterministic cases in 177 files. Zero failed, skipped or TODO cases at generation.**
+**1586 passing deterministic cases in 178 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 113 |
+| react | contract-unit | available | 122 |
 | react | contract-unit | conditional | 127 |
 | react | handler-integration | conditional | 112 |
 | react | sql-integration | conditional | 134 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
-| react | unit | available | 449 |
+| react | unit | available | 450 |
 | react | unit | conditional | 236 |
 | react | unit | infrastructure | 229 |
 
@@ -115,7 +115,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/featureOutputs.test.ts](../react/src/lib/__tests__/featureOutputs.test.ts) | Reports, Planner, Insights, notifications | unit | available | 6 |
 | [react/src/lib/__tests__/format.test.ts](../react/src/lib/__tests__/format.test.ts) | Formatting and structured content | unit | available | 11 |
 | [react/src/lib/__tests__/formRoutes.test.ts](../react/src/lib/__tests__/formRoutes.test.ts) | Navigation and category selection | unit | available | 3 |
-| [react/src/lib/__tests__/funnelAnalytics.test.ts](../react/src/lib/__tests__/funnelAnalytics.test.ts) | Marketing funnel and auth landing | unit | available | 4 |
+| [react/src/lib/__tests__/funnelAnalytics.test.ts](../react/src/lib/__tests__/funnelAnalytics.test.ts) | Marketing funnel and auth landing | unit | available | 5 |
 | [react/src/lib/__tests__/fxCentralization.test.ts](../react/src/lib/__tests__/fxCentralization.test.ts) | Money model | unit | available | 2 |
 | [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 21 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
@@ -166,6 +166,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/pipPlanner.test.ts](../react/src/lib/__tests__/pipPlanner.test.ts) | Ask Vyact | unit | conditional | 14 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 3 |
 | [react/src/lib/__tests__/prepareAiCallSql.test.ts](../react/src/lib/__tests__/prepareAiCallSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 6 |
+| [react/src/lib/__tests__/privacyCompliance.test.tsx](../react/src/lib/__tests__/privacyCompliance.test.tsx) | Privacy and consent in the app (T4b) | contract-unit | available | 9 |
 | [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 30 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
 | [react/src/lib/__tests__/pulseContentSql.test.ts](../react/src/lib/__tests__/pulseContentSql.test.ts) | Pulse content unpublished SQL | sql-integration | conditional | 2 |

@@ -4066,7 +4066,7 @@ commit;
 -- v10.14.1 — resolve a split participant's DISPLAY NAME from their email.
 --
 -- The split form and Splits view are email-keyed, but users think in names.
--- This lets the client show "Manu · u.reddy@vidaxl.com" instead of a bare
+-- This lets the client show "Manu · manu@example.com" instead of a bare
 -- email, and lets the Add-Transaction split form show the resolved name as a
 -- NON-EDITABLE value once you type a participant's email (feedback items 1+2).
 --

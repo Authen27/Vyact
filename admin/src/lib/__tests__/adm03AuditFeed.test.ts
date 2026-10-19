@@ -42,6 +42,8 @@ describe('ADM-03 · the Audit page without values', () => {
   it('ADM03-A-003 · Privacy says what staff can see, under a new policy version', () => {
     expect(consumer('pages/Privacy.tsx')).toMatch(
       /In the admin console, Vyact staff can see that an action happened in a household \(its time and kind\), never the amounts, names or descriptions it changed\./);
-    expect(consumer('lib/policyVersion.ts')).toMatch(/export const POLICY_VERSION = '2026-10-13';/);
+    // Published under 2026-10-13 or a later version (T4b moved it to 2026-10-19).
+    const version = /export const POLICY_VERSION = '(\d{4}-\d{2}-\d{2})';/.exec(consumer('lib/policyVersion.ts'))?.[1] ?? '';
+    expect(version >= '2026-10-13').toBe(true);
   });
 });
