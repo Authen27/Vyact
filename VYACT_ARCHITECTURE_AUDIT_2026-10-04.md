@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 18 Oct 2026):** 141 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 19 Oct 2026):** 144 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -56,16 +56,16 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 20 | 5 | 1 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 60 | 3 | 15 | 4 | 7 | 7 | 4 |
-| Low | 75 | 47 | 1 | 9 | 10 | 6 | 0 | 2 |
-| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **131** | **10** | **26** | **15** | **14** | **10** | **6** |
+| Medium | 100 | 61 | 3 | 15 | 3 | 7 | 7 | 4 |
+| Low | 75 | 48 | 1 | 9 | 9 | 6 | 0 | 2 |
+| Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
+| **Total** | **212** | **134** | **10** | **25** | **13** | **14** | **10** | **6** |
 
-**141 of 212 are resolved (67%): all 3 critical and 25 of 29 high.** The other 71 fall into four groups:
+**144 of 212 are resolved (68%): all 3 critical and 25 of 29 high.** The other 68 fall into four groups:
 
-| What the 71 need | Count |
+| What the 68 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 32 |
+| Nothing but work: no decision, no blocker | 29 |
 | An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 8 |
@@ -87,11 +87,11 @@ Two developers did the work:
 | #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04 | XC-PRV-11 |
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
 | #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, BE-FN-09, OPS-11 |
-| #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05 | INT-PAR-11 |
-| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08 | FE-UIS-03, INT-PAR-11 |
+| #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05 | — |
+| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08 | FE-UIS-03 |
 | #171 | v10.67.0 | W3c lost edits | FE-SYN-01, FE-SYN-03, INT-TXN-08 | — |
 | #172 | v10.68.0 | W3d recurrence schema | FE-MNY-01, INT-TXN-05 | — |
-| #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02 | XC-ARC-06, INT-PAR-11 |
+| #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02 | XC-ARC-06 |
 | #174 | v10.70.0 | W4a server posts bills | INT-TXN-06 | — |
 | #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
 | #176 | v10.72.0 | W4c split edit | FE-PIP-03, INT-TXN-01, FE-UIC-09 | — |
@@ -132,6 +132,7 @@ Two developers did the work:
 | #227 | v10.116.0 | Track T2b-2: only the server's alerts are pushed; exact push hosts, 10 devices, fitted payloads, paging (owner, 18 Oct) | BE-FN-07, DB-SEC-06 | — |
 | #228 | v10.117.0 | Track T2c: no entry on a deleted account; Cash in Hand stays; every link inside its household (owner, 18 Oct) | DB-INT-09, DB-SEC-09 | — |
 | #229 | v10.118.0 | Track T2d: WhatsApp templates are the server's alone; every inbox write checked; the sweep runs every 5 minutes (owner, 18–19 Oct) | BE-WA-07, BE-WA-09, BE-WA-12 | — |
+| #231 | v10.120.0 | Track T5a: the Edge code and the unit tests are type-checked; Deno check, lint and smoke; date suites in 5 zones (owner, 19 Oct) | XC-ARC-09, GATE-04, INT-PAR-11 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -198,14 +199,14 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (37)**
-- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+**Medium (36)**
+- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, INT-HH-08, OPS-11.
 
-**Low and info (30)**
-- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16, INT-PAR-11.
+**Low and info (28)**
+- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16.
 - *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, DB-INT-15, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
 - *Backlog:* FE-PUB-08, BE-PIP-06.
 
@@ -868,7 +869,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-ARC-05 | MEDIUM | Cross-cutting | Binding docs contradict themselves and send AI sessions to stale documents | confirmed (adversarial: confirmed) | TD-28 (marked resolved 2026-06-17; regressed), TD-41 (open) | Owner decision | — |
 | XC-ARC-06 | MEDIUM | Cross-cutting | Bundled engine left hand ports live: server money, recurring and budget alerts are duplicated | confirmed-with-caveats (adversarial: partial) |  | Partly | #173, v10.96.0 |
 | XC-ARC-08 | MEDIUM | Cross-cutting | 'Retired' Money Map flag still picks the transaction account picker; e2e tests the legacy path | confirmed-with-caveats (adversarial: partial) |  | Open | — |
-| XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) | Open | — |
+| XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) | Closed | v10.120.0 |
 | XC-ARC-11 | MEDIUM | Cross-cutting | The 'never a silent write-loss catch {}' rule has no enforcement: 110 empty catches, 7 on writes | confirmed-with-caveats (adversarial: partial) | TD-24 (marked resolved; rule not enforced) | Open | — |
 | XC-ARC-13 | MEDIUM | Cross-cutting | Test effort sits away from risk: 1,390 unit cases, 5 SQL tests, 10 optional cloud tests | confirmed (adversarial: confirmed) | TD-31, TD-19, TD-32 (open) | On hold (dev question) | — |
 | XC-PRV-02 | MEDIUM | Cross-cutting | Recipient email and household-invite bearer tokens sent to GA4/Contentsquare via page URLs | confirmed-with-caveats (adversarial: partial) |  | Closed | #165 |
@@ -944,7 +945,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-TXN-14 | LOW | Integration | Audit trail loses the actor for server-side writers and records every delete as 'updated' | not independently verified (low/info) | TD-08 (resolved as 'populated'; actor/delete semantics gap new) | Open | — |
 | INT-TZC-08 | LOW | Integration | WhatsApp currency detection checks only the first three-letter word, so 'tea 50 aed' logs ₹50 | not independently verified (low/info) |  | Closed | #170 |
 | GATE-03 | LOW | Platform & Ops | Public production build ships full source maps (87 maps, 8.3 MB) of the private codebase | observed (gate executed) |  | Closed | #185, #188 |
-| GATE-04 | LOW | Platform & Ops | Unit tests do not type-check: ~43 errors incl. money-suite fixtures that no longer match types | observed (gate executed) | TD-30 (still open; now quantified at ~43 errors in 7 files) | Open | — |
+| GATE-04 | LOW | Platform & Ops | Unit tests do not type-check: ~43 errors incl. money-suite fixtures that no longer match types | observed (gate executed) | TD-30 (still open; now quantified at ~43 errors in 7 files) | Closed | v10.120.0 |
 | OPS-07 | LOW | Platform & Ops | Prod Supabase token reachable from non-main branches; no permissions block; actions pinned by tag | confirmed-with-caveats (adversarial: partial) |  | Partly | #189 |
 | OPS-09 | LOW | Platform & Ops | DEPLOY.md and OPERATIONS.md misdescribe the live pipeline and verify against an orphaned host | confirmed-with-caveats (adversarial: partial) | TD-41 (same class; these two docs not listed) | Closed | #189 |
 | OPS-13 | LOW | Platform & Ops | Build and CI hygiene: npm install on Vercel, unpinned Node, cancelled main runs, HEAD^-only skip | not independently verified (low/info) |  | Closed | #185, #189 |
@@ -956,7 +957,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  | Partly | #189 |
 | BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  | Owner decision | — |
 | DB-OPS-16 | INFO | Database | pg_trgm sits in public but nothing uses it; TD-34's stated blocker does not exist in the repo | not independently verified (low/info) | TD-34 | Open | — |
-| INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 | Partly | #169, #170, #173 |
+| INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 | Closed | v10.120.0 |
 | GATE-05 | INFO | Platform & Ops | npm audit: 22 (react) + 11 (admin) advisories still untriaged; all highs dev-only | observed (gate executed) | TD-38 (still open; count now 22 react / 11 admin) | Closed | #189 |
 | GATE-06 | INFO | Platform & Ops | Main entry chunk 615 KB (180 KB gz) exceeds Vite's 500 KB warning | observed (gate executed) |  | Closed | #189 |
 
@@ -1252,11 +1253,11 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 | Secrets, PII and privacy compliance (XC-PRV) | Cross-cutting | 62 | 14 | 14 |
 | Architecture, maintainability and AI-assisted development risk (XC-ARC) | Cross-cutting | 58 | 15 | 15 |
 
-## Appendix C — Remediation status by finding (updated 18 Oct 2026)
+## Appendix C — Remediation status by finding (updated 19 Oct 2026)
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (71)
+### C.1 Unresolved (68)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1281,7 +1282,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | XC-ARC-08 | medium | Open | — | The retired Money Map flag still chooses the account pickers (TransactionFormModal.tsx:181, SplitFormModal.tsx:139 getMoneyMapMode). | — | S |
-| XC-ARC-09 | medium | Open | — | `deno check` / lint for Edge Functions in CI (W8 §4). | — | S |
 | XC-ARC-11 | medium | Open | — | A lint rule against empty catches on write paths (W8 §4). | — | S |
 | FE-MNY-08 | medium | Owner decision | — | Decide the split money model: (a) the paying account drops by the full bill; (b) the others' shares become a receivable, and the owner chooses where it shows (Net Worth, Pip, free-to-spend); (c) settling moves money back into a named account. Then implement it with a money-model invariant (an account drops by the full amount; settling restores the share) and update the golden file deliberately. | Owner decision: split money model (full debit + receivable). Not raised in the W8 plan's section 3. | L |
 | FE-UIC-12 | medium | Owner decision | #178, #179 | Remove (or redirect to Add account) the cash, checking and savings asset types, and define 'free to spend' once: the Accounts summary should read the same projection as Net Worth and Pip, stating whether archived accounts count. Add a fixture test: Accounts spendable == Net Worth/Pip free-to-spend. | Owner decision W8 plan section 3: remove the cash/checking/savings asset types? | S |
@@ -1316,7 +1316,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | DB-OPS-07 | low | Open | — | Every pg_cron job hard-codes the production URL; build it from a Vault project_url instead (W8 §4). | — | S |
 | DB-OPS-09 | low | Open | — | RLS helper and index tuning (W8 §4). | — | M |
 | INT-TXN-14 | low | Open | — | Audit trail: keep the actor for server-side writers, and record deletes as deletes (needs a migration; W8 §4). | — | S |
-| GATE-04 | low | Open | — | Type-check the unit tests (W8 §4). | — | M |
 | XC-ARC-10 | low | Open | — | A store helper that commits post-await writes with a household guard (W8 §4). | — | M |
 | XC-ARC-12 | low | Open | — | Structural: encode the money model in domain types. Not planned. | — | L |
 | XC-ARC-14 | low | Open | — | Process: release cadence versus stabilisation. Not a code item. | — | — |
@@ -1328,7 +1327,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-ARC-15 | low | Owner decision | — | Move tracked binaries and duplicate handoffs out of the repo? (W8 §3) | Owner: repo hygiene | S |
 | FE-PUB-08 | low | Backlog | — | Revoke table SELECT from anon and grant column-level SELECT on the columns the public pages read (LESSON_COLS, react/api/learn.js:24). Check it against the Learn, sitemap and llms queries. | — | XS |
 | BE-PIP-06 | low | Backlog | — | Owner, 13 Oct: keep the Claude Code relay for now (TD-44). | Owner: keep for now | S |
-| INT-PAR-11 | info | Partly | #169, #170, #173 | Add vitest projects (or separate runs) with env TZ=UTC, Asia/Kolkata, Europe/London and America/New_York for the device-local and recurrence suites. Add a Deno smoke test that imports engine.generated.js and the _shared modules as the Edge runtime loads them. | — | M |
 | DB-OPS-16 | info | Open | — | Needs one production query (dependent indexes), then drop pg_trgm or move it. Not planned. | — | XS |
 | BE-FN-12 | info | Owner decision | — | The owner must decide whether to add a 'Hide amounts on the lock screen' preference and whether it defaults to on. Then send a generic title and body when it is on. | Owner decision: W8 plan §3 'BE-FN-12 hide amounts on lock-screen pushes by default?' | S |
 
@@ -1353,7 +1351,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (56)
+### C.3 Resolved, with a residual note (59)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1400,6 +1398,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
 | INT-TXN-10 | medium | Closed | v10.111.0 | v10.111.0 (Track F1b): a cloud pull leaves every row with a queued write as the device has it: overlayQueued for full pulls (a row created offline survives, a queued delete stays deleted), mergeCloudDelta for deltas, read from outbox.queuedWrites under the list lock where upsert/remove queue their op. A same-row edit… |
 | INT-TXN-11 | medium | Closed | v10.112.0 | v10.112.0 (Track F1c; owner decisions 18 Oct 2026: queued behind the transaction, sent by sync; "today's calls, repeat-safe"): create, edit and delete queue a shareSplit outbox op behind the transaction; the outbox claims it only after every earlier write of its transaction has landed (own lane, never holding up trans… |
+| XC-ARC-09 | medium | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): every Edge Function is type-checked under strict TypeScript (`typecheck:edge`, scripts/typecheck/edge.tsconfig.json, Deno globals stubbed; 12 errors fixed) in the automation gates, and .github/workflows/edge.yml runs `deno check` (1 more error fixed) and… |
 | XC-PRV-12 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decision 18 Oct 2026: "known emails only"): resolve_participant_names answers only for emails on a split the caller owns or takes part in, or of members of their households, at most 200 per call; everyone else gets no answer. The Split form confirms a new person by email with neutral wordin… |
 | FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
 | FE-MNY-15 | low | Closed | #184 | Nothing for the export. There is still no restore (the owner-only 'Restore from backup' is in the plan's backlog), so the round-trip test from the recommendation has nothing to run against. |
@@ -1411,5 +1410,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | INT-CON-07 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): leave_household reads the caller's role null-safely: a non-member leaves nothing, the last owner cannot leave. JOIN-007. |
 | INT-HH-06 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the unique (household_id, user_id) index is in place (with the merge); the W1a deferred owner trigger already guards continuity. The owner's read-only check for households left ownerless before that trigger is listed in the PR. |
 | GATE-03 | low | Closed | #185, #188 | Live-verified 12 Oct: no .map is served for the vyact.app or admin entry chunks. |
+| GATE-04 | low | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): react/tsconfig.tests.json + the `typecheck:tests` gate compile the unit tests and the JS and Edge code they import; 121 errors fixed without changing an assertion (a fixture used a payment mode that never existed; a schedule fixture lacked two fields). |
 | OPS-13 | low | Closed | #185, #189 | The ignoreCommand regression introduced in #185 was fixed in #189. |
+| INT-PAR-11 | info | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): the `test:tz` gate runs 10 date-sensitive suites under UTC, Asia/Kolkata, Europe/London, America/New_York and Pacific/Kiritimati (a planted UTC-day today() passes in UTC and fails in three zones), and scripts/deno-smoke.ts loads the engine bundle and shar… |
 | GATE-05 | info | Closed | #189 | Triaged (docs/SECURITY_AUDIT_TRIAGE.md), with a CI npm-audit gate. The moderate React Router advisory is mitigated by safeNext; its full fix is v7. |
