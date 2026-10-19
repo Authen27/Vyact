@@ -56,7 +56,7 @@ export async function postDue(admin: SupabaseClient, now: Date): Promise<PostSum
       .is('deleted_at', null).eq('active', true).eq('auto_confirm', true).lte('next_due_date', latest)
       .order('id', { ascending: true }).range(from, from + PAGE - 1);
     if (error) throw new Error(`schedules: ${error.message}`);
-    for (const row of (data ?? []) as Row[]) {
+    for (const row of (data ?? []) as unknown as Row[]) {
       summary.schedules++;
       await postSchedule(admin, row, localDayIn(now, row.households?.timezone), summary);
     }

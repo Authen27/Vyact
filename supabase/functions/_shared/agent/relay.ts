@@ -28,8 +28,13 @@ export type RelayCallKind = 'classify' | 'phrase' | 'other';
 
 interface RelayConfigLike {
   provider?: string | null;
-  params?: Record<string, unknown> | null;
+  /** Any params object (ModelParams has no index signature); only allowed_user_ids is read here. */
+  params?: object | null;
 }
+
+/** The allowlist a row carries, if any. */
+const allowedIds = (row: RelayConfigLike | null | undefined): unknown =>
+  (row?.params as { allowed_user_ids?: unknown } | null | undefined)?.allowed_user_ids;
 
 export function isRelayConfig(row: RelayConfigLike | null | undefined): boolean {
   return !!row && row.provider === RELAY_PROVIDER;
@@ -38,7 +43,7 @@ export function isRelayConfig(row: RelayConfigLike | null | undefined): boolean 
 /** True only when the caller is explicitly allowlisted on this relay row. */
 export function relayAllows(row: RelayConfigLike | null | undefined, userId: string): boolean {
   if (!isRelayConfig(row) || !userId) return false;
-  const ids = row?.params?.allowed_user_ids;
+  const ids = allowedIds(row);
   return Array.isArray(ids) && ids.some(id => typeof id === 'string' && id === userId);
 }
 
@@ -68,7 +73,7 @@ export function filterRelayRows<T extends RelayConfigLike>(rows: readonly T[], u
  */
 export function rowAppliesToUser<T extends RelayConfigLike>(row: T, userId: string): boolean {
   if (isRelayConfig(row)) return relayAllows(row, userId);
-  const ids = row?.params?.allowed_user_ids;
+  const ids = allowedIds(row);
   if (!Array.isArray(ids)) return true;                 // no allowlist ⇒ everyone
   return ids.some(id => typeof id === 'string' && id === userId);
 }

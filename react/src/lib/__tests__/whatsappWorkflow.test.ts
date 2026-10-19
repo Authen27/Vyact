@@ -1433,7 +1433,7 @@ describe('T2d · WhatsApp writes and the replay sweep (BE-WA-09, BE-WA-12)', () 
     const doneTries = inbox.filter(q => patchOf(q)?.status === 'done');
     expect(doneTries.map(q => eqOf(q, 'wa_message_id'))).toEqual(['m-2', 'm-2']);
     expect(inbox.some(q => patchOf(q)?.status === 'failed')).toBe(false);
-    expect(errors.mock.calls.map(c => String(c[0]))).toEqual(expect.arrayContaining([
+    expect(errors.mock.calls.map((c: unknown[]) => String(c[0]))).toEqual(expect.arrayContaining([
       expect.stringMatching(/claim failed; left for the sweep/), expect.stringMatching(/inbox status not stored; the sweep will replay it/)]));
   });
 
@@ -1539,7 +1539,7 @@ describe('T2d · WhatsApp writes and the replay sweep (BE-WA-09, BE-WA-12)', () 
     const body = JSON.stringify({ entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.1', status: 'delivered' }] } }] }] });
     const res = await hook(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
     expect(res.status).toBe(200);
-    expect(errors.mock.calls.map(c => String(c[0]))).toContainEqual(expect.stringMatching(/delivery status not recorded/));
+    expect(errors.mock.calls.map((c: unknown[]) => String(c[0]))).toContainEqual(expect.stringMatching(/delivery status not recorded/));
     // A send refused for consent whose audit row can't be written: still answered "skipped", and logged.
     vi.resetModules();
     errors.mockClear();
@@ -1554,7 +1554,7 @@ describe('T2d · WhatsApp writes and the replay sweep (BE-WA-09, BE-WA-12)', () 
     const refused = await notify(new Request('https://edge.example.com/notify', { method: 'POST', headers: { Authorization: 'Bearer test-service-key' },
       body: JSON.stringify({ event: 'reengagement', householdId: 'h', toProfileId: 'p2', params: ['Rohan', '6,850', 'four'] }) }));
     expect(await refused.json()).toEqual(expect.objectContaining({ status: 'skipped', reason: 'marketing_consent_required' }));
-    expect(errors.mock.calls.map(c => String(c[0]))).toContainEqual(expect.stringMatching(/refusal not audited/));
+    expect(errors.mock.calls.map((c: unknown[]) => String(c[0]))).toContainEqual(expect.stringMatching(/refusal not audited/));
     expect(fetch).not.toHaveBeenCalled();
   });
 

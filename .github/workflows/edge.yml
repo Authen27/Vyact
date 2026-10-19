@@ -1,0 +1,44 @@
+name: Edge
+
+# T5a (audit XC-ARC-09, INT-PAR-11): the Edge Functions under Deno itself. The automation gates in ci.yml
+# already type-check them with TypeScript (Deno's globals stubbed); this job is the authoritative check of
+# Deno's own types and lint, and loads the bundled engine the way the Edge runtime does.
+# Minutes budget: runs only when Edge code (or this check) changes, with a short timeout.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'scripts/deno-smoke.ts'
+      - '.github/workflows/edge.yml'
+  pull_request:
+    branches: [main]
+    # Same list as push: above. Keep the two in step.
+    paths:
+      - 'supabase/functions/**'
+      - 'scripts/deno-smoke.ts'
+      - '.github/workflows/edge.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  deno:
+    name: Edge · deno check, lint and bundle smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 8   # normally ~1 min
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: deno check (every function)
+        run: deno check supabase/functions/*/index.ts
+      - name: deno lint
+        run: deno lint supabase/functions
+      - name: The engine bundle and shared modules run under Deno
+        run: deno run --allow-env --allow-read scripts/deno-smoke.ts
