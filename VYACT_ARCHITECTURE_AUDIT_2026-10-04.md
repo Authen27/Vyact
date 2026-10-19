@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 19 Oct 2026):** 152 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 19 Oct 2026):** 153 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -57,16 +57,16 @@ Two developers did the work:
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 20 | 5 | 1 | 0 | 0 | 3 | 0 |
 | Medium | 100 | 67 | 3 | 11 | 1 | 7 | 7 | 4 |
-| Low | 75 | 50 | 1 | 9 | 7 | 6 | 0 | 2 |
+| Low | 75 | 51 | 1 | 9 | 7 | 5 | 0 | 2 |
 | Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **142** | **10** | **21** | **9** | **14** | **10** | **6** |
+| **Total** | **212** | **143** | **10** | **21** | **9** | **13** | **10** | **6** |
 
-**152 of 212 are resolved (72%): all 3 critical and 25 of 29 high.** The other 60 fall into four groups:
+**153 of 212 are resolved (72%): all 3 critical and 25 of 29 high.** The other 59 fall into four groups:
 
-| What the 60 need | Count |
+| What the 59 need | Count |
 |---|---:|
 | Nothing but work: no decision, no blocker | 21 |
-| An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
+| An owner decision (13 waiting only on it; 5 partly done, with the rest waiting on it) | 18 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 8 |
 
@@ -136,6 +136,7 @@ Two developers did the work:
 | #232 | v10.121.0 | Track T5b: no silent catches (gate); post-await writes land in their own household; Money Map flag retired; split mark-paid queued; settled/closed email notices (owner, 19 Oct) | BE-FN-09, XC-ARC-08, XC-ARC-11, XC-ARC-10 | — |
 | #233 | v10.122.0 | Track T5c: WhatsApp budget alert and stale nudge on the app rules; Pip usage counted once (owner, 19 Oct) | FE-PIP-09, INT-PAR-05, XC-ARC-06 | — |
 | #234 | v10.123.0 | Track T5d: each project's scheduled jobs call that project, from Vault project_url written by its deploy (owner, 19 Oct) | DB-OPS-07 | BE-FN-11 |
+| #235 | v10.124.0 | Track T4a: consent recorded by the server at sign-up; splits match confirmed emails only (owner, 19 Oct) | DB-INT-15 | XC-PRV-09 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -208,9 +209,9 @@ Plus **R1** (high, new): see §0.3.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, INT-HH-08, OPS-11.
 
-**Low and info (26)**
+**Low and info (25)**
 - *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16.
-- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, DB-INT-15, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
+- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
 - *Backlog:* FE-PUB-08, BE-PIP-06.
 
 ### 0.6 Action plan
@@ -879,7 +880,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-PRV-04 | MEDIUM | Cross-cutting | Email-code re-auth for erase/delete is client-side only; any session can wipe data immediately | confirmed (adversarial: confirmed) |  | Closed | #167 |
 | XC-PRV-07 | MEDIUM | Cross-cutting | WhatsApp message content and phone numbers are retained forever and survive unlink, erase and deletion | confirmed (adversarial: confirmed) |  | Closed | #167 |
 | XC-PRV-08 | MEDIUM | Cross-cutting | 'Erase household data' and the data export cover only the core ledger tables | confirmed (adversarial: confirmed) | 2026-09 audit S6 (household erasure) — onboarding bug fixed; table coverage still incomplete | Partly | #165, #167, #184, v10.88.0 |
-| XC-PRV-09 | MEDIUM | Cross-cutting | Consent record is unreliable: wrong version stored, errors swallowed, Google sign-in skips it | confirmed (adversarial: confirmed) |  | Partly | #186 |
+| XC-PRV-09 | MEDIUM | Cross-cutting | Consent record is unreliable: wrong version stored, errors swallowed, Google sign-in skips it | confirmed (adversarial: confirmed) |  | Partly | #186, v10.124.0 |
 | XC-PRV-10 | MEDIUM | Cross-cutting | Pip questions and figures routed through OpenRouter with no provider data policy enforced | confirmed-with-caveats (adversarial: partial) |  | Owner decision | — |
 | XC-PRV-11 | MEDIUM | Cross-cutting | Privacy notice lacks DPDP/GDPR basics: controller, grievance contact, breach process, child accounts | confirmed-with-caveats (adversarial: partial) |  | Owner decision | #165, #166, #167 |
 | XC-PRV-12 | MEDIUM | Cross-cutting | resolve_participant_names lets any signed-up user bulk-test emails and learn real names | confirmed (adversarial: confirmed) |  | Closed | v10.114.0 |
@@ -933,7 +934,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | BE-WA-12 | LOW | Backend | Replay relies on unrelated traffic, and stale claims replay without limit | not independently verified (low/info) | TD-35 (webhook inbox recovery marked resolved in v10.40.0; the scheduler and stale-claim cap are still missing) | Closed | #187, v10.118.0 |
 | BE-WA-13 | LOW | Backend | Numbered follow-ups still answer after ANSWERS OFF | not independently verified (low/info) |  | Closed | #187 |
 | DB-INT-14 | LOW | Database | Money CHECKs have NULL and allowlist gaps (budget scope, allocations, categories) | not independently verified (low/info) |  | Open | — |
-| DB-INT-15 | LOW | Database | Split sharing matches on auth.users.email without requiring email_confirmed_at | not independently verified (low/info) |  | Owner decision | — |
+| DB-INT-15 | LOW | Database | Split sharing matches on auth.users.email without requiring email_confirmed_at | not independently verified (low/info) |  | Closed | v10.124.0 |
 | DB-OPS-07 | LOW | Database | Every pg_cron job hard-codes the production URL; auto-generated secrets make test DBs call prod | confirmed-with-caveats (adversarial: partial) |  | Closed | v10.123.0 |
 | DB-OPS-09 | LOW | Database | RLS evaluates SECURITY DEFINER helpers per row; hot lookups lack indexes and some indexes are duplicated | confirmed (adversarial: confirmed) | TD-21 | Open | — |
 | DB-OPS-14 | LOW | Database | Twin v91 migrations and stale process docs contradict the actual apply path | not independently verified (low/info) | TD-41 | Closed | #189 |
@@ -1260,7 +1261,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (60)
+### C.1 Unresolved (59)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1278,7 +1279,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | OPS-08 | medium | Partly | #178, v10.102.0 | INV-7 atomicity is tested for loan payments in Postgres (#178: pay_loan with a force-failed leg, reverse_loan_payment) and, since v10.102.0, for a local-only household (payLoan undoes its earlier writes when a later one fails; TE7-001..003). The RLS isolation matrix is still on hold for D10. | D10 | M |
 | OPS-11 | medium | Partly | #168 | The per-user cap now fails closed (parseDailyCallCap: only "off" disables it). A global LLM spend ceiling is backlog (owner: not now). | Backlog: global ceiling | S |
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
-| XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
+| XC-PRV-09 | medium | Partly | #186, v10.124.0 | v10.124.0 (T4a; owner, 19 Oct 2026: "server record + accept on change"): handle_new_user stamps tos_*/privacy_* from the sign-up metadata's policy_version, so the record no longer depends on the browser tab (PGlite T4A-001). Left (T4b): the sign-up form sends the version, and a person whose record is not the current POLICY_VERSION is asked to accept it. | — | S |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
 | FE-MNY-08 | medium | Owner decision | — | Decide the split money model: (a) the paying account drops by the full bill; (b) the others' shares become a receivable, and the owner chooses where it shows (Net Worth, Pip, free-to-spend); (c) settling moves money back into a named account. Then implement it with a money-model invariant (an account drops by the full amount; settling restores the share) and update the golden file deliberately. | Owner decision: split money model (full debit + receivable). Not raised in the W8 plan's section 3. | L |
 | FE-UIC-12 | medium | Owner decision | #178, #179 | Remove (or redirect to Add account) the cash, checking and savings asset types, and define 'free to spend' once: the Accounts summary should read the same projection as Net Worth and Pip, stating whether archived accounts count. Add a fixture test: Accounts spendable == Net Worth/Pip free-to-spend. | Owner decision W8 plan section 3: remove the cash/checking/savings asset types? | S |
@@ -1317,7 +1318,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-MNY-12 | low | Owner decision | — | Either refuse to archive an account with a non-zero balance (offer move or transfer first), or count archived balances the same way on every surface and label them. Add the test from the finding. | Owner decision W8 plan section 3: archiving an account with a balance, refuse it or count it everywhere? | S |
 | FE-MNY-13 | low | Owner decision | — | Add an explicit 'in credit' toggle on card reconcile that passes a positive balance through. Keep INV-11 for the default 'owed' case. Test: 'in credit 2,000' gives balance +2,000, outstanding 0, liquidity 'short'. | Owner decision W8 plan section 3: add an 'in credit' option to card reconcile? | S |
 | FE-SYN-13 | low | Owner decision | — | On sign-in, discard local-only data (and delete the dead import), or import it? (W8 §3) | Owner: local data on sign-in | S |
-| DB-INT-15 | low | Owner decision | — | Is email confirmation on in production auth? If yes, split sharing should require email_confirmed_at. (W8 §3) | Owner: confirm auth setting | XS |
 | XC-ARC-07 | low | Owner decision | — | Park or delete the dormant SMS/agent pipeline? (W8 §3) | Owner: dormant pipeline | M |
 | XC-ARC-15 | low | Owner decision | — | Move tracked binaries and duplicate handoffs out of the repo? (W8 §3) | Owner: repo hygiene | S |
 | FE-PUB-08 | low | Backlog | — | Revoke table SELECT from anon and grant column-level SELECT on the columns the public pages read (LESSON_COLS, react/api/learn.js:24). Check it against the Learn, sitemap and llms queries. | — | XS |
@@ -1346,7 +1346,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (67)
+### C.3 Resolved, with a residual note (68)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1408,6 +1408,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-UIS-15 | low | Closed | #184, #186 | Owner decision: non-English options are labelled "Preview: navigation only". |
 | FE-UIS-16 | low | Closed | #184 | Expired invitations no longer count toward the member limit (migration 20261007120000:62). The recommendation's optional dirty-form confirm was not added. |
 | BE-WA-12 | low | Closed | #187, v10.118.0 | W8b (#187) counted stale claims as attempts. v10.118.0 (Track T2d; owner: every 5 minutes) adds pg_cron whatsapp-inbox-sweep with a Vault secret (whatsapp_sweep_cron_ok); the sweep also claims messages left pending over 2 minutes (inside 24 h), and a stale claim that runs out of attempts sends one "Sorry, I couldn't p… |
+| DB-INT-15 | low | Closed | v10.124.0 | v10.124.0 (Track T4a; owner, 19 Oct 2026: "confirmed email only"): my_email() returns the email only once email_confirmed_at is set, so is_split_participant, the shared_split_shares_select policy, settle_share and resolve_participant_names ignore an unconfirmed address (settle_share says to confirm first). Decided wit… |
 | DB-OPS-07 | low | Closed | v10.123.0 | v10.123.0 (Track T5d; owner, 19 Oct 2026: "Deploy writes it"): the eight HTTP pg_cron jobs (five WhatsApp dispatches, web push, recurring-post, the inbox sweep) build their URL from Vault project_url (migration 20261106120000; no row, no call), stored by each project's deploy right after its migrations (scripts/store-… |
 | INT-CON-07 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): leave_household reads the caller's role null-safely: a non-member leaves nothing, the last owner cannot leave. JOIN-007. |
 | INT-HH-06 | low | Closed | #166, v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the unique (household_id, user_id) index is in place (with the merge); the W1a deferred owner trigger already guards continuity. The owner's read-only check for households left ownerless before that trigger is listed in the PR. |
