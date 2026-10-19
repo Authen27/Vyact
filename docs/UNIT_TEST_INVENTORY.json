@@ -1273,6 +1273,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/consentConfirmedEmailSql.test.ts",
+      "feature": "Consent and confirmed-email splits SQL (T4a)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "T4a (audit XC-PRV-09, DB-INT-15): handle_new_user stamps the policy version from the sign-up metadata (none or a non-version records nothing); my_email() is confirmed-only, so an unconfirmed address sees and settles no split until it confirms (the real shared-splits schema on PGlite)",
+      "count": 3,
+      "tests": [
+        "a split finds a person by their confirmed email (DB-INT-15) T4A-002 · a confirmed participant sees and settles her share",
+        "a split finds a person by their confirmed email (DB-INT-15) T4A-003 · an unconfirmed address sees and settles nothing, and is told to confirm; once confirmed, it works",
+        "the server records consent at sign-up (XC-PRV-09) T4A-001 · the version on the sign-up form is stamped with the account; none, or a non-version, records nothing"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/cronProjectUrlSql.test.ts",
       "feature": "Scheduled jobs call their own project (T5d)",
       "availability": "conditional",

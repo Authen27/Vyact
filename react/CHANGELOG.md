@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.123.0`** (consumer)
+> **Current production version: `v10.124.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,20 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.124.0 — Your consent is kept by the server; splits find you by your confirmed email *(2026-10-19)*
+
+One migration (`20261107120000_t4a_consent_and_confirmed_email.sql`); no app change yet. Track T4 (privacy and
+compliance), part a: audit XC-PRV-09 and DB-INT-15. Owner decisions, 19 Oct 2026: consent recorded by the server
+and asked again when the policy changes; splits match confirmed emails only.
+
+- **Your acceptance of the Terms and Privacy Policy is recorded with your account, by the server.** The app used to
+  record it from the browser after sign-up, and lost it when an email sign-up's confirmation link opened in a new
+  tab. From the next app release (T4b) the sign-up form sends the version you accepted, and the account is
+  created with it.
+- **A shared split finds you only by your confirmed email.** Someone who registered your address without
+  confirming it could have seen, or settled, splits sent to you. Until you confirm your email, the splits shared
+  with you stay hidden, and settling one says to confirm first. Google sign-ins are confirmed already.
 
 ## v10.123.0 — Each project's scheduled jobs call that project *(2026-10-19)*
 
