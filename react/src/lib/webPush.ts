@@ -8,8 +8,16 @@
 // iPhone/iPad: Safari delivers web push only to an app added to the Home Screen
 // (iOS 16.4+). Android Chrome, desktop Chrome/Edge/Firefox and macOS Safari work in
 // the browser too.
+//
+// v10.127.0 (T4d): inside the Vyact Android app every function here goes through lib/nativePush.ts
+// (Firebase Cloud Messaging) when the APK carries the push plugin, so Settings, the bell and sign-out work
+// the same in the app. Without the plugin (an older APK) pushBlocker() is 'native_app'.
 import { sb } from './supabase';
 import { isIos, isNativeApp, isStandalone } from './pwa';
+import {
+  pushPlugin, enableNativePush, syncNativePush, disableNativePush, forgetNativePush, nativePushStatus,
+  nativeHasServerPush, nativePushWanted, nativeToken,
+} from './nativePush';
 import type { NotificationPrefs } from '../types';
 import { expected } from './faults';
 
@@ -56,13 +64,14 @@ export function pushSupported(): boolean {
 /** Why push cannot work here, before asking for anything. */
 export function pushBlocker(): 'ios_not_installed' | 'native_app' | 'unsupported' | null {
   if (typeof window === 'undefined') return 'unsupported';
-  if (isNativeApp()) return 'native_app';
+  if (isNativeApp()) return pushPlugin() ? null : 'native_app';
   if (isIos() && !isStandalone()) return 'ios_not_installed';
   return pushSupported() ? null : 'unsupported';
 }
 
 /** True once this device is registered with the server: the server pushes, so the open app doesn't pop up a second copy. */
 export function deviceHasServerPush(): boolean {
+  if (isNativeApp()) return nativeHasServerPush();
   try { return !!localStorage.getItem(ENDPOINT_KEY) && typeof Notification !== 'undefined' && Notification.permission === 'granted'; }
   catch { return false; }
 }
@@ -140,6 +149,8 @@ async function subscribe(reg: ServiceWorkerRegistration): Promise<PushSubscripti
 export async function enablePush(householdId: string, prefs: NotificationPrefs): Promise<EnableResult> {
   const blocker = pushBlocker();
   if (blocker) return { ok: false, reason: blocker };
+  const native = pushPlugin();
+  if (native) return enableNativePush(native, householdId, prefs);
   const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
   if (permission !== 'granted') return { ok: false, reason: 'denied' };
   const reg = await registration();
@@ -168,6 +179,9 @@ export async function enablePush(householdId: string, prefs: NotificationPrefs):
  * already granted (never prompts).
  */
 export async function syncPush(householdId: string, prefs: NotificationPrefs): Promise<void> {
+  // T4d: the Android app is on by default (owner), so it follows its own choice, not webPushEnabled.
+  const native = pushPlugin();
+  if (native) return syncNativePush(native, householdId, prefs);
   if (!prefs.webPushEnabled || pushBlocker() || Notification.permission !== 'granted') return;
   try {
     const reg = await registration();
@@ -176,8 +190,11 @@ export async function syncPush(householdId: string, prefs: NotificationPrefs): P
   } catch (e) { expected(e, 'webPush.sync'); }
 }
 
-/** Turn push off for this device (switch off, or signing out): server first, then the browser. */
-export async function disablePush(): Promise<void> {
+/** Turn push off for this device (switch off, or signing out): server first, then the browser.
+ *  `byChoice` (Settings): in the Android app the phone then stays off; a sign-out is not that choice. */
+export async function disablePush({ byChoice = false }: { byChoice?: boolean } = {}): Promise<void> {
+  const native = pushPlugin();
+  if (native) return disableNativePush(native, { byChoice });
   let endpoint: string | null = null;
   try { endpoint = localStorage.getItem(ENDPOINT_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch { /* fault-ok: storage unavailable: no endpoint was kept */ }
   try {
@@ -194,6 +211,8 @@ export async function disablePush(): Promise<void> {
  *  server retires the endpoint on its next send. Without this the next person on the device kept
  *  receiving the previous user's notifications. */
 export async function forgetPushOnDevice(): Promise<void> {
+  const native = pushPlugin();
+  if (native) return forgetNativePush(native);
   try { localStorage.removeItem(ENDPOINT_KEY); } catch { /* fault-ok: storage unavailable: no endpoint was kept */ }
   try {
     const reg = await registration();
@@ -208,7 +227,8 @@ export interface TestResult { device: string; status: number; accepted: boolean;
 export async function sendTestPush(): Promise<{ ok: true; results: TestResult[] } | { ok: false; error: string }> {
   let endpoint: string | undefined;
   try { endpoint = localStorage.getItem(ENDPOINT_KEY) ?? undefined; } catch { endpoint = undefined; }
-  const { data, error } = await sb().functions.invoke('web-push', { body: { mode: 'test', endpoint } });
+  const fcmToken = pushPlugin() ? nativeToken() ?? undefined : undefined;
+  const { data, error } = await sb().functions.invoke('web-push', { body: fcmToken ? { mode: 'test', fcmToken } : { mode: 'test', endpoint } });
   if (error) {
     let code = 'failed';
     try { code = (await (error as { context?: Response }).context?.json())?.error ?? code; } catch { /* fault-ok: an unreadable error body keeps the generic code */ }
@@ -217,9 +237,15 @@ export async function sendTestPush(): Promise<{ ok: true; results: TestResult[] 
   return { ok: true, results: (data?.results ?? []) as TestResult[] };
 }
 
+/** Does this device want push? The web: the saved switch. The Android app: on unless turned off there (T4d). */
+export function pushWanted(prefs: NotificationPrefs): boolean {
+  return pushPlugin() ? nativePushWanted() : prefs.webPushEnabled;
+}
+
 export interface DeviceStatus { registered: boolean; active?: boolean; last_status?: number | null; last_success_at?: string | null }
 
 export async function devicePushStatus(): Promise<DeviceStatus> {
+  if (pushPlugin()) return nativePushStatus();
   try {
     const reg = await registration();
     const sub = await reg?.pushManager.getSubscription();

@@ -96,3 +96,7 @@ home.html
 *.zip
 Inputs from CMO.md
 vyact-master-todo.md
+# T4d (v10.127.0): Firebase files for the Android app's push. They belong in GitHub / Supabase secrets, never here.
+google-services.json
+*firebase-adminsdk*.json
+fcm-service-account*.json

@@ -172,7 +172,9 @@ export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set,
     set({ notificationPrefs: next });
     // v10.48.0 — the server applies this device's switches and quiet hours when it pushes.
     const { cloudEnabled, currentHouseholdId } = get();
-    if (cloudEnabled && currentHouseholdId && currentHouseholdId !== 'local' && next.webPushEnabled) {
+    // T4d: syncPush decides (a browser only when its switch is on; the Android app unless turned off there),
+    // so a phone that registered by default still gets its quiet hours and "Show details" changes.
+    if (cloudEnabled && currentHouseholdId && currentHouseholdId !== 'local') {
       void syncPush(currentHouseholdId, next);
     }
   },

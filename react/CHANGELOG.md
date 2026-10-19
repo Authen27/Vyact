@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.126.0`** (consumer)
+> **Current production version: `v10.127.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,40 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.127.0 — The Android app can get lock-screen notifications (server side) *(2026-10-19)*
+
+One migration (`20261108120000_t4d_native_push.sql`), the web-push Edge Function, and the app. Track T4d.
+Owner decisions, 19 Oct 2026:
+- one device list;
+- the server is the only source on a registered phone;
+- on by default in the app;
+- a tap opens the app.
+
+The Play Store app is a WebView, which has no Web Push. It showed alerts only while it was running, so with the
+app closed nothing reached the lock screen. This release is the server side of real push for it.
+
+- **A phone registers by its Firebase Cloud Messaging token.** `register_native_push` stores it as a
+  `push_subscriptions` row of kind `fcm`, beside the browsers' rows. It is held to the same rules: members only,
+  a well-formed token, a household switch starts it afresh, and 10 live devices a person counting browsers and
+  phones together. `native_push_status` and `unregister_native_push` act on the caller's own phone only.
+- **The dispatcher sends phones the same alerts, through FCM.** Same rules (action-required only, the device's
+  switches, quiet hours in its zone, never a backlog, members only) and the same payload ("Show details on the
+  lock screen" applies). It is a notification message, so Android shows it with the app closed; a tap opens
+  the alert's page. The service account lives in the Edge secret `FCM_SERVICE_ACCOUNT_JSON`. Without it, phones
+  are skipped and browsers are unaffected. A token FCM reports gone retires the phone, but a fault of ours
+  (credentials, quota, an outage) never counts against it. "Send a test notification" works from the app too.
+- **In the app (once its APK carries the push plugin):**
+  - it asks Android's permission once and registers itself;
+  - Settings → Notifications can turn it off on that phone (signing out is not that choice);
+  - a rotated token replaces the old one;
+  - the app's own local notifications stop on a registered phone.
+
+  The bell's "get these on your phone" card is now for browsers only; since v10.126.0 it could appear in the
+  Android app with a button that could only refuse.
+- **What is left:** the Vyact-Android build (the plugin, `google-services.json`, the notification icon) and the
+  owner's Firebase setup (`docs/PUSH_TROUBLESHOOTING.md`). The Privacy Policy now names Google's Firebase Cloud
+  Messaging for the Android app, and says notifications are on there unless turned off.
 
 ## v10.126.0 — Notifications can keep amounts off the lock screen; the Android app says where push works *(2026-10-19)*
 

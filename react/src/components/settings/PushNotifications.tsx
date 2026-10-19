@@ -21,7 +21,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../../store';
 import { requestWebPushPermission } from '../../lib/notifications';
 import {
-  pushBlocker, enablePush, disablePush, sendTestPush, devicePushStatus, pushRefusalMessage,
+  pushBlocker, enablePush, disablePush, sendTestPush, devicePushStatus, pushRefusalMessage, pushWanted,
   type DeviceStatus,
 } from '../../lib/webPush';
 import { forceReloadForUpdate } from '../../lib/pwa';
@@ -60,7 +60,9 @@ export default function PushNotifications() {
   // Cloud: on only when this device is really registered. Local-only: the preference.
   const on = cloud ? registered : prefs.webPushEnabled;
   // The saved setting says on, but this phone never subscribed (or was unsubscribed).
-  const notSetUpHere = cloud && status !== null && prefs.webPushEnabled && !registered && blocker !== 'native_app';
+  // T4d: in the Android app the default is on (pushWanted), so "not set up" also covers a phone that
+  // has not registered yet (the permission was refused, or the first registration failed).
+  const notSetUpHere = cloud && status !== null && pushWanted(prefs) && !registered && blocker !== 'native_app';
   const details = prefs.lockScreenDetails !== false;
 
   async function turnOn() {
@@ -86,7 +88,7 @@ export default function PushNotifications() {
   async function turnOff() {
     setBusy(true);
     try {
-      await disablePush();
+      await disablePush({ byChoice: true });
       updatePrefs({ webPushEnabled: false });
       setStatus({ registered: false });
       setTestNote(null);

@@ -274,7 +274,8 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     void get().refreshNotifications();
     void get().refreshSharedSplits();
     // v10.48.0 — keep this device's push registration right (active household, a
-    // subscription the browser replaced or an update wiped). Silent; never prompts.
+    // subscription the browser replaced or an update wiped). Silent in a browser; the Android app (T4d,
+    // on by default) asks Android's notification permission once, the first time.
     if (get().cloudEnabled && active && active !== 'local') void syncPush(active, get().notificationPrefs);
 
     // Every household gets a default Cash account from day one (idempotent —
