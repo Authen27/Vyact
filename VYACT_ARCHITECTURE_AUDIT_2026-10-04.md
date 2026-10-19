@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 19 Oct 2026):** 151 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 19 Oct 2026):** 152 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -57,15 +57,15 @@ Two developers did the work:
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 20 | 5 | 1 | 0 | 0 | 3 | 0 |
 | Medium | 100 | 67 | 3 | 11 | 1 | 7 | 7 | 4 |
-| Low | 75 | 49 | 1 | 9 | 8 | 6 | 0 | 2 |
+| Low | 75 | 50 | 1 | 9 | 7 | 6 | 0 | 2 |
 | Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **141** | **10** | **21** | **10** | **14** | **10** | **6** |
+| **Total** | **212** | **142** | **10** | **21** | **9** | **14** | **10** | **6** |
 
-**151 of 212 are resolved (71%): all 3 critical and 25 of 29 high.** The other 61 fall into four groups:
+**152 of 212 are resolved (72%): all 3 critical and 25 of 29 high.** The other 60 fall into four groups:
 
-| What the 61 need | Count |
+| What the 60 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 22 |
+| Nothing but work: no decision, no blocker | 21 |
 | An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 8 |
@@ -135,6 +135,7 @@ Two developers did the work:
 | #231 | v10.120.0 | Track T5a: the Edge code and the unit tests are type-checked; Deno check, lint and smoke; date suites in 5 zones (owner, 19 Oct) | XC-ARC-09, GATE-04, INT-PAR-11 | — |
 | #232 | v10.121.0 | Track T5b: no silent catches (gate); post-await writes land in their own household; Money Map flag retired; split mark-paid queued; settled/closed email notices (owner, 19 Oct) | BE-FN-09, XC-ARC-08, XC-ARC-11, XC-ARC-10 | — |
 | #233 | v10.122.0 | Track T5c: WhatsApp budget alert and stale nudge on the app rules; Pip usage counted once (owner, 19 Oct) | FE-PIP-09, INT-PAR-05, XC-ARC-06 | — |
+| #234 | v10.123.0 | Track T5d: each project's scheduled jobs call that project, from Vault project_url written by its deploy (owner, 19 Oct) | DB-OPS-07 | BE-FN-11 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -207,8 +208,8 @@ Plus **R1** (high, new): see §0.3.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, INT-HH-08, OPS-11.
 
-**Low and info (27)**
-- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16.
+**Low and info (26)**
+- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16.
 - *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, DB-INT-15, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
 - *Backlog:* FE-PUB-08, BE-PIP-06.
 
@@ -923,7 +924,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | ADM-12 | LOW | Admin | Settings shows state it does not check: DB 'connected', GA4 'connected', stale versions | not independently verified (low/info) | 2026-09 audit 7.4 — partially fixed (security rows relabelled 'planned'); the database, GA4 and version assertions remain | Closed | #188 |
 | ADM-13 | LOW | Admin | Admin host has no CSP and publishes full source maps while holding god-mode JWT | not independently verified (low/info) |  | Closed | #188, #189 |
 | ADM-14 | LOW | Admin | Revenue KPIs mix currencies and statuses: MRR summed across currencies, labelled USD | not independently verified (low/info) |  | Partly | #188 |
-| BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. | Partly | #165 |
+| BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. | Partly | #165, v10.123.0 |
 | BE-PIP-04 | LOW | Backend | Untrusted learned recipes are written without confirmation, and one user can promote a global recipe | confirmed-with-caveats (adversarial: partial) |  | Partly | #187 |
 | BE-PIP-05 | LOW | Backend | key_env_var denylist misses MAILERSEND_API_KEY; base_url host checks are bypassable | not independently verified (low/info) |  | Closed | #187 |
 | BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 | Backlog | — |
@@ -933,7 +934,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | BE-WA-13 | LOW | Backend | Numbered follow-ups still answer after ANSWERS OFF | not independently verified (low/info) |  | Closed | #187 |
 | DB-INT-14 | LOW | Database | Money CHECKs have NULL and allowlist gaps (budget scope, allocations, categories) | not independently verified (low/info) |  | Open | — |
 | DB-INT-15 | LOW | Database | Split sharing matches on auth.users.email without requiring email_confirmed_at | not independently verified (low/info) |  | Owner decision | — |
-| DB-OPS-07 | LOW | Database | Every pg_cron job hard-codes the production URL; auto-generated secrets make test DBs call prod | confirmed-with-caveats (adversarial: partial) |  | Open | — |
+| DB-OPS-07 | LOW | Database | Every pg_cron job hard-codes the production URL; auto-generated secrets make test DBs call prod | confirmed-with-caveats (adversarial: partial) |  | Closed | v10.123.0 |
 | DB-OPS-09 | LOW | Database | RLS evaluates SECURITY DEFINER helpers per row; hot lookups lack indexes and some indexes are duplicated | confirmed (adversarial: confirmed) | TD-21 | Open | — |
 | DB-OPS-14 | LOW | Database | Twin v91 migrations and stale process docs contradict the actual apply path | not independently verified (low/info) | TD-41 | Closed | #189 |
 | INT-CON-04 | LOW | Integration | replace_<entity> RPCs are schema-stale: cloud bulk-replace drops money-model columns / violates CK_txn_accounts_by_type | confirmed-with-caveats (adversarial: partial) | TD-09 | Closed | #166 |
@@ -1259,7 +1260,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (61)
+### C.1 Unresolved (60)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1300,7 +1301,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | ADM-10 | low | Partly | #188 | Set allowed_mime_types = ['image/png','image/jpeg','image/webp'] and a file_size_limit on the bucket (a migration or a dashboard setting). | — | XS |
 | ADM-11 | low | Partly | #188 | Run a one-off backfill, e.g. author_name = 'Vyact' where author_name contains '@', and restore re-dated published_at values if the old dates are known. Limiting anon columns is FE-PUB-08 (backlog). | — | XS |
 | ADM-14 | low | Partly | #188 | Fix the Dashboard KPI. Either return per-currency MRR (active and trialing) from admin_dashboard_kpis (migration), or replace the tile with the per-currency helper and drop the 'USD' and '$' labels. | — | S |
-| BE-FN-11 | low | Partly | #165 | Codify the auth config (an [auth] section, or a checked-in auth snapshot verified by a script). Build the cron URLs from a Vault project_url secret instead of the literal prod host. | — | S |
+| BE-FN-11 | low | Partly | #165, v10.123.0 | The cron URLs are built from Vault project_url since v10.123.0 (T5d, with DB-OPS-07). Left: codify the auth config (an [auth] section, or a checked-in auth snapshot verified by a script). | — | S |
 | BE-PIP-04 | low | Partly | #187 | A learned recipe is deterministic only when trusted (#187). No confirmation or promotion flow was built; the pipeline is not connected to any entrypoint, so nothing is exposed today. | — | S |
 | INT-HH-13 | low | Partly | #184 | Purge the exited household's cache entries and delta cursors. Route to Households/create when no household remains after a leave. | — | XS |
 | INT-HH-14 | low | Partly | #188 | Count members server-side (a group-by RPC, or select('id, memberships(count)')) and paginate the households list. | W8 plan §4 (larger items, not planned) | S |
@@ -1309,7 +1310,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | ADM-05 | low | Open | — | Restrict writes to is_admin('super'). Add a CHECK or FK that ties category to the expense ids. Add a parity test of category_classifications rows against NEEDS_WANTS_MAP. Log changes once an admin audit exists. | — | S |
 | ADM-08 | low | Open | — | Add admin_list_households(p_limit, p_offset, p_query) with a GROUP BY member_count, a paginated admin_list_users with server-side search, and totals from count='exact' or the RPC. | — | M |
 | DB-INT-14 | low | Open | — | CHECK gaps (budget scope, allocations, categories); needs a migration (W8 §4). | — | S |
-| DB-OPS-07 | low | Open | — | Every pg_cron job hard-codes the production URL; build it from a Vault project_url instead (W8 §4). | — | S |
 | DB-OPS-09 | low | Open | — | RLS helper and index tuning (W8 §4). | — | M |
 | INT-TXN-14 | low | Open | — | Audit trail: keep the actor for server-side writers, and record deletes as deletes (needs a migration; W8 §4). | — | S |
 | XC-ARC-12 | low | Open | — | Structural: encode the money model in domain types. Not planned. | — | L |
@@ -1346,7 +1346,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (66)
+### C.3 Resolved, with a residual note (67)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1408,6 +1408,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-UIS-15 | low | Closed | #184, #186 | Owner decision: non-English options are labelled "Preview: navigation only". |
 | FE-UIS-16 | low | Closed | #184 | Expired invitations no longer count toward the member limit (migration 20261007120000:62). The recommendation's optional dirty-form confirm was not added. |
 | BE-WA-12 | low | Closed | #187, v10.118.0 | W8b (#187) counted stale claims as attempts. v10.118.0 (Track T2d; owner: every 5 minutes) adds pg_cron whatsapp-inbox-sweep with a Vault secret (whatsapp_sweep_cron_ok); the sweep also claims messages left pending over 2 minutes (inside 24 h), and a stale claim that runs out of attempts sends one "Sorry, I couldn't p… |
+| DB-OPS-07 | low | Closed | v10.123.0 | v10.123.0 (Track T5d; owner, 19 Oct 2026: "Deploy writes it"): the eight HTTP pg_cron jobs (five WhatsApp dispatches, web push, recurring-post, the inbox sweep) build their URL from Vault project_url (migration 20261106120000; no row, no call), stored by each project's deploy right after its migrations (scripts/store-… |
 | INT-CON-07 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): leave_household reads the caller's role null-safely: a non-member leaves nothing, the last owner cannot leave. JOIN-007. |
 | INT-HH-06 | low | Closed | #166, v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the unique (household_id, user_id) index is in place (with the merge); the W1a deferred owner trigger already guards continuity. The owner's read-only check for households left ownerless before that trigger is listed in the PR. |
 | GATE-03 | low | Closed | #185, #188 | Live-verified 12 Oct: no .map is served for the vyact.app or admin entry chunks. |
