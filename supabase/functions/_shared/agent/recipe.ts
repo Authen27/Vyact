@@ -458,7 +458,7 @@ function literalFrom(text: string, units: Unit[]): string {
 }
 
 /** Anchor levels walking LEFT from the value, longest first (most context wins). */
-function prefixLevels(text: string, units: Unit[], spans: Span[], valueStart: number): Unit[][] {
+function prefixLevels(_text: string, units: Unit[], spans: Span[], valueStart: number): Unit[][] {
   const chosen: Unit[] = [];
   for (let i = units.length - 1; i >= 0; i--) {
     const u = units[i];
@@ -474,7 +474,7 @@ function prefixLevels(text: string, units: Unit[], spans: Span[], valueStart: nu
 }
 
 /** Anchor levels walking RIGHT from the value, longest first. */
-function suffixLevels(text: string, units: Unit[], spans: Span[], valueEnd: number): Unit[][] {
+function suffixLevels(_text: string, units: Unit[], spans: Span[], valueEnd: number): Unit[][] {
   const chosen: Unit[] = [];
   for (let i = 0; i < units.length; i++) {
     const u = units[i];

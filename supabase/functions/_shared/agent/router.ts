@@ -633,7 +633,7 @@ export async function chatCompletion(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-  } catch (e) {
+  } catch {
     if (timedOut) {
       return fail('timeout', `Provider did not answer within ${timeoutMs}ms.`);
     }
