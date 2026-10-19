@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.124.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.125.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -512,6 +512,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   names are readable ONLY by a bedrock row whose base_url is `https://bedrock-runtime.<region>.amazonaws.com`;
   the keys live in Edge Function secrets, never in an app `.env` or the browser. Every other guarantee
   (OFF state, caps, timeout, never-throw, metering) is the shared router's.
+  **Every request to OpenRouter asks for providers that keep no data (v10.125.0, T4b; audit XC-PRV-10; owner,
+  19 Oct 2026).** The router adds `provider: { data_collection: 'deny' }` for an openrouter.ai endpoint
+  (`isOpenRouterEndpoint`), after the row's `params.extra`, so no config row can change it. The Privacy Policy
+  says so; never route Pip through a provider the Privacy Policy does not name.
   **Since v10.106.3 the gateway keeps the enabled `ai_model_configs` rows in each isolate for 30 s**
   (`CONFIG_CACHE_TTL_MS`; a failed read is never cached), so a row switched on or off (the rollback
   included) takes up to 30 s to reach every request. **Since v10.107.1 membership and the quota
@@ -754,7 +758,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   header only; RLS lets `anon` read published rows with NO function call in the policy (an `is_admin()`
   in an anon-reachable policy fails every read at plan time — the 9 Sep outage). Don't advertise a
   feature a new user cannot use yet (WhatsApp logging, until number linking is open). **GA loads only
-  on vyact.app / www.vyact.app**; funnel events are in `docs/measurement/events.yaml`, never with
+  on vyact.app / www.vyact.app, and only after consent** (Analytics asks first, below); funnel events are in `docs/measurement/events.yaml`, never with
   personal or financial data. **A Vercel preview never touches production data** (`vite.config.ts`).
   🔴 Emptying `VITE_SUPABASE_URL` is NOT enough: `lib/supabase.ts` refills it with the production
   fallback in any PROD build. A build that must stay off production sets `VITE_LOCAL_ONLY=1` too
@@ -793,8 +797,26 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - The sign-up form sends the policy version the person accepted in the sign-up metadata (`policy_version`);
     `handle_new_user` stamps `tos_*` / `privacy_*` in the same transaction as the account. A browser-only
     record was lost when an email sign-up confirmed in a new tab.
-  - An OAuth sign-up carries no form data, so the app records it, and asks anyone whose record is not the
-    current `POLICY_VERSION` to accept it (T4b).
+  - An OAuth sign-up carries no form data, so it has no record until the person accepts.
+  - **Anyone whose record is not the current `POLICY_VERSION` is asked again (v10.125.0, T4b; owner: "accept
+    on change").** `AuthGate` reads `profiles.privacy_version` and shows `PolicyUpdateSheet` (what changed,
+    from `POLICY_CHANGES`; Accept or Sign out), never over /privacy, /terms or /cookies. Changing a policy
+    means bumping `POLICY_VERSION` (an ISO date) and rewriting `POLICY_CHANGES` in the same change.
+  - **Vyact is for people 18 or older** (owner, 19 Oct 2026). Sign-up, the Google button, the Terms and the
+    Privacy Policy say so. There is no child account.
+- **Analytics asks first (v10.125.0, T4b; audit XC-PRV-03; owner, 19 Oct 2026: "ask first, off until yes" on
+  the web; the Android app has it on through its app permissions).**
+  - ONE script, `react/api/_consent.js` (`analyticsSnippet`), on every page that can count. `index.html` gets
+    it at build time (the `<!--vyact:analytics-->` placeholder and the `vyact-analytics` Vite hook, which fails
+    the build without it); the public pages get it through `api/_page.js`. Never add a second GA loader.
+  - Consent Mode starts denied, and ads storage, ads data and ad personalisation are never granted. On the web,
+    gtag.js is not even loaded until the person allows it: on the banner, in Settings → Usage analytics or on
+    the Cookie Policy. The choice is `vt_analytics_consent` on the device; "No thanks" clears the `_ga*` cookies.
+  - In the Android app (Capacitor) it starts without a banner, and Settings shows it as set by the app.
+  - The app sends an event only while `window.__vyGaOn` is true (`lib/analytics.ts`), and reads or changes
+    the choice only through `lib/analyticsConsent.ts`. The redacted `page_location` (W0) is the script's.
+  - The Privacy Policy names every processor with where it is. A new third party is added there, and to
+    `POLICY_CHANGES` with a new `POLICY_VERSION`, before it receives anyone's data.
 - **Account lifecycle (v10.63.0, audit W1b; owner decisions).**
   - Deleting an account is **immediate and one database transaction**: `purge_account(user)` (service role only), called by `delete-account`, which deletes the login last. No 30-day schedule — it was never executed and is gone.
   - An owner whose household has other members and no other owner gets `transfer_required`; never delete a household out from under its members.
@@ -868,12 +890,18 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - There are no single-letter shortcuts (v10.91.0; owner decision 13 Oct 2026; WCAG 2.1.4). Adding starts
     from the page's button, the floating + or ⌘K. Transactions' `/` (focus only) is the one left;
     W6-UIS10-004 fails if another is registered.
+  - vyact.app's Content-Security-Policy is report-only and reports to `/api/csp-report` (v10.125.0, T4b;
+    FE-PLT-04; owner: "collect reports, then enforce"). It logs the directive, the blocked host and the page
+    path, never a query string, a fragment or a sample. Enforce it only after a clean week of reports.
 - **More frontend guards (v10.80.0, W7a).**
   - `Button` defaults to `type="button"`; a form's submit button says `type="submit"`.
   - Totals on the Transactions page (filtered net, month nets, calendar days) go through
     `lib/txnListTotals.ts` (reportable rows, effective amount), never a raw `amount` sum.
   - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
-    `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
+    `paymentMethod` resolver last). "Download my data" (`lib/backup.ts`) holds exactly the owner's list (v10.125.0, T4b;
+    XC-PRV-08): transactions, splits (by you and with you), debts, accounts, net worth (assets and the monthly
+    history), recurring schedules, and the household (name, type, currency, members' names and roles). Never
+    add budgets, goals, the profile or another collection to it without an owner decision.
   - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
 - **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4, v10.104.0 A5, v10.105.0 A6, v10.106.0 A7 + A8; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
   - Surfaces are three tiers only: `.card-raised` (heroes, KPIs, 18px), the panel (lists), and `.well`

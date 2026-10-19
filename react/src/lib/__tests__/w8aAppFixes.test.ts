@@ -181,7 +181,7 @@ describe('W8a · app fixes', () => {
     expect(src('pages/auth/SignIn.tsx')).toMatch(/<GoogleButton consentByContinuing \/>/);
     const g = src('components/auth/GoogleButton.tsx');
     expect(g).toMatch(/if \(requireAgreement \|\| consentByContinuing\) sessionStorage\.setItem\('pending_policy_accept', '1'\);/);
-    expect(g).toMatch(/By continuing with Google you agree to the/);
+    expect(g).toMatch(/By continuing with Google you confirm you are 18 or older and agree to the/);   // 18+ since T4b
   });
 
   it('W8a-PAR05-001 · one stale-balance rule: a new account is fresh; push and Reply UPDATE agree (INT-PAR-05)', () => {

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.124.0`** (consumer)
+> **Current production version: `v10.125.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.125.0 — Analytics asks first; the policies say what is true, and you're asked to accept them *(2026-10-19)*
+
+App, the public pages and one Edge change (Pip's model router); no migration. Track T4 (privacy and compliance),
+part b: audit XC-PRV-03, XC-PRV-08, XC-PRV-09, XC-PRV-10, XC-PRV-11, XC-PRV-14 and FE-PLT-04. Owner decisions,
+19 Oct 2026.
+
+- **Google Analytics asks first on the web.** On vyact.app (in a browser or the installed app), nothing reaches
+  Google until you choose "Allow analytics" on the banner. "No thanks" keeps it off and clears Google's cookies.
+  You can change it any time in Settings → About → Usage analytics, or on the Cookie Policy. The Learn pages use the
+  same choice. In the Vyact Android app, analytics is part of the app's permissions, so it is on there and Settings
+  says so. Previews, test sites and the admin app never count anything. Before this, Google Analytics loaded for
+  every visitor while the Cookie Policy said it ran only if you opted in.
+- **When the policies change, you're asked to accept them.** Anyone whose accepted version is older than today's
+  (19 Oct 2026) sees "We've updated our policies" once, with what changed, and can accept or sign out. A new account
+  now sends the version it accepted, and the server records it with the account (v10.124.0). Google sign-ins,
+  which had no record, are asked the same way.
+- **Vyact is for people 18 or older.** Sign-up, the Google button, the Terms and the Privacy Policy say so. The Terms
+  no longer mention a child profile, which the app has not had since v10.62.0.
+- **The Privacy Policy names who processes your data and where.** That covers Supabase, Vercel, Amazon Web Services
+  (Pip's language model, Amazon Nova Lite in Sydney, Australia), OpenRouter (Pip's fallback, USA), Google
+  Analytics (only if you allow it), Userback, Meta (WhatsApp), the email senders and the push services. It adds
+  your rights under India's Digital Personal Data Protection Act, how to raise a grievance, and what Vyact does if
+  data is breached. The company's legal name, address, Grievance Officer and database region are marked "to be
+  published"; until then, write to support@vyact.app.
+- **Pip's fallback through OpenRouter asks for providers that keep no data.** Every request through OpenRouter
+  carries `provider.data_collection: deny`, so it goes only to model providers that do not keep or train on it.
+  A model configuration row cannot change that.
+- **"Download my data" holds exactly your household's records:** transactions, splits (shared by you and with you),
+  debts, accounts, net worth (assets and the monthly history), recurring bills, and the household's name, type,
+  currency and members' names and roles. Budgets, goals and your profile are no longer in it.
+- **Content-Security-Policy reports are collected.** The policy is still report-only. Browsers now send each
+  violation to `/api/csp-report`, which logs the directive, the blocked host and the page path, nothing else.
+  After about a week with nothing unexpected, the policy will be enforced.
+- **No personal email addresses in the repository.** A work address in this changelog and a migration comment
+  became `manu@example.com`, and the docs check now fails on any address outside the example and Vyact domains.
+  `SECURITY.md` names Vyact (not FinFlow) and adds the breach runbook.
 
 ## v10.124.0 — Your consent is kept by the server; splits find you by your confirmed email *(2026-10-19)*
 
@@ -5432,7 +5469,7 @@ Round of fixes on v10.14.0's split sharing, from live testing:
   participant is alerted in the bell when a split is shared with their email —
   previously they'd only find it by opening the Splits page.
 - **Verification of feedback 3 (did it reach the other accounts?):** the shared
-  rows were created correctly. `u.reddy@vidaxl.com` (an existing account) **does**
+  rows were created correctly. `manu@example.com` (an existing account) **does**
   see the split via RLS on their Splits page once signed in; `owner@example.com`
   has no account yet, so it's pending their signup (by design). **No emails were
   sent because the app has no email-sending capability at all** — all split

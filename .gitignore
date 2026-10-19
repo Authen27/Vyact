@@ -91,6 +91,8 @@ react/playwright-report-lane-b/
 
 # W8d (audit XC-PRV-14): feedback screenshots and owner working files stay out of the repo.
 Userback/
+# T4b (XC-PRV-14): a saved copy of an app page (real figures).
+home.html
 *.zip
 Inputs from CMO.md
 vyact-master-todo.md

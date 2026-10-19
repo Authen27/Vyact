@@ -21,7 +21,9 @@ export async function signUp({ email, password, displayName }: SignUpInput) {
     email, password,
     options: {
       // W3a — the household made for this account starts in this device's zone (households trigger).
-      data: { display_name: displayName, timezone: deviceTimeZone() ?? undefined },
+      // T4b (v10.125.0, XC-PRV-09) — the policy version ticked on the form: the server records the
+      // acceptance with the account (handle_new_user, T4a), so it is never lost to a new tab.
+      data: { display_name: displayName, timezone: deviceTimeZone() ?? undefined, policy_version: POLICY_VERSION },
       emailRedirectTo: `${APP_URL}/auth/verified`,
     },
   });

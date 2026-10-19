@@ -145,21 +145,27 @@ describe('library, hubs, sitemap, llms.txt (#10, #25)', () => {
 });
 
 describe('analytics gating and deep links (#3, #4, #20)', () => {
-  it('CON-UNIT-PUB-009 · GA loads only on vyact.app / www.vyact.app; elsewhere events go nowhere', () => {
-    const run = (host: string) => {
+  it('CON-UNIT-PUB-009 · GA can run only on vyact.app / www.vyact.app, and only once the visitor allows it (T4b); elsewhere nothing is queued', () => {
+    const run = (host: string, stored: string | null = null) => {
       const appended: string[] = [];
+      const store = new Map<string, string>(stored ? [['vt_analytics_consent', stored]] : []);
+      const el = () => ({ style: {}, setAttribute() {}, appendChild() {}, addEventListener() {} });
       // v10.53.0: gtag.js waits for load + idle; this page has loaded and is idle.
-      const win: Record<string, unknown> = { matchMedia: () => ({ matches: false }), requestIdleCallback: (fn: () => void) => fn() };
-      const doc = { readyState: 'complete', createElement: () => ({}), head: { appendChild: (s: { src: string }) => appended.push(s.src) } };
+      const win: Record<string, unknown> = { matchMedia: () => ({ matches: false }), requestIdleCallback: (fn: () => void) => fn(), addEventListener() {} };
+      const doc = { readyState: 'complete', cookie: '', createElement: el, createTextNode: () => ({}), addEventListener() {},
+        head: { appendChild: (s: { src: string }) => appended.push(s.src) }, body: { appendChild() {} } };
+      const ls = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) };
       const code = analyticsSnippet().replace(/<\/?script>/g, '');
-      new Function('window', 'location', 'document', code)(win, { hostname: host }, doc);
+      new Function('window', 'location', 'document', 'localStorage', code)(win, { hostname: host, pathname: '/learn', search: '', origin: `https://${host}` }, doc, ls);
       (win.vyTrack as (n: string) => void)('learn_card_view');
       return { appended, layer: (win.dataLayer as unknown[]).length };
     };
-    expect(run('vyact.app').appended[0]).toContain('googletagmanager.com/gtag/js?id=G-E3XKWZP850');
-    expect(run('www.vyact.app').appended).toHaveLength(1);
+    expect(run('vyact.app', 'granted').appended[0]).toContain('googletagmanager.com/gtag/js?id=G-E3XKWZP850');
+    expect(run('www.vyact.app', 'granted').appended).toHaveLength(1);
+    expect(run('vyact.app').appended).toHaveLength(0);              // not chosen yet: the banner asks, nothing loads
+    expect(run('vyact.app', 'denied').appended).toHaveLength(0);
     for (const h of ['localhost', 'vyact-git-main-authen27.vercel.app', 'stage.vyact.app', 'admin.vyact.app']) {
-      const r = run(h);
+      const r = run(h, 'granted');
       expect(r.appended, h).toHaveLength(0);
       expect(r.layer, h).toBe(0);
     }
@@ -491,18 +497,13 @@ describe('first paint is not blocked by third parties', () => {
     expect(head).toMatch(/<link\s+rel="preload" as="style"[^>]*fonts\.googleapis\.com/);
     // W0 (audit 2026-10-04, XC-PRV-03) — Contentsquare session replay is removed everywhere.
     expect(head).not.toMatch(/contentsquare\.net/i);
-    expect(head).toMatch(/addEventListener\('load'/);
-    // W0 (XC-PRV-02) — GA's page_location is redacted: no invite token, no email/token/code.
-    expect(head).toMatch(/gtag\('config', 'G-E3XKWZP850', \{ page_location: cleanLocation\(\) \}\)/);
-    const cleanSrc = head.match(/function cleanLocation\(\) \{[\s\S]*?\n {8}\}/)?.[0];
-    expect(cleanSrc).toBeTruthy();
-    const clean = new Function('location', `${cleanSrc}; return cleanLocation();`) as
-      (loc: { origin: string; pathname: string; search: string }) => string;
-    expect(clean({ origin: 'https://vyact.app', pathname: '/invite/3f9a-secret', search: '?email=a%40b.com&utm_source=mail' }))
-      .toBe('https://vyact.app/invite/:token?utm_source=mail');
-    expect(clean({ origin: 'https://vyact.app', pathname: '/auth/sign-up', search: '?email=a%40b.com&token=x&code=y&next=%2Fsplits' }))
-      .toBe('https://vyact.app/auth/sign-up');
-    expect(clean({ origin: 'https://vyact.app', pathname: '/transactions', search: '' })).toBe('https://vyact.app/transactions');
+    // T4b (v10.125.0, XC-PRV-03) — the analytics script is api/_consent.js, put in place at build time (one
+    // source with the Learn pages). It loads gtag.js after load + idle, only after consent, with a redacted
+    // page_location: T4B-001..003 run it.
+    expect(head).toMatch(/<!--vyact:analytics-->/);
+    expect(head).not.toMatch(/googletagmanager\.com/);
+    const viteConfig = readFileSync(resolve(__dirname, '../../../vite.config.ts'), 'utf8');
+    expect(viteConfig).toMatch(/html\.replace\('<!--vyact:analytics-->', analyticsSnippet\(\)\)/);
 
     // v10.52.1 — on "/" the feedback widget waits for the first interaction.
     const mainTsx = readFileSync(resolve(__dirname, '../../main.tsx'), 'utf8');
@@ -514,8 +515,9 @@ describe('first paint is not blocked by third parties', () => {
     expect(lessonHead.replace(/<noscript>[\s\S]*?<\/noscript>/g, '')).not.toMatch(/<link[^>]*rel="stylesheet"[^>]*fonts\.googleapis\.com/);
     expect(lessonHead).toMatch(/rel="preload" as="style"[^>]*fonts\.googleapis\.com/);
     // v10.53.0 — gtag.js on Learn / for pages is fetched after load + idle, not during parse.
-    expect(lessonHead).toMatch(/window\.requestIdleCallback\(late,\{timeout:3000\}\)/);
-    expect(lessonHead).toMatch(/addEventListener\('load',idle/);
+    // T4b: the shared consent script (api/_consent.js), still after load + idle, and only after consent.
+    expect(lessonHead).toMatch(/window\.requestIdleCallback\(load, \{ timeout: 3000 \}\)/);
+    expect(lessonHead).toMatch(/addEventListener\('load', idle/);
   });
 });
 
