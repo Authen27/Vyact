@@ -9,7 +9,7 @@ export async function testServiceAccount(): Promise<{ sa: ServiceAccount; json: 
   const der = new Uint8Array(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
   const b64 = btoa(String.fromCharCode(...der)).replace(/(.{64})/g, '$1\n');
   const account = { type: 'service_account', project_id: 'vyact-app', private_key_id: 'k1',
-    private_key: `-----BEGIN PRIVATE KEY-----\n${b64}\n-----END PRIVATE KEY-----\n`,
+    private_key: `-----BEGIN PRIVATE KEY-----\n${b64}\n-----END PRIVATE KEY-----\n`, // secret-scan: allow (generated at runtime; a test fixture, never a real key)
     client_email: 'fcm-sender@vyact-app.iam.gserviceaccount.com', client_id: '1', token_uri: GOOGLE_TOKEN_URL };
   return { sa: parseServiceAccount(JSON.stringify(account))!, json: JSON.stringify(account), publicKey: pair.publicKey };
 }
