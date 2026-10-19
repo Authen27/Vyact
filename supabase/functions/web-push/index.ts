@@ -4,6 +4,10 @@
 //   • POST {mode:'key'}   member JWT → the VAPID public key the browser subscribes with.
 //   • POST {mode:'test'}  member JWT → a test notification to the caller's own devices,
 //                         with each push service's answer, so a device is proven end to end.
+//   • v10.127.0 (T4d): a device is a browser (kind 'webpush', Web Push) or the Vyact Android app (kind
+//     'fcm', Firebase Cloud Messaging through _shared/fcm.ts, with the service account in the secret
+//     FCM_SERVICE_ACCOUNT_JSON). Both get the same payload under the same rules; without the secret a phone
+//     is skipped as fcm_not_configured.
 //   • POST ?mode=dispatch pg_cron (x-cron-secret, checked against Vault) or the service key:
 //       1. for every household with a subscribed device, raise the notifications the APP
 //          would raise (the bundled lib/notifications.ts rules, serverEngine) into the
@@ -19,9 +23,10 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, json, corsHeaders } from '../_shared/whatsapp.ts';
 import { isServiceCaller } from '../_shared/service-auth.ts';
-import { generateVapidKeys, sendWebPush, isPushEndpoint, type VapidKeys } from '../_shared/web-push.ts';
+import { generateVapidKeys, sendWebPush, isPushEndpoint, type VapidKeys, type PushTarget } from '../_shared/web-push.ts';
+import { parseServiceAccount, sendFcm, type ServiceAccount } from '../_shared/fcm.ts';
 import {
-  skipReason, payloadFor, testPayload, type SubscriptionRow, type NotificationRow,
+  skipReason, payloadFor, testPayload, type SubscriptionRow, type NotificationRow, type PushPayload,
 } from '../_shared/web-push-rules.ts';
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
 import { notificationsOnServer, lockScreenTextOnServer } from '../_shared/agent/engine.ts';
@@ -34,16 +39,41 @@ const TEST_LIMIT_PER_10_MIN = 5;
 const RAISE_PER_RUN = 50;
 const RAISE_BUDGET_MS = 60_000;
 const RUN_EVERY_MS = 15 * 60_000;   // the pg_cron schedule
-const SUB_COLUMNS = 'id, user_id, household_id, endpoint, p256dh, auth, tz, prefs, created_at, disabled_at, user_agent';
+const SUB_COLUMNS = 'id, user_id, household_id, kind, fcm_token, endpoint, p256dh, auth, tz, prefs, created_at, disabled_at, user_agent';
 
 type Sub = SubscriptionRow & { user_agent: string | null };
+/** A send's answer. `deviceFault: false` = the fault was ours (FCM credentials, quota, outage): not the phone's. */
+type Outcome = { status: number; ok: boolean; gone: boolean; error?: string; deviceFault?: boolean };
+
+/** A browser row's push target (endpoint and keys), or null for a phone or a malformed row. */
+function webTarget(sub: Sub): PushTarget | null {
+  if (sub.kind === 'fcm' || !sub.endpoint || !sub.p256dh || !sub.auth) return null;
+  return { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth };
+}
+
+/** The Firebase service account from the secret, or null (FCM off). */
+const fcmAccount = (): ServiceAccount | null => parseServiceAccount(env('FCM_SERVICE_ACCOUNT_JSON'));
+
+/** Sends one payload to one device of either kind; a reason string when it cannot be sent at all. */
+async function deliver(
+  sub: Sub, payload: PushPayload, keys: () => Promise<VapidKeys>, fcm: ServiceAccount | null,
+  opts: { ttlSeconds?: number; urgency?: 'high' } = {},
+): Promise<Outcome | 'fcm_not_configured' | 'endpoint_not_allowed'> {
+  if (sub.kind === 'fcm') {
+    if (!fcm || !sub.fcm_token) return 'fcm_not_configured';
+    return await sendFcm(fcm, sub.fcm_token, payload);
+  }
+  const target = webTarget(sub);
+  if (!target || !isPushEndpoint(target.endpoint)) return 'endpoint_not_allowed';
+  return await sendWebPush(target, payload, await keys(), opts);
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
-  const body = await req.json().catch(() => ({})) as { mode?: string; endpoint?: string };
+  const body = await req.json().catch(() => ({})) as { mode?: string; endpoint?: string; fcmToken?: string };
   const mode = new URL(req.url).searchParams.get('mode') ?? body.mode ?? '';
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
 
@@ -74,20 +104,25 @@ Deno.serve(async (req: Request) => {
     if ((count ?? 0) >= TEST_LIMIT_PER_10_MIN) return json({ error: 'too_many_tests' }, 429);
     let q = admin.from('push_subscriptions').select(SUB_COLUMNS).eq('user_id', user.id).is('disabled_at', null);
     if (body.endpoint) q = q.eq('endpoint', body.endpoint);
+    if (body.fcmToken) q = q.eq('fcm_token', body.fcmToken);
     const { data: subs, error } = await q;
     if (error) return json({ error: 'subscriptions_unavailable' }, 500);
     if (!subs?.length) return json({ error: 'no_devices' }, 404);
-    const keys = await vapidKeys(admin);
+    let vapid: VapidKeys | null = null;
+    const keys = async () => (vapid ??= await vapidKeys(admin));
+    const fcm = fcmAccount();
     const now = new Date();
     const results = [];
     for (const sub of subs as Sub[]) {
+      const device = deviceLabel(sub);
       // T2b-2 (BE-FN-07): one device's failure never stops the test for the others.
       try {
-        const outcome = await sendWebPush(sub, testPayload(now, sub.tz), keys, { ttlSeconds: 600, urgency: 'high' });
+        const outcome = await deliver(sub, testPayload(now, sub.tz), keys, fcm, { ttlSeconds: 600, urgency: 'high' });
+        if (typeof outcome === 'string') { results.push({ device, status: 0, accepted: false, gone: false, problem: outcome }); continue; }
         await record(admin, sub, null, 'test', outcome);
-        results.push({ device: deviceLabel(sub.user_agent), status: outcome.status, accepted: outcome.ok, gone: outcome.gone });
+        results.push({ device, status: outcome.status, accepted: outcome.ok, gone: outcome.gone });
       } catch {
-        results.push({ device: deviceLabel(sub.user_agent), status: 0, accepted: false, gone: false });
+        results.push({ device, status: 0, accepted: false, gone: false });
       }
     }
     return json({ sent: results.length, results });
@@ -107,18 +142,21 @@ async function vapidKeys(admin: SupabaseClient): Promise<VapidKeys> {
 }
 
 async function record(
-  admin: SupabaseClient, sub: Sub, notificationId: string | null, kind: 'test' | 'notification',
-  outcome: { status: number; ok: boolean; gone: boolean; error?: string },
+  admin: SupabaseClient, sub: Sub, notificationId: string | null, kind: 'test' | 'notification', outcome: Outcome,
 ): Promise<void> {
   await admin.from('push_deliveries').insert({
     subscription_id: sub.id, user_id: sub.user_id, notification_id: notificationId, kind,
     status: outcome.status, error: outcome.error ?? null,
   });
+  // T4d: a fault of OURS (FCM credentials, quota, outage) is logged above but never counts against the phone,
+  // or five bad runs would retire every phone (web_push_mark_device retires after five failures in a row).
+  if (!outcome.ok && outcome.deviceFault === false) return;
   await admin.rpc('web_push_mark_device', { p_id: sub.id, p_status: outcome.status, p_ok: outcome.ok, p_gone: outcome.gone });
 }
 
-function deviceLabel(ua: string | null): string {
-  const u = ua ?? '';
+function deviceLabel(sub: { kind?: string; user_agent: string | null }): string {
+  if (sub.kind === 'fcm') return 'Vyact app on Android';
+  const u = sub.user_agent ?? '';
   const os = /Android/.test(u) ? 'Android' : /iPhone|iPad|iPod/.test(u) ? 'iPhone/iPad' : /Windows/.test(u) ? 'Windows'
     : /Mac OS X/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'device';
   const br = /Edg\//.test(u) ? 'Edge' : /SamsungBrowser/.test(u) ? 'Samsung Internet' : /Chrome\//.test(u) ? 'Chrome'
@@ -172,7 +210,9 @@ async function dispatch(admin: SupabaseClient, now: Date) {
     .select('id, household_id, type, priority, title, body, status, created_at, deep_link, dedupe_key')
     .in('household_id', households).eq('source', 'server').is('pushed_at', null).gt('created_at', since).order('created_at');
   if (pErr) throw new Error(`pending: ${pErr.message}`);
-  const keys = pending?.length ? await vapidKeys(admin) : null;
+  let vapid: VapidKeys | null = null;
+  const keys = async () => (vapid ??= await vapidKeys(admin));
+  const fcm = fcmAccount();
   // W3a (audit INT-TZC-05, BE-FN-08) — a push held back for QUIET HOURS is not done: it stays
   // pending (inside PUSH_WINDOW_MS) and goes out on the first run after quiet hours end. Before,
   // every row considered was stamped pushed, so a bill due today, raised at local midnight, was
@@ -197,11 +237,11 @@ async function dispatch(admin: SupabaseClient, now: Date) {
       const why = skipReason(n, sub, now);
       if (why === 'quiet_hours') waiting.add(n.id);
       if (why) { skipped[why] = (skipped[why] ?? 0) + 1; continue; }
-      if (!isPushEndpoint(sub.endpoint)) { skipped.endpoint_not_allowed = (skipped.endpoint_not_allowed ?? 0) + 1; continue; }
       // W0 (BE-FN-07) — one device's failure never stops the others.
       try {
-        // T4c (BE-FN-12): the device's "Show details on the lock screen" decides the words.
-        const outcome = await sendWebPush(sub, payloadFor(n, sub.prefs, lockScreenTextOnServer), keys!, { urgency: 'high' });
+        // T4c (BE-FN-12): the device's "Show details on the lock screen" decides the words; T4d: browser or phone.
+        const outcome = await deliver(sub, payloadFor(n, sub.prefs, lockScreenTextOnServer), keys, fcm, { urgency: 'high' });
+        if (typeof outcome === 'string') { skipped[outcome] = (skipped[outcome] ?? 0) + 1; continue; }
         await record(admin, sub, n.id, 'notification', outcome);
         if (outcome.ok) pushed++;
         if (outcome.gone) sub.disabled_at = now.toISOString();

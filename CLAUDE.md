@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.126.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.127.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -738,6 +738,21 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - The Android app (a Capacitor WebView) has no Web Push: `pushBlocker()` is `native_app` there, and Settings
     says to use vyact.app installed from Chrome. Native push (FCM) is separate work in the Android repo.
   - Why a push did not arrive, and the read-only checks: `docs/PUSH_TROUBLESHOOTING.md`.
+  **The Android app gets lock-screen notifications through FCM (v10.127.0, T4d; owner decisions 19 Oct 2026).**
+  - One device list: a phone is a `push_subscriptions` row of kind `fcm` (its `fcm_token`, no endpoint or keys;
+    `ck_push_subscription_shape`), registered only by `register_native_push`, beside the browsers' `webpush`
+    rows. The same cap (10 live a person, both kinds), the same dispatcher rules and the same `payloadFor`.
+  - The dispatcher sends a phone through `_shared/fcm.ts` (HTTP v1, the service account in the Edge secret
+    `FCM_SERVICE_ACCOUNT_JSON`). It is a notification message on the `vyact_alerts` channel, and `data.url` is
+    where a tap lands. No secret: `fcm_not_configured`, never an error. Only a token FCM reports gone counts
+    against the phone (`deviceFault`); never retire phones for our own credential, quota or outage faults.
+  - In the app, `lib/nativePush.ts` reaches the plugin through `window.Capacitor.Plugins.PushNotifications`
+    (no Capacitor package in the web build). The `webPush.ts` functions route there when `pushPlugin()` exists.
+    It is on by default: Android's permission is asked once, then never by itself. Off in Settings is kept on the
+    phone (`disablePush({ byChoice: true })`); a sign-out is not that choice. A registered phone
+    (`deviceHasServerPush`) raises no local notifications: the server is the only source.
+  - The Vyact-Android fork supplies the native side: the plugin, `google-services.json` from a secret, and the
+    notification icon. Never commit a Firebase file here (`.gitignore`).
 - **"Can I afford …" is budget-first; the safety floor is SOFT (v10.48.1, owner's rule).** The verdict rests on
   the purchase's category budget this month (`purchaseCategory` → `categoryBudget`) and the money free after
   card dues. The three-month floor is stated separately (`safety_floor_note`), last, in its own paragraph, as a

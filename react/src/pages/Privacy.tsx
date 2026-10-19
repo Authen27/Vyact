@@ -94,7 +94,7 @@ export default function Privacy() {
           <><strong className="text-ink">Userback</strong> — the in-app feedback widget on app pages. When you send feedback it can include a screenshot of the screen you are on and basic browser details; a screenshot can show the figures on that screen.</>,
           <><strong className="text-ink">Meta</strong> (WhatsApp Business Platform) — only if you link your WhatsApp number.</>,
           <><strong className="text-ink">Email delivery</strong> (MailerSend, Resend or our SMTP provider) — sends sign-in, invitation and split emails.</>,
-          <><strong className="text-ink">Push services</strong> (Google, Apple, Microsoft or Mozilla, whichever your browser uses) — deliver notifications you turned on to your device.</>,
+          <><strong className="text-ink">Push services</strong> (Google, Apple, Microsoft or Mozilla, whichever your browser uses; in the Vyact Android app, Google&apos;s Firebase Cloud Messaging) — deliver your notifications to your device: their title and text, which say only what needs a look when &quot;Show details on the lock screen&quot; is off. In a browser they are sent once you turn them on; in the Android app they are on unless you turn them off in Settings.</>,
         ]} />
         <p>We may disclose information where required by law, to protect the rights, property, or safety of Vyact, our users, or the public, or in connection with a merger, acquisition, or sale of assets — in which case we will notify affected users before data is transferred under materially different terms.</p>
 

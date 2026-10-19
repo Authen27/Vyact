@@ -25,21 +25,21 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1593 passing deterministic cases in 179 files. Zero failed, skipped or TODO cases at generation.**
+**1612 passing deterministic cases in 182 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 126 |
-| react | contract-unit | conditional | 130 |
+| react | contract-unit | available | 131 |
+| react | contract-unit | conditional | 132 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 134 |
+| react | sql-integration | conditional | 139 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
-| react | unit | available | 450 |
+| react | unit | available | 457 |
 | react | unit | conditional | 236 |
 | react | unit | infrastructure | 229 |
 
@@ -112,6 +112,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/essentialRunway.test.ts](../react/src/lib/__tests__/essentialRunway.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/exclusive.test.ts](../react/src/lib/__tests__/exclusive.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/faults.test.ts](../react/src/lib/__tests__/faults.test.ts) | Permissions and faults | unit | available | 3 |
+| [react/src/lib/__tests__/fcmSend.test.ts](../react/src/lib/__tests__/fcmSend.test.ts) | Firebase Cloud Messaging sender (T4d) | contract-unit | available | 5 |
 | [react/src/lib/__tests__/featureOutputs.test.ts](../react/src/lib/__tests__/featureOutputs.test.ts) | Reports, Planner, Insights, notifications | unit | available | 6 |
 | [react/src/lib/__tests__/format.test.ts](../react/src/lib/__tests__/format.test.ts) | Formatting and structured content | unit | available | 11 |
 | [react/src/lib/__tests__/formRoutes.test.ts](../react/src/lib/__tests__/formRoutes.test.ts) | Navigation and category selection | unit | available | 3 |
@@ -143,6 +144,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/moneyModel.invariants.test.ts](../react/src/lib/__tests__/moneyModel.invariants.test.ts) | Money model | unit | available | 19 |
 | [react/src/lib/__tests__/moneyModel.regression.test.ts](../react/src/lib/__tests__/moneyModel.regression.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/namesFollowPerson.test.ts](../react/src/lib/__tests__/namesFollowPerson.test.ts) | Names follow the person | sql-integration | conditional | 5 |
+| [react/src/lib/__tests__/nativePush.test.ts](../react/src/lib/__tests__/nativePush.test.ts) | Lock-screen push in the Android app (T4d) | unit | available | 7 |
+| [react/src/lib/__tests__/nativePushSql.test.ts](../react/src/lib/__tests__/nativePushSql.test.ts) | Android app phones in the device list SQL (T4d) | sql-integration | conditional | 5 |
 | [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/netWorthProjection.test.ts](../react/src/lib/__tests__/netWorthProjection.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/netWorthSnapshots.test.ts](../react/src/lib/__tests__/netWorthSnapshots.test.ts) | Net worth history | unit | available | 7 |
@@ -215,7 +218,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/w8aAppFixes.test.ts](../react/src/lib/__tests__/w8aAppFixes.test.ts) | App fixes (W8a) | unit | available | 12 |
 | [react/src/lib/__tests__/w8bEdgeFixes.test.ts](../react/src/lib/__tests__/w8bEdgeFixes.test.ts) | Edge robustness (W8b) | contract-unit | available | 6 |
 | [react/src/lib/__tests__/w8dSiteFixes.test.ts](../react/src/lib/__tests__/w8dSiteFixes.test.ts) | Site, platform and docs (W8d) | contract-unit | available | 11 |
-| [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 13 |
+| [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 15 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 9 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts](../react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts) | WhatsApp EMI correction SQL | sql-integration | conditional | 6 |

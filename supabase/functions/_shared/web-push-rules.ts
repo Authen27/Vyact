@@ -21,9 +21,12 @@ export interface SubscriptionRow {
   id: string;
   user_id: string;
   household_id: string;
-  endpoint: string;
-  p256dh: string;
-  auth: string;
+  /** v10.127.0 (T4d): 'webpush' (a browser: endpoint + keys) or 'fcm' (the Android app: fcm_token). Absent = webpush. */
+  kind?: 'webpush' | 'fcm';
+  fcm_token?: string | null;
+  endpoint: string | null;
+  p256dh: string | null;
+  auth: string | null;
   tz: string | null;
   prefs: PushPrefs | null;
   created_at: string;

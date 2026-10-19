@@ -22,6 +22,7 @@ import type { Budget, BudgetAllocation, Transaction, Account } from '../../types
 import { DEFAULT_RATES } from '../../constants';
 import * as bundle from '../../../../supabase/functions/_shared/agent/engine.generated.js';
 import { captureHandler, queryResult } from './helpers/edgeHarness';
+import { testServiceAccount, tokenReply } from './helpers/fcmAccount';
 
 const api = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), auth: { getUser: vi.fn() } }));
 vi.mock('https://esm.sh/@supabase/supabase-js@2.45.0', () => ({ createClient: () => api }));
@@ -510,5 +511,93 @@ describe('web-push function', () => {
     expect(sent.s2).toEqual(payloadFor(pending[0]));
     expect(sent.s2.title).toBe('Groceries at 85% of the September budget');
     vi.useRealTimers();
+  });
+
+  it('CON-UNIT-WP-011 · T4d: a phone in the Android app gets the alert through FCM under the same rules; a gone token retires it; our own FCM faults never do', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-27T05:30:00Z'));
+    const { json } = await testServiceAccount();
+    const secret = 'cron-secret-of-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+    api.rpc.mockImplementation(async (name: string, args: { p?: string }) => {
+      if (name === 'web_push_cron_ok') return { data: args.p === secret, error: null };
+      if (name === 'web_push_vapid') return { data: keys, error: null };
+      return { data: null, error: null };
+    });
+    loader.loadHouseholdRows.mockResolvedValue({ ...rows(), transactions: [], budgets: [], budgetAllocations: [], accounts: [], recurring: [] });
+    const pending: NotificationRow[] = [{ ...NOTIF, id: 'n1', household_id: HID }];
+    const phone = (id: string, token: string, prefs: SubscriptionRow['prefs'] = SUB.prefs) => ({
+      ...SUB, id, kind: 'fcm', fcm_token: token, endpoint: null, p256dh: null, auth: null, household_id: HID, user_id: 'u1',
+      prefs, user_agent: 'Mozilla/5.0 (Linux; Android 14; wv) Chrome/129.0',
+    });
+    const run = async (subs: unknown[], fcmAnswer: (token: string) => Response, env: Record<string, string> = { FCM_SERVICE_ACCOUNT_JSON: json }) => {
+      vi.resetModules();
+      const fetchMock = vi.fn(async (url: string, init: { body: string }) => {
+        if (url === 'https://oauth2.googleapis.com/token') return tokenReply();
+        if (url.startsWith('https://fcm.googleapis.com/v1/')) return fcmAnswer(JSON.parse(init.body).message.token);
+        return new Response(null, { status: 201 });                    // Web Push
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      tableSequence({
+        push_subscriptions: [[subs]],
+        memberships: [[[{ household_id: HID, user_id: 'u1' }, { household_id: HID, user_id: 'u2' }]]],
+        notifications: [[[]], [pending], [null]],
+        push_deliveries: [[null]],
+      });
+      api.rpc.mockClear();
+      const handler = await captureHandler(() => import('../../../../supabase/functions/web-push/index'), env);
+      const out = await (await post(handler, {}, { 'x-cron-secret': secret }, '?mode=dispatch')).json();
+      const fcmCalls = fetchMock.mock.calls.filter(c => String(c[0]).startsWith('https://fcm.googleapis.com/v1/'));
+      return { out, fetchMock, fcmCalls, marks: api.rpc.mock.calls.filter(c => c[0] === 'web_push_mark_device').map(c => c[1]) };
+    };
+
+    // A phone with details off and a browser: the phone through FCM (the private line), the browser through Web Push.
+    const ok = await run([phone('p1', 'tok-phone', { ...SUB.prefs, lockScreenDetails: false }), subRow('s2', dev2, { household_id: HID, user_id: 'u2' })],
+      () => new Response(JSON.stringify({ name: 'projects/vyact-app/messages/1' }), { status: 200 }));
+    expect(ok.out.pushed).toBe(2);
+    expect(ok.fcmCalls).toHaveLength(1);
+    expect(String(ok.fcmCalls[0][0])).toBe('https://fcm.googleapis.com/v1/projects/vyact-app/messages:send');
+    expect(JSON.parse(ok.fcmCalls[0][1].body).message).toMatchObject({
+      token: 'tok-phone', notification: { title: 'A budget needs a look', body: 'Open Vyact to see which one.' },
+      data: { url: NOTIF.deep_link, tag: NOTIF.dedupe_key, type: 'budget_threshold' },
+    });
+    expect(ok.fetchMock.mock.calls.some(c => String(c[0]) === 'https://fcm.googleapis.com/fcm/send/s2')).toBe(true);
+    expect(ok.marks).toEqual(expect.arrayContaining([{ p_id: 'p1', p_status: 200, p_ok: true, p_gone: false }]));
+
+    // The same rules: a phone outside the household, or with budgets switched off, is not sent to.
+    const ruled = await run([phone('p1', 'tok-a', { ...SUB.prefs, perType: { budget_threshold: false } })], () => new Response('{}', { status: 200 }));
+    expect(ruled.fcmCalls).toHaveLength(0);
+    expect(ruled.out.skipped).toEqual({ type_off: 1 });
+
+    // No service account: the phone is skipped as not configured, never an error, and the browser still goes.
+    const off = await run([phone('p1', 'tok-a'), subRow('s2', dev2, { household_id: HID, user_id: 'u2' })], () => new Response('{}', { status: 200 }), {});
+    expect(off.fcmCalls).toHaveLength(0);
+    expect(off.out).toMatchObject({ pushed: 1, skipped: { fcm_not_configured: 1 } });
+
+    // FCM says the token is gone: the phone is retired. FCM down (ours): logged, the phone is not marked.
+    const gone = await run([phone('p1', 'tok-gone'), phone('p2', 'tok-down')], (token) => (token === 'tok-gone'
+      ? new Response(JSON.stringify({ error: { code: 404, status: 'NOT_FOUND', details: [{ errorCode: 'UNREGISTERED' }] } }), { status: 404 })
+      : new Response(JSON.stringify({ error: { code: 503, status: 'UNAVAILABLE' } }), { status: 503 })));
+    expect(gone.marks).toEqual([{ p_id: 'p1', p_status: 404, p_ok: false, p_gone: true }]);
+    expect(gone.out.pushed).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it('CON-UNIT-WP-012 · T4d: "Send a test notification" from the Android app reaches that phone through FCM', async () => {
+    const { json } = await testServiceAccount();
+    const fetchMock = vi.fn(async (url: string, _init?: { body: string }) => (url === 'https://oauth2.googleapis.com/token' ? tokenReply()
+      : new Response(JSON.stringify({ name: 'm' }), { status: 200 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const handler = await captureHandler(() => import('../../../../supabase/functions/web-push/index'), { FCM_SERVICE_ACCOUNT_JSON: json });
+    api.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    api.rpc.mockResolvedValue({ data: null, error: null });
+    const calls = tableSequence({ push_deliveries: [[null, null, 0], [null]], push_subscriptions: [[[{
+      ...SUB, id: 'p1', kind: 'fcm', fcm_token: 'tok-phone', endpoint: null, p256dh: null, auth: null, user_agent: 'wv',
+    }]]] });
+    const res = await post(handler, { mode: 'test', fcmToken: 'tok-phone' }, { Authorization: 'Bearer user-jwt' });
+    expect(await res.json()).toEqual({ sent: 1, results: [{ device: 'Vyact app on Android', status: 200, accepted: true, gone: false }] });
+    expect(calls.push_subscriptions[0].eq).toHaveBeenCalledWith('fcm_token', 'tok-phone');
+    const fcm = fetchMock.mock.calls.find(c => String(c[0]).startsWith('https://fcm.googleapis.com/v1/'))!;
+    expect(JSON.parse((fcm[1] as { body: string }).body).message).toMatchObject({ token: 'tok-phone', notification: { title: 'Vyact notifications are on' } });
+    expect(api.rpc).not.toHaveBeenCalledWith('web_push_vapid');        // no VAPID keys needed for a phone
   });
 });

@@ -20,18 +20,44 @@ review found, and the read-only checks that find the cause for a given phone.
 
 ## What the review found
 
-### Play Store Android app: confirmed, it cannot receive them yet
+### Play Store Android app: confirmed, it could not receive them
 
 The Android app is the website inside a WebView (Capacitor). An Android WebView has no Web Push API, so the
-app can never subscribe. Until v10.126.0 its switch answered "This browser can't receive push
-notifications", which explained nothing.
+app could never subscribe. It showed alerts as Android local notifications, but only while the app happened
+to be running: with the app closed, nothing raised them.
 
-- **Now:** the app says "The Vyact Android app can't show notifications on your lock screen yet. To get them
-  now, open vyact.app in Chrome, add it to your Home screen, and turn them on there", and its switch is
-  disabled.
-- **The real fix is native push:** Firebase Cloud Messaging through `@capacitor/push-notifications` in the
-  Android app repository, plus a server send to FCM tokens next to the Web Push send. It is a follow-up of its
-  own (the Android repo and a server change).
+- **v10.126.0:** an app without push says so ("The Vyact Android app can't show notifications on your lock
+  screen yet…") and its switch is disabled.
+- **v10.127.0 (T4d), the server side of native push:** an app whose APK carries `@capacitor/push-notifications`
+  registers the phone's Firebase Cloud Messaging token (`register_native_push`, a `push_subscriptions` row of
+  kind `fcm`). The dispatcher sends it the same alerts under the same rules, through FCM. Owner decisions,
+  19 Oct 2026:
+  - **one device list** (browsers and phones together, one 10-device cap);
+  - **the server is the only source** on a registered phone (the app's own local notifications stop);
+  - **on by default** in the app (Android's permission is asked once, the first time);
+  - **a tap opens the app** on the alert.
+- **What is still to do:** the Vyact-Android build (the plugin, `google-services.json` and the notification icon)
+  and the Firebase setup below. Until both are live, the Play Store app keeps showing alerts only while open.
+
+### Setting up Firebase (owner, once)
+
+1. In the Firebase console, add a project (or use the Google Cloud project you already have), then add an
+   **Android app** with the package name **`com.vyact.app`**. Download its `google-services.json`.
+2. In GitHub, Authen27/Vyact-Android → Settings → Secrets and variables → Actions, add
+   **`GOOGLE_SERVICES_JSON_BASE64`**: the file, base64-encoded (`base64 -w0 google-services.json`). The Android
+   build writes it into the app. It holds no secret, but keep it out of the repository.
+3. In Firebase → Project settings → **Service accounts**, generate a new private key (a JSON file). Store it as
+   a Supabase Edge Function secret, then **delete the file**:
+
+   ```bash
+   supabase secrets set FCM_SERVICE_ACCOUNT_JSON="$(cat key.json)" --project-ref dmxqkvploojokffuhxnz
+   ```
+
+   The web-push function reads it and nothing else does. Without it, phones are skipped
+   (`fcm_not_configured` in query 5), and browsers are unaffected.
+4. Check that the **Firebase Cloud Messaging API (V1)** is enabled for the project (Google Cloud console → APIs).
+
+Never commit either file. This repository's `.gitignore` refuses them, and the secret scan fails on a private key.
 
 ### Chrome on Android (PWA): the code path is sound
 
@@ -63,7 +89,7 @@ Replace `<your email>` and `<household id>`. These only read; none changes anyth
 
 ```sql
 -- 1. This person's devices: which household each follows, its push host, switches, last answer.
-select s.id, s.household_id, h.name as household, split_part(s.endpoint, '/', 3) as push_host, s.user_agent,
+select s.id, s.kind, s.household_id, h.name as household, split_part(s.endpoint, '/', 3) as push_host, s.user_agent,
        s.tz, s.prefs, s.created_at, s.last_status, s.last_success_at, s.failures, s.disabled_at
   from push_subscriptions s
   join auth.users u on u.id = s.user_id
@@ -72,7 +98,8 @@ select s.id, s.household_id, h.name as household, split_part(s.endpoint, '/', 3)
  order by s.created_at desc;
 
 -- 2. What was sent to them in the last 7 days, and what the push service answered
---    (201 accepted · 404/410 gone · 403 key mismatch · 0 no answer).
+--    (201 accepted · 404/410 gone · 403 key mismatch · 0 no answer; an Android app phone (FCM): 200 accepted,
+--    404 UNREGISTERED gone, 0 with "fcm_auth" = the service account was refused).
 select d.created_at, d.kind, d.status, d.error, n.type
   from push_deliveries d
   join auth.users u on u.id = d.user_id
@@ -110,6 +137,7 @@ select created, status_code, left(content::text, 500) as answer
 - `quiet_hours`: held for later;
 - `device_disabled`: retired by the push service;
 - `not_a_member`: the person left the household;
+- `fcm_not_configured`: an Android app phone, with no `FCM_SERVICE_ACCOUNT_JSON` secret set;
 - `already_pushed`: sent on an earlier run;
 - `endpoint_not_allowed`: not a known push service;
 - `send_error`: the send threw (see `problems`).
