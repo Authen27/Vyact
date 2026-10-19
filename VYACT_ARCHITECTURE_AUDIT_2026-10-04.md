@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 19 Oct 2026):** 157 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 19 Oct 2026):** 158 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -58,15 +58,15 @@ Two developers did the work:
 | High | 29 | 20 | 5 | 1 | 0 | 0 | 3 | 0 |
 | Medium | 100 | 69 | 4 | 10 | 1 | 5 | 7 | 4 |
 | Low | 75 | 52 | 1 | 8 | 7 | 5 | 0 | 2 |
-| Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **146** | **11** | **19** | **9** | **11** | **10** | **6** |
+| Info | 5 | 4 | 0 | 0 | 1 | 0 | 0 | 0 |
+| **Total** | **212** | **147** | **11** | **19** | **9** | **10** | **10** | **6** |
 
-**157 of 212 are resolved (74%): all 3 critical and 25 of 29 high.** The other 55 fall into four groups:
+**158 of 212 are resolved (75%): all 3 critical and 25 of 29 high.** The other 54 fall into four groups:
 
-| What the 55 need | Count |
+| What the 54 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 20 |
-| An owner decision (11 waiting only on it; 4 partly done, with the rest waiting on it) | 15 |
+| Nothing but work: no decision, no blocker | 19 |
+| An owner decision (10 waiting only on it; 5 partly done, with the rest waiting on it) | 15 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 8 |
 
@@ -138,6 +138,7 @@ Two developers did the work:
 | #234 | v10.123.0 | Track T5d: each project's scheduled jobs call that project, from Vault project_url written by its deploy (owner, 19 Oct) | DB-OPS-07 | BE-FN-11 |
 | #235 | v10.124.0 | Track T4a: consent recorded by the server at sign-up; splits match confirmed emails only (owner, 19 Oct) | XC-PRV-09, DB-INT-15 | — |
 | #236 | v10.125.0 | Track T4b: GA4 asks first; re-consent on change; 18+; processors and DPDP named; OpenRouter keeps no data; download scope; CSP reports (owner, 19 Oct) | XC-PRV-08, XC-PRV-09, XC-PRV-10, XC-PRV-14 | XC-PRV-03, FE-PLT-04, XC-PRV-11 |
+| #237 | v10.126.0 | Track T4c: lock-screen details off per phone; the Android app says where push works; auth settings recorded and drift-checked (owner, 19 Oct) | BE-FN-12 | BE-FN-11 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -210,9 +211,9 @@ Plus **R1** (high, new): see §0.3.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, INT-HH-08, OPS-11.
 
-**Low and info (24)**
-- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-12, XC-ARC-14, DB-OPS-16.
-- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
+**Low and info (23)**
+- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-PIP-04, DB-INT-14, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-12, XC-ARC-14, DB-OPS-16.
+- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, BE-FN-11, OPS-07, XC-ARC-07, XC-ARC-15.
 - *Backlog:* FE-PUB-08, BE-PIP-06.
 
 ### 0.6 Action plan
@@ -926,7 +927,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | ADM-12 | LOW | Admin | Settings shows state it does not check: DB 'connected', GA4 'connected', stale versions | not independently verified (low/info) | 2026-09 audit 7.4 — partially fixed (security rows relabelled 'planned'); the database, GA4 and version assertions remain | Closed | #188 |
 | ADM-13 | LOW | Admin | Admin host has no CSP and publishes full source maps while holding god-mode JWT | not independently verified (low/info) |  | Closed | #188, #189 |
 | ADM-14 | LOW | Admin | Revenue KPIs mix currencies and statuses: MRR summed across currencies, labelled USD | not independently verified (low/info) |  | Partly | #188 |
-| BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. | Partly | #165, v10.123.0 |
+| BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. | Partly | #165, v10.123.0, v10.126.0 |
 | BE-PIP-04 | LOW | Backend | Untrusted learned recipes are written without confirmation, and one user can promote a global recipe | confirmed-with-caveats (adversarial: partial) |  | Partly | #187 |
 | BE-PIP-05 | LOW | Backend | key_env_var denylist misses MAILERSEND_API_KEY; base_url host checks are bypassable | not independently verified (low/info) |  | Closed | #187 |
 | BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 | Backlog | — |
@@ -960,7 +961,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-ARC-14 | LOW | Cross-cutting | Release cadence outpaces stabilisation: 40 minor releases in 27 days, AI-heavy, one maintainer | confirmed-with-caveats (adversarial: partial) | TD-25 (resolved; regressed), TD-28 | Open | — |
 | XC-ARC-15 | LOW | Cross-cutting | Repo carries 82 tracked binaries, duplicated handoffs and a 9.7k-line migration concat | not independently verified (low/info) | TD-41 (related) | Owner decision | — |
 | XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  | Closed | #189, v10.125.0 |
-| BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  | Owner decision | — |
+| BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  | Closed | v10.126.0 |
 | DB-OPS-16 | INFO | Database | pg_trgm sits in public but nothing uses it; TD-34's stated blocker does not exist in the repo | not independently verified (low/info) | TD-34 | Open | — |
 | INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 | Closed | #169, #170, #173, v10.120.0 |
 | GATE-05 | INFO | Platform & Ops | npm audit: 22 (react) + 11 (admin) advisories still untriaged; all highs dev-only | observed (gate executed) | TD-38 (still open; count now 22 react / 11 admin) | Closed | #189 |
@@ -1260,9 +1261,9 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 19 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.125.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.126.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (55)
+### C.1 Unresolved (54)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1300,7 +1301,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.125.
 | ADM-10 | low | Partly | #188 | Set allowed_mime_types = ['image/png','image/jpeg','image/webp'] and a file_size_limit on the bucket (a migration or a dashboard setting). | — | XS |
 | ADM-11 | low | Partly | #188 | Run a one-off backfill, e.g. author_name = 'Vyact' where author_name contains '@', and restore re-dated published_at values if the old dates are known. Limiting anon columns is FE-PUB-08 (backlog). | — | XS |
 | ADM-14 | low | Partly | #188 | Fix the Dashboard KPI. Either return per-currency MRR (active and trialing) from admin_dashboard_kpis (migration), or replace the tile with the per-currency helper and drop the 'USD' and '$' labels. | — | S |
-| BE-FN-11 | low | Partly | #165, v10.123.0 | The cron URLs are built from Vault project_url since v10.123.0 (T5d, with DB-OPS-07). Left: codify the auth config (an [auth] section, or a checked-in auth snapshot verified by a script). | — | S |
+| BE-FN-11 | low | Partly | #165, v10.123.0, v10.126.0 | v10.126.0 (Track T4c; owner decisions 19 Oct 2026) ("snapshot + drift check", warn first): supabase/auth-config.json records 29 non-secret Supabase Auth settings; scripts/auth-config-check.mjs reads them through the Management API (read-only, tracked keys only) and runs in Deploy after the migrations (continue-on-error), warning on drift and printing unrecorded values; --write fills them, --strict fails. The cron UR… | Owner: record the live values from the first Deploy | S |
 | BE-PIP-04 | low | Partly | #187 | A learned recipe is deterministic only when trusted (#187). No confirmation or promotion flow was built; the pipeline is not connected to any entrypoint, so nothing is exposed today. | — | S |
 | INT-HH-13 | low | Partly | #184 | Purge the exited household's cache entries and delta cursors. Route to Households/create when no household remains after a leave. | — | XS |
 | INT-HH-14 | low | Partly | #188 | Count members server-side (a group-by RPC, or select('id, memberships(count)')) and paginate the households list. | W8 plan §4 (larger items, not planned) | S |
@@ -1320,7 +1321,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.125.
 | FE-PUB-08 | low | Backlog | — | Revoke table SELECT from anon and grant column-level SELECT on the columns the public pages read (LESSON_COLS, react/api/learn.js:24). Check it against the Learn, sitemap and llms queries. | — | XS |
 | BE-PIP-06 | low | Backlog | — | Owner, 13 Oct: keep the Claude Code relay for now (TD-44). | Owner: keep for now | S |
 | DB-OPS-16 | info | Open | — | Needs one production query (dependent indexes), then drop pg_trgm or move it. Not planned. | — | XS |
-| BE-FN-12 | info | Owner decision | — | The owner must decide whether to add a 'Hide amounts on the lock screen' preference and whether it defaults to on. Then send a generic title and body when it is on. | Owner decision: W8 plan §3 'BE-FN-12 hide amounts on lock-screen pushes by default?' | S |
 
 ### C.2 Resolved, but to be confirmed in production (16)
 
@@ -1343,7 +1343,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.125.
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (72)
+### C.3 Resolved, with a residual note (73)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1417,5 +1417,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.125.
 | OPS-13 | low | Closed | #185, #189 | The ignoreCommand regression introduced in #185 was fixed in #189. |
 | XC-ARC-10 | low | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): store/landIn.ts: `commit(householdId, update)` lands a post-await write only if that household is still open, in every household-scoped action of the crud, data, recurring and notify slices (38 writes), plus the role, household invitations a… |
 | XC-PRV-14 | low | Closed | #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): the work email in react/CHANGELOG.md and the migration comment became manu@example.com (schema.sql regenerated); home.html is gitignored; W8d-PRV14-001 fails on any address outside the example and Vyact domains across the docs, schema.sql and every migration. The his… |
+| BE-FN-12 | info | Closed | v10.126.0 | v10.126.0 (Track T4c; owner decisions 19 Oct 2026) ("show by default, and hide via settings"): Settings → Notifications → "Show details on the lock screen", per device and on by default (NotificationPrefs.lockScreenDetails, sent in the push prefs). Off, the pushed payload (payloadFor) and the open app's popup (deviceN… |
 | INT-PAR-11 | info | Closed | #169, #170, #173, v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): the `test:tz` gate runs 10 date-sensitive suites under UTC, Asia/Kolkata, Europe/London, America/New_York and Pacific/Kiritimati (a planted UTC-day today() passes in UTC and fails in three zones), and scripts/deno-smoke.ts loads the engine bundle and shar… |
 | GATE-05 | info | Closed | #189 | Triaged (docs/SECURITY_AUDIT_TRIAGE.md), with a CI npm-audit gate. The moderate React Router advisory is mitigated by safeNext; its full fix is v7. |
