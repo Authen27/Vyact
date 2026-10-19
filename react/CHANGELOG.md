@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.119.0`** (consumer)
+> **Current production version: `v10.120.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,35 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.120.0 — The server code and the tests are checked too *(2026-10-19)*
+
+No change to the app or the database. Track T5 (engineering guardrails), part a: audit XC-ARC-09, GATE-04 and
+INT-PAR-11. Owner decision, 19 Oct 2026: check the Edge code both ways, with TypeScript (local and CI) and with
+Deno itself in CI.
+
+- **The Edge Functions (about 12,000 lines that run WhatsApp, push, Pip and the scheduled jobs) are now
+  type-checked.** Nothing checked them before. TypeScript found 12 errors and Deno one more. All are fixed, and
+  none changes behaviour:
+  - byte arrays reach WebCrypto and `fetch` as buffers they own, as their types require;
+  - a model-config row type;
+  - two casts.
+
+  In CI, a new Deno job runs:
+  - `deno check` and `deno lint`. Lint found four real problems: three unused names, and an async function
+    that returned without awaiting. Two style rules and the generated bundle are left out, with the reasons in
+    the workflow.
+  - A smoke test that loads the bundled engine the way the server does, so a bundle that only breaks under
+    Deno fails before it ships.
+- **The unit tests are type-checked.** Vitest only translates them, so 121 errors had built up unseen. Some were
+  fixtures that no longer matched the app, such as a payment mode that no longer exists and a schedule missing
+  two fields. All are fixed without changing what any test checks.
+- **Date rules are tested in five time zones**, from New York (UTC−5) to Kiritimati (UTC+14), the first place a
+  day begins. Ten suites run in each: "today", months, recurrence, the bill calendar and loan EMIs. Before, they
+  ran only in the one zone of the machine running them. All pass.
+
+Gates added to the CI run: Consumer · type-check (unit tests), Edge Functions · type-check, Consumer · date
+suites in 5 time zones, and the Edge workflow (Deno).
 
 ## v10.119.0 — A loan that records its EMIs always has an account to pay from *(2026-10-19)*
 

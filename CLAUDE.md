@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.119.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.120.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -1017,7 +1017,19 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   their own. `react/tsconfig.e2e.json` + the `Consumer · type-check (e2e specs)`
   gate close that hole; a stale spec now fails in seconds with the exact line.
   **Vitest still does not type-check `src/**/*.test.ts`** (esbuild transpiles
-  only) — the same class of rot can still grow there.
+  only), so since v10.120.0 (T5a; audit GATE-04, XC-ARC-09, INT-PAR-11) separate gates in
+  `scripts/automation-run.mjs` do the checking:
+  - `typecheck:tests` (`react/tsconfig.tests.json`) compiles the unit tests and the JS and Edge code they
+    import. 121 errors had built up, a fixture still using a payment mode that no longer exists among them.
+  - `typecheck:edge` (`scripts/typecheck/edge.tsconfig.json`) compiles every Edge Function under strict
+    TypeScript, with Deno's globals stubbed (`edge-globals.d.ts`). `supabase/functions/_shared/agent/
+    engine.generated.d.ts` types the generated bundle loosely; `engine.ts` keeps the real types.
+  - `.github/workflows/edge.yml` (only when Edge code changes) runs `deno check`, `deno lint` and
+    `scripts/deno-smoke.ts`, which loads the bundle and shared modules the way the Edge runtime does.
+  - `test:tz` runs the date-sensitive suites under five zones (UTC−5 to UTC+14). A new suite about "today",
+    months or recurrence joins `SUITES` in `react/scripts/test-timezones.mjs`.
+  - Never fix one of these by loosening the config. WebCrypto and `fetch` take ArrayBuffer-backed bytes
+    (`ab()` in `_shared/web-push.ts`, or `new Uint8Array(x)`).
 - **A failing e2e test may be RIGHT.** Before fixing one, decide which it is:
   a real product defect, a stale test, or a test for a removed feature. v10.22.3
   found two INVERTED tests whose failure was the correct behaviour — TXN-FC-003
