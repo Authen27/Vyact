@@ -100,6 +100,20 @@ export const spendEntryKey = generated.spendEntryKey as (t: EngineTxn) => string
 /** How many entries these spending rows are (a loan payment counts once). */
 export const countSpendEntries = generated.countSpendEntries as (rows: readonly EngineTxn[]) => number;
 
+// ── WhatsApp's scheduled nudges on the app's own rules (T5c, v10.122.0) ──────────
+/** A budget line at or past a threshold today (the app's `budgetThresholdLines`). */
+export interface BudgetThresholdLine {
+  budgetId: string; category: string; start: string; end: string; period: string;
+  limit: number; spent: number; share: number; threshold: 80 | 100;
+}
+/** Audit XC-ARC-06 — the bell's budget rule over `budgets` / `budget_allocations` / `transactions` rows. */
+export const budgetLinesOnServer = generated.budgetLinesOnServer as (
+  rows: { budgets: readonly unknown[]; budgetAllocations: readonly unknown[]; transactions: readonly unknown[] },
+  baseCurrency: string, today: string,
+) => BudgetThresholdLine[];
+/** Audit INT-PAR-05 — how many `accounts` rows the app calls stale (`staleAccounts`). */
+export const staleAccountCount = generated.staleAccountCount as (accountRows: readonly unknown[], nowMs: number) => number;
+
 // ── Runway (W6b, v10.47.0) ───────────────────────────────────────────────────
 export interface RunwaySnapshot { months: number | null; quieterCategory: string | null }
 export const runwaySnapshot = generated.runwaySnapshot as (rows: HouseholdRows, now: Date) => RunwaySnapshot;

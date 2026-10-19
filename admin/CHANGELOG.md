@@ -4,8 +4,21 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.6`**
+> **Current production version: `v1.4.7`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.4.7 — Intelligence counts model calls once *(2026-10-19)*
+
+Ships with consumer v10.122.0 and its migration `20261105120000_t5c_ai_usage_summary_sources.sql` (audit FE-PIP-09;
+owner, 19 Oct 2026: "admin counts read only the server's rows").
+
+- **The KPI row counts model calls**, from the server's own rows: "Model calls", "Calls, last 7 days", "Calls,
+  last 30 days". It used to add the app's row for each turn to the server's row for each call, so a two-call
+  turn counted three times. Cost, tokens and latency are the calls' alone.
+- **Intent, sentiment and user segments are turns**, from the app's rows. Those now exist only for turns
+  that called the model, so quick replies no longer weigh on them.
 
 ---
 

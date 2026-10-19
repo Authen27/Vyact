@@ -5988,9 +5988,13 @@ const MONTH_NAMES = [
 * allocation over the budget's own period with the Budgets screen's figure
 * (`spendByCategoryInRange` in base currency). A legacy single-category budget (no
 * allocations) is still checked as one line for the current month.
+*
+* T5c (v10.122.0; audit XC-ARC-06) — THE budget-threshold rule, for the bell, push and WhatsApp alike.
+* Every line of every budget whose period holds today, at or past 80% of its limit, measured over that
+* budget's own period in base currency. WhatsApp kept its own copy of the 80% rule until v10.122.0 and
+* now reads these lines through the bundled engine (`serverEngine.budgetLinesOnServer`).
 */
-function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx, now = today(ctx.tz)) {
-	if (!typeEnabled(prefs, "budget_threshold")) return [];
+function budgetThresholdLines(budgets, allocations, txns, ctx, now) {
 	const out = [];
 	const cur = ctx.baseCurrency;
 	for (const b of budgets) {
@@ -6006,7 +6010,7 @@ function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx,
 		if (!own.length && (!start || !end)) {
 			const mk = getMonthKey(now);
 			start = `${mk}-01`;
-			end = `${mk}-31`;
+			end = new Date(Date.UTC(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)), 0)).toISOString().slice(0, 10);
 		}
 		if (!lines.length || !start || !end || start > now || end < now) continue;
 		const spend = spendByCategoryInRange(txns, start, end, cur, ctx.rates);
@@ -6014,23 +6018,42 @@ function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx,
 		for (const line of lines) {
 			if (!(line.limit > 0)) continue;
 			const spent = spend[line.category] || 0;
-			const pct = spent / line.limit;
-			const threshold = pct >= 1 ? 100 : pct >= .8 ? 80 : null;
+			const share = spent / line.limit;
+			const threshold = share >= 1 ? 100 : share >= .8 ? 80 : null;
 			if (!threshold) continue;
-			const key = `budget_threshold:${b.id}:${line.category}:${start}:${threshold}`;
-			if (existing.some((n) => n.dedupeKey === key)) continue;
-			const remaining = Math.max(0, line.limit - spent);
 			out.push({
-				...base("budget_threshold", key, ctx),
-				tint: threshold === 100 ? "var(--crit)" : "var(--warn)",
-				title: `${getCat(line.category).label} at ${Math.round(pct * 100)}% of the ${period} budget`,
-				body: spent > line.limit ? `${fmt$1(spent - line.limit, cur)} over` : `${fmt$1(remaining, cur)} left`,
 				budgetId: b.id,
-				amountRef: remaining,
-				deepLink: `/budgets?budgetId=${b.id}`,
-				actions: [A("review", "Review budget", "primary"), A("see_txns", "See transactions", "ghost")]
+				category: line.category,
+				start,
+				end,
+				period,
+				limit: line.limit,
+				spent,
+				share,
+				threshold
 			});
 		}
+	}
+	return out;
+}
+function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx, now = today(ctx.tz)) {
+	if (!typeEnabled(prefs, "budget_threshold")) return [];
+	const out = [];
+	const cur = ctx.baseCurrency;
+	for (const line of budgetThresholdLines(budgets, allocations, txns, ctx, now)) {
+		const key = `budget_threshold:${line.budgetId}:${line.category}:${line.start}:${line.threshold}`;
+		if (existing.some((n) => n.dedupeKey === key)) continue;
+		const remaining = Math.max(0, line.limit - line.spent);
+		out.push({
+			...base("budget_threshold", key, ctx),
+			tint: line.threshold === 100 ? "var(--crit)" : "var(--warn)",
+			title: `${getCat(line.category).label} at ${Math.round(line.share * 100)}% of the ${line.period} budget`,
+			body: line.spent > line.limit ? `${fmt$1(line.spent - line.limit, cur)} over` : `${fmt$1(remaining, cur)} left`,
+			budgetId: line.budgetId,
+			amountRef: remaining,
+			deepLink: `/budgets?budgetId=${line.budgetId}`,
+			actions: [A("review", "Review budget", "primary"), A("see_txns", "See transactions", "ghost")]
+		});
 	}
 	return out;
 }
@@ -6365,6 +6388,27 @@ function notificationsOnServer(rows, existingKeys, householdId) {
 		...staleBalanceNotifs(accounts, prefs, existing, ctx)
 	].map(toInsertRow);
 }
+/**
+* Audit XC-ARC-06 — the budget lines at or past a threshold today, by the app's rule
+* (`budgetThresholdLines`, the one the bell and push raise from), over `budgets`, `budget_allocations`
+* and `transactions` rows mapped by the app's adapter. WhatsApp's budget alert kept its own 80% rule
+* until v10.122.0. A household's amounts are read at face value (one currency, D14).
+*/
+function budgetLinesOnServer(rows, baseCurrency, today) {
+	return budgetThresholdLines(rows.budgets.map((r) => mapCloudRow("budgets", r)), rows.budgetAllocations.map((r) => mapCloudRow("budgetAllocations", r)), txnsFromRows(rows.transactions), {
+		baseCurrency,
+		rates: { ...DEFAULT_RATES }
+	}, today);
+}
+/**
+* Audit INT-PAR-05 — how many of these `accounts` rows the app calls stale (`staleAccounts`: bank, card
+* and cash, not archived, last checked STALE_AFTER_DAYS ago or more, by the last reconcile, else the last
+* log entry, else creation). The WhatsApp nudge counted with its own rule until v10.122.0, and could
+* say "2 balances" while the bell said 1.
+*/
+function staleAccountCount(accountRows, nowMs) {
+	return staleAccounts(accountRows.map((r) => mapCloudRow("accounts", r)), new Date(nowMs)).length;
+}
 /** One question, answered by the app's own pipeline with the given model call. */
 function answerOnServer(utterance, ctx, call, prevAllowed = []) {
 	return runAssistant(utterance, ctx, new LlmBackend(call), Date.now(), void 0, prevAllowed);
@@ -6398,4 +6442,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, countSpendEntries, effectiveAmount, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendEntryKey, spendRows, systemPromptFor, txnsFromRows };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, budgetLinesOnServer, cleanOffending, contextFromRows, countSpendEntries, effectiveAmount, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendEntryKey, spendRows, staleAccountCount, systemPromptFor, txnsFromRows };

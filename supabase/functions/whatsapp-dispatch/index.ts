@@ -141,11 +141,15 @@ async function alertsFor(
   }
 
   // Budget lines in the current period. Only worth computing when something moved.
-  const { data: budgets } = await admin.from('budgets').select('id, currency, period_start, period_end')
-    .eq('household_id', household.id).is('deleted_at', null).lte('period_start', today).gte('period_end', today);
+  // T5c (XC-ARC-06): whole rows, read by the app's own budget rule; a budget with no period of its own
+  // (a single-category budget from before v9.1) counts for the current month, as in the bell.
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const { data: budgets } = await admin.from('budgets').select('*')
+    .eq('household_id', household.id).is('deleted_at', null)
+    .or(`period_start.is.null,and(period_start.lte.${today},period_end.gte.${today})`);
   if ((budgets ?? []).length && (recent ?? []).length) {
-    const from = (budgets as { period_start: string }[]).map((b) => b.period_start).sort()[0];
-    const { data: allocations } = await admin.from('budget_allocations').select('budget_id, category, amount')
+    const from = [monthStart, ...(budgets as { period_start: string | null }[]).map((b) => b.period_start ?? monthStart)].sort()[0];
+    const { data: allocations } = await admin.from('budget_allocations').select('*')
       .in('budget_id', (budgets as { id: string }[]).map((b) => b.id)).is('deleted_at', null);
     const { data: txns, error: tErr } = await admin.from('transactions').select(TXN_COLUMNS)
       .eq('household_id', household.id).is('deleted_at', null).gte('date', from).lte('date', today);
@@ -206,9 +210,9 @@ async function weeklyFor(
   const { data: txns, error } = await admin.from('transactions').select(TXN_COLUMNS)
     .eq('household_id', household.id).is('deleted_at', null).gte('date', start).lte('date', today);
   if (error) throw new Error(`weekly transactions: ${error.message}`);
-  const { data: accounts } = await admin.from('accounts').select('id, created_at, last_reconciled_at')
-    .eq('household_id', household.id).is('deleted_at', null).eq('is_archived', false)
-    .in('kind', ['bank', 'credit_card', 'cash']);
+  // T5c (INT-PAR-05): whole rows; the app's staleAccounts decides which count (kind, archive, the log).
+  const { data: accounts } = await admin.from('accounts').select('*')
+    .eq('household_id', household.id).is('deleted_at', null);
   // v10.47.0 (W6) — what the re-engagement nudges read: when anything was last
   // logged, and this month's expenses still in Other.
   const { data: lastRow } = await admin.from('transactions').select('created_at')

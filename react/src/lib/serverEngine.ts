@@ -36,8 +36,8 @@ import { resolve } from './askVyactBackend';
 import { spendByCategory } from './calculations';
 import { getCat } from '../constants';
 import {
-  DEFAULT_PREFS, recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs, debtDueNotifs,
-  incomeLandedNotifs, staleBalanceNotifs,
+  DEFAULT_PREFS, recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs, budgetThresholdLines, debtDueNotifs,
+  incomeLandedNotifs, staleBalanceNotifs, type BudgetThresholdLine,
 } from './notifications';
 import { toInsertRow, type NotifInsertRow } from './notificationRows';
 import { wallClock } from './format';
@@ -335,6 +335,38 @@ export function notificationsOnServer(rows: HouseholdRows, existingKeys: readonl
     ...incomeLandedNotifs(transactions, prefs, existing, ctx),
     ...staleBalanceNotifs(accounts, prefs, existing, ctx),
   ].map(toInsertRow);
+}
+
+// ── T5c (v10.122.0) — WhatsApp's scheduled nudges read the app's own rules ──────────────────────────
+
+export type { BudgetThresholdLine };
+
+/**
+ * Audit XC-ARC-06 — the budget lines at or past a threshold today, by the app's rule
+ * (`budgetThresholdLines`, the one the bell and push raise from), over `budgets`, `budget_allocations`
+ * and `transactions` rows mapped by the app's adapter. WhatsApp's budget alert kept its own 80% rule
+ * until v10.122.0. A household's amounts are read at face value (one currency, D14).
+ */
+export function budgetLinesOnServer(
+  rows: { budgets: readonly unknown[]; budgetAllocations: readonly unknown[]; transactions: readonly unknown[] },
+  baseCurrency: string, today: string,
+): BudgetThresholdLine[] {
+  return budgetThresholdLines(
+    rows.budgets.map((r) => mapCloudRow('budgets', r) as Budget),
+    rows.budgetAllocations.map((r) => mapCloudRow('budgetAllocations', r) as BudgetAllocation),
+    txnsFromRows(rows.transactions),
+    { baseCurrency, rates: { ...DEFAULT_RATES } }, today,
+  );
+}
+
+/**
+ * Audit INT-PAR-05 — how many of these `accounts` rows the app calls stale (`staleAccounts`: bank, card
+ * and cash, not archived, last checked STALE_AFTER_DAYS ago or more, by the last reconcile, else the last
+ * log entry, else creation). The WhatsApp nudge counted with its own rule until v10.122.0, and could
+ * say "2 balances" while the bell said 1.
+ */
+export function staleAccountCount(accountRows: readonly unknown[], nowMs: number): number {
+  return staleAccounts(accountRows.map((r) => mapCloudRow('accounts', r) as Account), new Date(nowMs)).length;
 }
 
 /** One question, answered by the app's own pipeline with the given model call. */

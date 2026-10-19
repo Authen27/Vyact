@@ -16,6 +16,7 @@
 
 import {
   txnsFromRows, spendRows, spendByCategoryInRange, effectiveAmount, spendEntryKey, countSpendEntries, type EngineTxn,
+  budgetLinesOnServer, staleAccountCount,
 } from './agent/engine.ts';
 import { zoneParts } from './localTime.ts';
 
@@ -143,17 +144,19 @@ export function largeSpendAlerts(input: {
 }
 
 // ── Budget threshold ────────────────────────────────────────────────────────
-export interface BudgetRow { id: string; currency: string; period_start: string | null; period_end: string | null }
-export interface AllocationRow { budget_id: string; category: string; amount: number | string }
+/** `budgets` / `budget_allocations` rows as the database returns them (`select *`: the app's mapper reads them). */
+export interface BudgetRow { id: string; currency: string; period_start: string | null; period_end: string | null; [column: string]: unknown }
+export interface AllocationRow { budget_id: string; category: string; amount: number | string; [column: string]: unknown }
 
 /** The share of a budget line that sends the alert. Once per line per period. */
 export const BUDGET_ALERT_AT = 80;
 
 /**
- * A budget line in the current period that has reached 80% but not 100% → every
- * linked member. Spend is the Budgets screen's own figure: `spendByCategoryInRange`
- * over the budget's period. At 100% the template's "₹… is still in the pot" would
- * be untrue, so nothing is sent.
+ * A budget line in the current period that has reached 80% but not 100% → every linked member.
+ * T5c (v10.122.0; audit XC-ARC-06): the lines are the APP's (`budgetLinesOnServer` → the bell's
+ * `budgetThresholdLines`), so WhatsApp, the bell and push name the same lines at the same percentage.
+ * This rule kept its own copy until then, which skipped a single-category budget the bell checks.
+ * WhatsApp sends the 80% band only: at 100% the template's "₹… is still in the pot" would be untrue.
  */
 export function budgetAlerts(input: {
   household: Household; today: string; budgets: BudgetRow[]; allocations: AllocationRow[];
@@ -161,31 +164,23 @@ export function budgetAlerts(input: {
 }): PlannedSend[] {
   const base = input.household.base_currency.trim();
   if (base !== 'INR') return [];
-  const txns = txnsFromRows(input.txns);
   const out: PlannedSend[] = [];
-  for (const b of input.budgets) {
-    if (!b.period_start || !b.period_end || b.period_start > input.today || b.period_end < input.today) continue;
-    const daysLeft = daysBetween(input.today, b.period_end);
+  const lines = budgetLinesOnServer(
+    { budgets: input.budgets, budgetAllocations: input.allocations, transactions: input.txns }, base, input.today,
+  );
+  for (const line of lines) {
+    if (line.threshold !== BUDGET_ALERT_AT) continue;
+    const daysLeft = daysBetween(input.today, line.end);
     if (daysLeft < 1) continue;
-    const spend = spendByCategoryInRange(txns, b.period_start, b.period_end, base, {});
-    for (const a of input.allocations.filter((x) => x.budget_id === b.id)) {
-      const limit = Number(a.amount);
-      const spent = spend[a.category] ?? 0;
-      if (!(limit > 0)) continue;
-      // W8b (audit INT-PAR-10): the app's rule — the threshold on the raw share, the figure rounded — so
-      // the bell and WhatsApp state the same percentage (this floored while the app rounded).
-      const share = spent / limit;
-      if (share < BUDGET_ALERT_AT / 100 || spent >= limit) continue;
-      const pct = Math.round(share * 100);
-      const label = EXPENSE_LABEL[a.category];
-      if (!label) continue;
-      for (const m of input.members) {
-        out.push({
-          template: 'budget_threshold_alert', householdId: input.household.id, toProfileId: m.profile_id,
-          values: [label, String(pct), String(daysLeft), amountText(Math.round((limit - spent) * 100) / 100)],
-          dedupeKey: `budget:${b.id}:${a.category}:${BUDGET_ALERT_AT}`,
-        });
-      }
+    const label = EXPENSE_LABEL[line.category];
+    if (!label) continue;
+    const pct = Math.round(line.share * 100);
+    for (const m of input.members) {
+      out.push({
+        template: 'budget_threshold_alert', householdId: input.household.id, toProfileId: m.profile_id,
+        values: [label, String(pct), String(daysLeft), amountText(Math.round((line.limit - line.spent) * 100) / 100)],
+        dedupeKey: `budget:${line.budgetId}:${line.category}:${BUDGET_ALERT_AT}`,
+      });
     }
   }
   return out;
@@ -232,14 +227,19 @@ export function weeklySummary(input: {
   };
 }
 
-export interface AccountRow { id: string; created_at: string; last_reconciled_at: string | null }
+/** `accounts` rows as the database returns them (`select *`: the app's mapper reads kind, archive and the log). */
+export interface AccountRow { id: string; created_at: string; last_reconciled_at: string | null; [column: string]: unknown }
 
-/** Balances untouched for 30 days or more → a nudge to the opted-in member, weekly at most. */
+/**
+ * Stale balances → a nudge to the opted-in member, weekly at most.
+ * T5c (v10.122.0; audit INT-PAR-05): counted by the APP's rule (`staleAccountCount` → `staleAccounts`), the
+ * one the bell, push and "Reply UPDATE" use. This counted by its own 30-day cut until then: an account
+ * reconciled only through its log still counted, so it could say "2" where the bell said 1.
+ */
 export function staleBalanceNudge(input: {
   household: Household; now: Date; accounts: AccountRow[]; member: Member; weekKey: string;
 }): PlannedSend | null {
-  const cutoff = input.now.getTime() - 30 * 86_400_000;
-  const stale = input.accounts.filter((a) => Date.parse(a.last_reconciled_at ?? a.created_at) < cutoff).length;
+  const stale = staleAccountCount(input.accounts, input.now.getTime());
   if (!stale || !input.member.first_name) return null;
   return {
     template: 'balance_stale_nudge', householdId: input.household.id, toProfileId: input.member.profile_id,

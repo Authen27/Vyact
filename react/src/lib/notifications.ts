@@ -218,6 +218,22 @@ export function recurringReminderNotifs(schedules: RecurringSchedule[], prefs: N
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+/** One budget line at or past a threshold today: what the bell and WhatsApp both say about it. */
+export interface BudgetThresholdLine {
+  budgetId: string;
+  category: string;
+  /** The budget's own period (a legacy single-category budget: the current month). */
+  start: string;
+  end: string;
+  /** 'April' for a month, '2026' for a year. */
+  period: string;
+  limit: number;
+  spent: number;
+  /** spent ÷ limit, unrounded (the threshold is read on it; a figure shown is rounded once). */
+  share: number;
+  threshold: 80 | 100;
+}
+
 /**
  * 4 · budget_threshold (P1) — a budget LINE crosses 80% / 100% of its allocation.
  *
@@ -228,13 +244,17 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
  * allocation over the budget's own period with the Budgets screen's figure
  * (`spendByCategoryInRange` in base currency). A legacy single-category budget (no
  * allocations) is still checked as one line for the current month.
+ *
+ * T5c (v10.122.0; audit XC-ARC-06) — THE budget-threshold rule, for the bell, push and WhatsApp alike.
+ * Every line of every budget whose period holds today, at or past 80% of its limit, measured over that
+ * budget's own period in base currency. WhatsApp kept its own copy of the 80% rule until v10.122.0 and
+ * now reads these lines through the bundled engine (`serverEngine.budgetLinesOnServer`).
  */
-export function budgetThresholdNotifs(
+export function budgetThresholdLines(
   budgets: Budget[], allocations: BudgetAllocation[], txns: Transaction[],
-  prefs: NotificationPrefs, existing: Notification[], ctx: Ctx, now: string = today(ctx.tz),
-): Notification[] {
-  if (!typeEnabled(prefs, 'budget_threshold')) return [];
-  const out: Notification[] = [];
+  ctx: Pick<Ctx, 'baseCurrency' | 'rates'>, now: string,
+): BudgetThresholdLine[] {
+  const out: BudgetThresholdLine[] = [];
   const cur = ctx.baseCurrency;
   for (const b of budgets) {
     const own = allocations.filter(a => a.budgetId === b.id);
@@ -245,7 +265,8 @@ export function budgetThresholdNotifs(
     if (!own.length && (!start || !end)) {            // legacy: the current month
       const mk = getMonthKey(now);
       start = `${mk}-01`;
-      end = `${mk}-31`;
+      // T5c — its real last day (WhatsApp counts the days left to it), not "-31" in a 30-day month.
+      end = new Date(Date.UTC(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)), 0)).toISOString().slice(0, 10);
     }
     if (!lines.length || !start || !end || start > now || end < now) continue;
     const spend = spendByCategoryInRange(txns, start, end, cur, ctx.rates);
@@ -254,22 +275,35 @@ export function budgetThresholdNotifs(
     for (const line of lines) {
       if (!(line.limit > 0)) continue;
       const spent = spend[line.category] || 0;
-      const pct = spent / line.limit;
-      const threshold: 80 | 100 | null = pct >= 1 ? 100 : pct >= 0.8 ? 80 : null;
+      const share = spent / line.limit;
+      const threshold: 80 | 100 | null = share >= 1 ? 100 : share >= 0.8 ? 80 : null;
       if (!threshold) continue;
-      const key = `budget_threshold:${b.id}:${line.category}:${start}:${threshold}`;
-      if (existing.some(n => n.dedupeKey === key)) continue;
-      const remaining = Math.max(0, line.limit - spent);
-      out.push({
-        ...base('budget_threshold', key, ctx),
-        tint: threshold === 100 ? 'var(--crit)' : 'var(--warn)',
-        title: `${getCat(line.category).label} at ${Math.round(pct * 100)}% of the ${period} budget`,
-        body: spent > line.limit ? `${fmt(spent - line.limit, cur)} over` : `${fmt(remaining, cur)} left`,
-        budgetId: b.id, amountRef: remaining,
-        deepLink: `/budgets?budgetId=${b.id}`,
-        actions: [A('review', 'Review budget', 'primary'), A('see_txns', 'See transactions', 'ghost')],
-      });
+      out.push({ budgetId: b.id, category: line.category, start, end, period, limit: line.limit, spent, share, threshold });
     }
+  }
+  return out;
+}
+
+export function budgetThresholdNotifs(
+  budgets: Budget[], allocations: BudgetAllocation[], txns: Transaction[],
+  prefs: NotificationPrefs, existing: Notification[], ctx: Ctx, now: string = today(ctx.tz),
+): Notification[] {
+  if (!typeEnabled(prefs, 'budget_threshold')) return [];
+  const out: Notification[] = [];
+  const cur = ctx.baseCurrency;
+  for (const line of budgetThresholdLines(budgets, allocations, txns, ctx, now)) {
+    const key = `budget_threshold:${line.budgetId}:${line.category}:${line.start}:${line.threshold}`;
+    if (existing.some(n => n.dedupeKey === key)) continue;
+    const remaining = Math.max(0, line.limit - line.spent);
+    out.push({
+      ...base('budget_threshold', key, ctx),
+      tint: line.threshold === 100 ? 'var(--crit)' : 'var(--warn)',
+      title: `${getCat(line.category).label} at ${Math.round(line.share * 100)}% of the ${line.period} budget`,
+      body: line.spent > line.limit ? `${fmt(line.spent - line.limit, cur)} over` : `${fmt(remaining, cur)} left`,
+      budgetId: line.budgetId, amountRef: remaining,
+      deepLink: `/budgets?budgetId=${line.budgetId}`,
+      actions: [A('review', 'Review budget', 'primary'), A('see_txns', 'See transactions', 'ghost')],
+    });
   }
   return out;
 }
