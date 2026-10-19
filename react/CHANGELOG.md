@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.121.0`** (consumer)
+> **Current production version: `v10.122.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,30 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.122.0 — WhatsApp and the bell say the same thing; Pip's usage is counted once *(2026-10-19)*
+
+One migration (`20261105120000_t5c_ai_usage_summary_sources.sql`, an admin report only) and Edge Function changes.
+Track T5 (engineering guardrails), part c: audit XC-ARC-06, INT-PAR-05 and FE-PIP-09. Owner decision, 19 Oct 2026:
+Pip's usage rows are written for timed turns only, and admin counts read the server's rows.
+
+- **A WhatsApp budget alert names the lines the bell names, at the same percentage.** WhatsApp had its own copy
+  of the 80% rule, which never checked a single-category budget (the kind made before budgets held several
+  categories). It now reads the app's rule through the bundled engine. It still alerts in the 80% band only,
+  because its message says how much is left. A line already alerted this period is not alerted again.
+- **The weekly "balances may be out of date" nudge counts what the bell counts.** It had its own 30-day rule, so
+  an account checked only through its reconcile log still counted, and it could say "two" where the bell said one.
+- **Pip's usage is counted once.** The app wrote a usage row for every turn, quick replies included, beside the
+  server's row for each model call, so the admin figures ran two to three times over. The app now writes one
+  only for a turn that called the model (the one its timings explain). The admin report reads calls, cost and
+  tokens from the server's rows and intent and sentiment from the app's (admin v1.4.7 relabels the counts
+  "Model calls").
+- **For developers:**
+  - `budgetThresholdLines` (lib/notifications.ts) is the one budget-threshold rule; the bell maps it to
+    notifications.
+  - `serverEngine` gains `budgetLinesOnServer` and `staleAccountCount`; the bundle is rebuilt.
+  - The dispatcher reads whole budget, allocation and account rows.
+  - A single-category budget's period now ends on its month's real last day.
 
 ## v10.121.0 — Nothing a save needs is dropped without a word *(2026-10-19)*
 

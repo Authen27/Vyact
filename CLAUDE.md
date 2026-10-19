@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.121.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.122.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.6**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.7**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -649,7 +649,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   (marketing and insights OFF until given in the app; `START` in chat never grants it). Bills and
   large-spend alerts cannot be muted. Scheduler figures come from the APP's engine (v10.96.0, Track E:
   `txnsFromRows` maps rows with the app's adapter, `spendRows` is what counts as spending; the
-  `_shared/money` hand port is deleted, never bring one back), and a rule
+  `_shared/money` hand port is deleted, never bring one back). **Since v10.122.0 (T5c; audit XC-ARC-06,
+  INT-PAR-05) the rules are the app's too:** the budget alert sends the bell's own lines
+  (`budgetLinesOnServer` → `budgetThresholdLines`, the 80% band only), and the stale-balance nudge counts with
+  `staleAccountCount` (`staleAccounts`). The dispatcher reads whole rows (`select *`) so the app's mappers see
+  every column. Never give a WhatsApp rule its own threshold, period or staleness cut. A rule
   SKIPS a household it cannot state truly (₹ templates for non-INR households; since v10.66.0
   a row's own currency label no longer matters — face value). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
   `whatsapp_approve_recurring`**, which posts the app's own row (deterministic id; since v10.69.0 the
@@ -802,6 +806,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
 - **Abuse limits (v10.64.0, audit W1c; owner decision D28).**
   - Pip's prompts are the SERVER's. The app sends `op` (`classify` | `phrase`) + text (+ rejected figures on a phrase retry); `ask-vyact` builds the messages with `systemPromptFor` (`_shared/agent/prompts.ts`). Never let a client send a system prompt, and add a new op (not a free-text prompt) when a feature needs one. The legacy `messages` form is accepted for one release only when it is exactly a server prompt — remove `fromLegacyMessages` next release.
   - `ai_usage` metering comes from the server only: a client row is `source='client'` with its cost/tokens/provider/model cleared by trigger, and `reserve_ai_usage` counts `source='gateway'` rows only. The daily cap is `parseDailyCallCap` (only `off` disables it).
+  - **One row per model call, one per timed turn (v10.122.0, T5c; audit FE-PIP-09; owner, 19 Oct 2026: "timed turns only").**
+    - The app writes its row only for a turn that called the model (`turnCalledModel` over the turn's timings).
+      A quick reply, a greeting, an off-topic answer or the assistant switched off writes none.
+    - `admin_ai_usage_summary` reads call figures from `source = 'gateway'` rows (calls, users, model, tokens,
+      cost, latency, error rate) and turn figures from `source = 'client'` rows (intent, sentiment, segments,
+      fallback rate). The admin page calls the counts "Model calls".
+    - Never count both kinds of row together.
   - Every split email is claimed first (`claim_split_emails`): one per share per event, ever, and `SPLIT_EMAIL_DAILY_CAP` (50) per sender per day. Email templates escape by construction (`html` tag / plain-string lines); never interpolate a value into email HTML any other way.
 - **"Today" is local (v10.65.0, audit W3a; owner decision D12).**
   - In the app, "today" and "this month" are the DEVICE's (`today()` / `nowMonthKey()` in `lib/format.ts`). Never derive a calendar day from `toISOString()`; that is the UTC day, a day behind in India until 05:30.

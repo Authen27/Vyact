@@ -2,6 +2,8 @@
 // Reads admin_ai_usage_summary() (SECURITY DEFINER, admin-gated). Every figure is
 // derived from the privacy-safe ai_usage table: intent + sentiment + length only,
 // never any message content. Used to segment user types for the business.
+// v1.4.7 (consumer v10.122.0, T5c; audit FE-PIP-09): the KPI counts are MODEL CALLS, from the server's own
+// rows (a Pip turn makes one or two); intent, sentiment and segments are TURNS, from the app's rows.
 
 import { useEffect, useState } from 'react';
 import { Brain, RefreshCw, Users, MessageSquare, TrendingUp, ThumbsUp, ThumbsDown, type LucideIcon } from 'lucide-react';
@@ -108,10 +110,10 @@ export default function Intelligence() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <Kpi label="Total interactions" value={data?.total} loading={loading} icon={MessageSquare} />
-        <Kpi label="Distinct users"     value={data?.users} loading={loading} icon={Users} />
-        <Kpi label="Last 7 days"        value={data?.last7} loading={loading} icon={TrendingUp} />
-        <Kpi label="Last 30 days"       value={data?.last30} loading={loading} />
+        <Kpi label="Model calls"          value={data?.total} loading={loading} icon={MessageSquare} />
+        <Kpi label="Distinct users"       value={data?.users} loading={loading} icon={Users} />
+        <Kpi label="Calls, last 7 days"   value={data?.last7} loading={loading} icon={TrendingUp} />
+        <Kpi label="Calls, last 30 days"  value={data?.last30} loading={loading} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4 mb-6">

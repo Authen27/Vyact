@@ -804,13 +804,26 @@
       "feature": "AI usage metering SQL",
       "availability": "conditional",
       "layer": "sql-integration",
-      "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture)",
+      "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture); T5c: admin_ai_usage_summary reads call figures from gateway rows and turn figures from client rows",
       "count": 4,
       "tests": [
         "ai_usage is metered by the server (W1c) CON-UNIT-W1-030 · a client row keeps its analytics but no cost, tokens, model or reservation",
         "ai_usage is metered by the server (W1c) CON-UNIT-W1-031 · existing rows are labelled; the daily cap counts only the server's calls",
         "ai_usage.stage_ms holds timings only (v10.106.3) PIP-LAT-020 · a client row keeps its stage timings beside the W1c analytics",
         "ai_usage.stage_ms holds timings only (v10.106.3) PIP-LAT-021 · text, nesting, odd keys and oversized objects are refused, so no message can be stored there"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/aiUsageSummarySql.test.ts",
+      "feature": "AI usage metering SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture); T5c: admin_ai_usage_summary reads call figures from gateway rows and turn figures from client rows",
+      "count": 2,
+      "tests": [
+        "admin_ai_usage_summary reads each figure from the rows that hold it (FE-PIP-09) T5C-002 · call figures come from the gateway (6 calls, not 9 rows); turn figures from the app (3 turns)",
+        "admin_ai_usage_summary reads each figure from the rows that hold it (FE-PIP-09) T5C-003 · still admins only"
       ]
     },
     {
@@ -2283,7 +2296,7 @@
       "availability": "conditional",
       "layer": "unit",
       "owner": "createTurnTimer stages (classify / phrase round trips, before / between / after) / ai_usage.stage_ms row: numbers only, kept when the column is missing / Chat wiring (v10.106.2)",
-      "count": 7,
+      "count": 8,
       "tests": [
         "Pip turn timings (v10.106.3) PIP-LAT-010 · a turn is split into before, classify, between, phrase (with its retry) and after",
         "Pip turn timings (v10.106.3) PIP-LAT-011 · no model call leaves only the total; a failed call is counted and still timed",
@@ -2291,7 +2304,8 @@
         "Pip turn timings (v10.106.3) PIP-LAT-013 · only what the database accepts is sent: finite numbers under short letter keys",
         "Pip turn timings (v10.106.3) PIP-LAT-014 · a database without the column yet still gets the row, without the timings",
         "Pip turn timings (v10.106.3) PIP-LAT-015 · local-only mode writes nothing",
-        "Pip turn timings (v10.106.3) PIP-LAT-016 · the chat times every model call of the turn and logs the stages with each outcome"
+        "Pip turn timings (v10.106.3) PIP-LAT-016 · the chat times every model call of the turn and logs the stages with each outcome",
+        "Pip turn timings (v10.106.3) T5C-001 · only a turn that called the model writes a row (FE-PIP-09: the gateway meters every call)"
       ]
     },
     {
@@ -2339,7 +2353,7 @@
       "feature": "AI usage metering SQL",
       "availability": "conditional",
       "layer": "sql-integration",
-      "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture)",
+      "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture); T5c: admin_ai_usage_summary reads call figures from gateway rows and turn figures from client rows",
       "count": 6,
       "tests": [
         "prepare_ai_call() (v10.107.1) PIP-GW-020 · a member under the cap gets one gateway reservation, for themselves",
@@ -2607,6 +2621,19 @@
         "Ask Vyact on the server (W4) CON-UNIT-W4-002 · the generated bundle gives the SAME turn as the source",
         "Ask Vyact on the server (W4) CON-UNIT-W4-003 · an invented figure is discarded on the server path too",
         "Ask Vyact on the server (W4) CON-UNIT-W4-004 · WhatsApp rendering: no markdown, numbered chips, the length limit, and no form to open"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/serverNudgeParity.test.ts",
+      "feature": "Server nudges on the app rules (T5c)",
+      "availability": "conditional",
+      "layer": "contract-unit",
+      "owner": "T5c (audit XC-ARC-06, INT-PAR-05): the WhatsApp budget alert and stale-balance nudge, through the bundled engine, name the lines and the count the bell, push and Reply UPDATE name for one fixture",
+      "count": 2,
+      "tests": [
+        "WhatsApp's scheduled nudges say what the bell says (T5c) T5C-004 · the budget alert names the bell's lines at the bell's percentage; the single-category budget is checked too",
+        "WhatsApp's scheduled nudges say what the bell says (T5c) T5C-005 · the stale-balance nudge counts the accounts the bell, push and \"Reply UPDATE\" count"
       ]
     },
     {

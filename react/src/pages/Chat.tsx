@@ -355,11 +355,8 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
       // Ask Vyact is the ONLY assistant (v10.20). With the feature flag off there
       // is no second engine to fall through to — the old ChatBackend path was
       // removed with its browser-side key. Say so plainly rather than routing the
-      // user to something they were never told about.
-      void logAiUsage({
-        householdId, text: question, surface: 'chat',
-        outcome: 'error', latencyMs: Date.now() - startedAt,
-      });
+      // user to something they were never told about. No model was called, so no
+      // usage row (T5c, FE-PIP-09).
       patchTurn({ content: 'The assistant is turned off right now.', pending: false });
     } catch (e) {
       void logAiUsage({

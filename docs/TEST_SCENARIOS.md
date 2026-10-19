@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1564 passing deterministic cases in 173 files. Zero failed, skipped or TODO cases at generation.**
+**1569 passing deterministic cases in 175 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -33,14 +33,14 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 113 |
-| react | contract-unit | conditional | 125 |
+| react | contract-unit | conditional | 127 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 125 |
+| react | sql-integration | conditional | 127 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
 | react | unit | available | 449 |
-| react | unit | conditional | 235 |
+| react | unit | conditional | 236 |
 | react | unit | infrastructure | 229 |
 
 ### Executed Files
@@ -81,6 +81,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |
 | [react/src/lib/__tests__/aiFeedback.test.ts](../react/src/lib/__tests__/aiFeedback.test.ts) | Pip answer feedback | unit | available | 3 |
 | [react/src/lib/__tests__/aiUsageSourceSql.test.ts](../react/src/lib/__tests__/aiUsageSourceSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 4 |
+| [react/src/lib/__tests__/aiUsageSummarySql.test.ts](../react/src/lib/__tests__/aiUsageSummarySql.test.ts) | AI usage metering SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/appGuards.test.ts](../react/src/lib/__tests__/appGuards.test.ts) | App guardrails (T5b) | store-integration | available | 7 |
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 30 |
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
@@ -159,7 +160,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/pipCorrectness.test.ts](../react/src/lib/__tests__/pipCorrectness.test.ts) | Pip correctness | unit | conditional | 11 |
 | [react/src/lib/__tests__/pipGatewayOneTrip.test.ts](../react/src/lib/__tests__/pipGatewayOneTrip.test.ts) | Pip answer timings | unit | conditional | 8 |
 | [react/src/lib/__tests__/pipGuard.test.ts](../react/src/lib/__tests__/pipGuard.test.ts) | Pip guard | unit | conditional | 6 |
-| [react/src/lib/__tests__/pipLatency.test.ts](../react/src/lib/__tests__/pipLatency.test.ts) | Pip answer timings | unit | conditional | 7 |
+| [react/src/lib/__tests__/pipLatency.test.ts](../react/src/lib/__tests__/pipLatency.test.ts) | Pip answer timings | unit | conditional | 8 |
 | [react/src/lib/__tests__/pipPlanner.test.ts](../react/src/lib/__tests__/pipPlanner.test.ts) | Ask Vyact | unit | conditional | 14 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 3 |
 | [react/src/lib/__tests__/prepareAiCallSql.test.ts](../react/src/lib/__tests__/prepareAiCallSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 6 |
@@ -178,6 +179,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/reportsModel.test.ts](../react/src/lib/__tests__/reportsModel.test.ts) | Reports and Ask guidance | unit | available | 6 |
 | [react/src/lib/__tests__/rrule.test.ts](../react/src/lib/__tests__/rrule.test.ts) | Recurring and budgets | unit | available | 11 |
 | [react/src/lib/__tests__/serverEngine.test.ts](../react/src/lib/__tests__/serverEngine.test.ts) | Ask Vyact on the server | unit | conditional | 4 |
+| [react/src/lib/__tests__/serverNudgeParity.test.ts](../react/src/lib/__tests__/serverNudgeParity.test.ts) | Server nudges on the app rules (T5c) | contract-unit | conditional | 2 |
 | [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 4 |
 | [react/src/lib/__tests__/settingsHouseholdRow.test.ts](../react/src/lib/__tests__/settingsHouseholdRow.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/sharedSplitsWorkflow.test.ts](../react/src/lib/__tests__/sharedSplitsWorkflow.test.ts) | Shared splits | contract-unit | conditional | 3 |

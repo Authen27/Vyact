@@ -130,14 +130,27 @@ function cleanStageMs(stageMs: StageMs | undefined): StageMs | null {
 }
 
 /**
+ * T5c (v10.122.0; audit FE-PIP-09; owner, 19 Oct 2026: "timed turns only") — did this turn call the model?
+ * Its timings count each classify and phrase call (`createTurnTimer`); a quick reply, a greeting, an
+ * off-topic answer or the assistant switched off made none.
+ */
+export function turnCalledModel(stageMs: StageMs | undefined): boolean {
+  return (Number(stageMs?.classifyCalls) || 0) + (Number(stageMs?.phraseCalls) || 0) > 0;
+}
+
+/**
  * Log one AI interaction. Fire-and-forget; never throws into the caller.
  * Stores intent + sentiment + length + call metadata only — NEVER message text.
+ * T5c (FE-PIP-09) — only for a turn that called the model, the one the row's timings explain. Every
+ * turn used to write one, quick replies included, beside the gateway's own row per model call, so admin
+ * counts ran double; the admin summary now counts calls from the gateway's rows alone.
  */
 export async function logAiUsage(opts: {
   householdId: string;
   text: string;
   surface?: string;
 } & AiUsageTelemetry): Promise<void> {
+  if (!turnCalledModel(opts.stageMs)) return;
   if (!isCloudEnabled() || !supabase) return;
   if (!opts.householdId || opts.householdId === 'local') return;
   try {
