@@ -84,14 +84,14 @@ Two developers did the work:
 | PR | Version | Wave | Closed | Partly |
 |---|---|---|---|---|
 | #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-PUB-01, FE-UIS-02, ADM-01, ADM-02, BE-FN-07, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
-| #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04 | XC-PRV-11 |
+| #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04, INT-HH-06 | XC-PRV-11 |
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
 | #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, BE-FN-09, OPS-11 |
-| #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05 | — |
-| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08 | FE-UIS-03 |
+| #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05, INT-PAR-11 | — |
+| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08, INT-PAR-11 | FE-UIS-03 |
 | #171 | v10.67.0 | W3c lost edits | FE-SYN-01, FE-SYN-03, INT-TXN-08 | — |
 | #172 | v10.68.0 | W3d recurrence schema | FE-MNY-01, INT-TXN-05 | — |
-| #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02 | XC-ARC-06 |
+| #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02, INT-PAR-11 | XC-ARC-06 |
 | #174 | v10.70.0 | W4a server posts bills | INT-TXN-06 | — |
 | #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
 | #176 | v10.72.0 | W4c split edit | FE-PIP-03, INT-TXN-01, FE-UIC-09 | — |
@@ -104,8 +104,8 @@ Two developers did the work:
 | #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-10, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-12, INT-HH-08 |
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
-| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, INT-PAR-05, XC-PRV-09 |
-| #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-09, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | BE-PIP-04 |
+| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, INT-HH-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, INT-PAR-05, XC-PRV-09 |
+| #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-06, BE-WA-09, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | BE-PIP-04 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
@@ -829,7 +829,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | BE-PIP-03 | MEDIUM | Backend | ai_usage spend gate is client-writable, and client rows eat the gateway quota | confirmed (adversarial: confirmed) | 2026-09 audit A2 | Closed | #168 |
 | BE-WA-03 | MEDIUM | Backend | Replies to pending questions are re-parsed as new ledger entries after a retry or a lost pending turn | confirmed (adversarial: confirmed) |  | Closed | #187 |
 | BE-WA-04 | MEDIUM | Backend | Webhook returns 200 to Meta even when the inbox row was not stored, so the message is lost | confirmed (adversarial: confirmed) |  | Closed | #187 |
-| BE-WA-06 | MEDIUM | Backend | OTP attempt limit is bypassable by parallel requests and resets on every resend | confirmed (adversarial: confirmed) |  | Closed (decision) | v10.114.0 |
+| BE-WA-06 | MEDIUM | Backend | OTP attempt limit is bypassable by parallel requests and resets on every resend | confirmed (adversarial: confirmed) |  | Closed (decision) | #187, v10.114.0 |
 | BE-WA-07 | MEDIUM | Backend | whatsapp-notify lets any member send any template, with arbitrary text and button payloads, from Vyact's number | confirmed (adversarial: confirmed) |  | Closed | v10.118.0 |
 | BE-WA-08 | MEDIUM | Backend | "No, that was X" can give an entry the wrong category type, and allows Loan/EMI | confirmed (adversarial: confirmed) |  | Closed | v10.89.0 |
 | BE-WA-09 | MEDIUM | Backend | STOP and other consent/state writes ignore Supabase errors yet reply "Done" | confirmed (adversarial: confirmed) |  | Closed | #187, v10.118.0 |
@@ -846,7 +846,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | DB-SEC-10 | MEDIUM | Database | No database authorization test suite: RLS and RPC role/tenant matrix untested | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
 | INT-HH-07 | MEDIUM | Integration | Owners and admins can add any user to a household without consent and read their profile | confirmed (adversarial: confirmed) | 2026-09 audit S2 ('whether user identity and household linkage can change' still open) | Closed | v10.114.0 |
 | INT-HH-08 | MEDIUM | Integration | Household settings permissions disagree with RLS; partial writes and unhandled errors | confirmed-with-caveats (adversarial: partial) |  | Partly | #183 |
-| INT-HH-09 | MEDIUM | Integration | Invite acceptance is not atomic or single-use; stale tokens and legacy RPCs linger | confirmed (adversarial: confirmed) |  | Closed | v10.114.0 |
+| INT-HH-09 | MEDIUM | Integration | Invite acceptance is not atomic or single-use; stale tokens and legacy RPCs linger | confirmed (adversarial: confirmed) |  | Closed | #186, v10.114.0 |
 | INT-HH-12 | MEDIUM | Integration | 'Child (own data only)' invite role can read the whole household's finances | confirmed (adversarial: confirmed) |  | Closed (decision) | #166 |
 | INT-PAR-02 | MEDIUM | Integration | Client computeNextDueDate uses local-time setters; wrong in DST and negative-offset zones, unlike the UTC server port | confirmed (adversarial: confirmed) |  | Closed | #173 |
 | INT-PAR-04 | MEDIUM | Integration | Three clocks: UTC today(), host-local getters (UTC on Deno) and IST localDay produce different days | confirmed (adversarial: confirmed) |  | Closed | #169 |
@@ -938,7 +938,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-CON-05 | LOW | Integration | Category parity test covers only expense ids; income category drift is silent and unchecked | confirmed-with-caveats (adversarial: partial) |  | Closed | #184 |
 | INT-CON-06 | LOW | Integration | Admin app household-type enum omits 'couple' and keeps retired multi_biz/shared | not independently verified (low/info) |  | Closed | #188 |
 | INT-CON-07 | LOW | Integration | leave_household shares the same NULL-role guard idiom as transfer_ownership | not independently verified (low/info) |  | Closed | v10.114.0 |
-| INT-HH-06 | LOW | Integration | Owner continuity not enforced: households can be left with no owner | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S2 (owner continuity still open) | Closed | v10.114.0 |
+| INT-HH-06 | LOW | Integration | Owner continuity not enforced: households can be left with no owner | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S2 (owner continuity still open) | Closed | #166, v10.114.0 |
 | INT-HH-13 | LOW | Integration | After leaving or deleting a household, the app stays on a household the user is no longer in | not independently verified (low/info) |  | Partly | #184 |
 | INT-HH-14 | LOW | Integration | Admin Households page has a stale type list and member counts that cap at 1,000 rows | not independently verified (low/info) |  | Partly | #188 |
 | INT-PAR-10 | LOW | Integration | Same event, different figures across channels: split large-spend alert and budget percentage rounding | not independently verified (low/info) |  | Closed | #187 |
@@ -957,7 +957,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  | Partly | #189 |
 | BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  | Owner decision | — |
 | DB-OPS-16 | INFO | Database | pg_trgm sits in public but nothing uses it; TD-34's stated blocker does not exist in the repo | not independently verified (low/info) | TD-34 | Open | — |
-| INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 | Closed | v10.120.0 |
+| INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 | Closed | #169, #170, #173, v10.120.0 |
 | GATE-05 | INFO | Platform & Ops | npm audit: 22 (react) + 11 (admin) advisories still untriaged; all highs dev-only | observed (gate executed) | TD-38 (still open; count now 22 react / 11 admin) | Closed | #189 |
 | GATE-06 | INFO | Platform & Ops | Main entry chunk 615 KB (180 KB gz) exceeds Vite's 500 KB warning | observed (gate executed) |  | Closed | #189 |
 
@@ -1383,7 +1383,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-UIS-10 | medium | Closed | #183, v10.91.0 | v10.91.0: the single-key n/b/d/a shortcuts are removed (owner decision), so there is nothing to switch off. Transactions' "/" (focus only) and Cmd/Ctrl+K stay. |
 | BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
 | BE-WA-03 | medium | Closed | #187 | Residual edge only: the reopen runs only on a returned 'retry'. If the worker dies after resolvePending (a stale claim is replayed), or an exception escapes processInboundTurn, the question stays closed. The audit's stronger design (resolve the pending turn inside the action's RPC transaction, or keep it on the inbox… |
-| BE-WA-06 | medium | Closed (decision) | v10.114.0 | Closed by owner decision, 18 Oct 2026: "ignore the whole OTP track cause it serves no use case anymore". The compare-and-set attempt claim (W8b) stays; no further work. Note: Settings' Link WhatsApp still calls whatsapp-send-otp / whatsapp-verify-otp; retiring that flow would be its own change. |
+| BE-WA-06 | medium | Closed (decision) | #187, v10.114.0 | Closed by owner decision, 18 Oct 2026: "ignore the whole OTP track cause it serves no use case anymore". The compare-and-set attempt claim (W8b) stays; no further work. Note: Settings' Link WhatsApp still calls whatsapp-send-otp / whatsapp-verify-otp; retiring that flow would be its own change. |
 | BE-WA-07 | medium | Closed | v10.118.0 | v10.118.0 (Track T2d; owner: T2 reopens Batch E): whatsapp-notify takes the service key only; a member's JWT, of any role, is 403 service_only. The app never called it; its one caller is whatsapp-verify-otp's welcome, as the service. W0-007, W0-012. |
 | BE-WA-08 | medium | Closed | v10.89.0 | v10.89.0: a WhatsApp correction to an EMI turns the entry into a loan payment (whatsapp_correct_to_loan: server split, expense removed, never twice); whatsapp_correct_last refuses loan_emi. |
 | BE-WA-09 | medium | Closed | #187, v10.118.0 | W8b (#187) checked prefs, opt-out and pending-turn writes. v10.118.0 (Track T2d) checks the rest: the inbox claim, done/failed and delivery-status writes (setInboxStatus tries twice, then logs and leaves the row for the sweep; a failed claim leaves the message pending), guardedSend's sent and slot-freeing writes (sett… |
@@ -1394,7 +1394,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | DB-SEC-08 | medium | Closed | #167, v10.88.0 | Server-side recency check (#167); the erase now also removes notifications, WhatsApp questions, agent conversations, relay messages and loan history (v10.88.0). |
 | DB-SEC-09 | medium | Closed | v10.117.0 | v10.117.0 (Track T2c; owner decisions 18 Oct 2026, T2 reopens Batch E): assert_txn_tenant_consistency (now SECURITY DEFINER) also checks asset_id on every write and initiated_by / recurring_schedule_id when set or changed; new assert_account_tenant_consistency (asset_id, debt_id) and assert_recurring_tenant_consistenc… |
 | INT-HH-07 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the client INSERT policy on memberships is dropped, so people join only through the definer accepts and handle_new_household; memberships_keep_identity refuses changing a membership's user or household; the legacy profile phone copies are cleared… |
-| INT-HH-09 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): accept_invitation_link and accept_invitation_by_id lock the invitation and then the household and claim it only where accepted_at is null (row_count checked); an existing member opening a link leaves it usable; the legacy accept_invitation(text/uu… |
+| INT-HH-09 | medium | Closed | #186, v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): accept_invitation_link and accept_invitation_by_id lock the invitation and then the household and claim it only where accepted_at is null (row_count checked); an existing member opening a link leaves it usable; the legacy accept_invitation(text/uu… |
 | INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
 | INT-TXN-10 | medium | Closed | v10.111.0 | v10.111.0 (Track F1b): a cloud pull leaves every row with a queued write as the device has it: overlayQueued for full pulls (a row created offline survives, a queued delete stays deleted), mergeCloudDelta for deltas, read from outbox.queuedWrites under the list lock where upsert/remove queue their op. A same-row edit… |
 | INT-TXN-11 | medium | Closed | v10.112.0 | v10.112.0 (Track F1c; owner decisions 18 Oct 2026: queued behind the transaction, sent by sync; "today's calls, repeat-safe"): create, edit and delete queue a shareSplit outbox op behind the transaction; the outbox claims it only after every earlier write of its transaction has landed (own lane, never holding up trans… |
@@ -1408,9 +1408,9 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-UIS-16 | low | Closed | #184 | Expired invitations no longer count toward the member limit (migration 20261007120000:62). The recommendation's optional dirty-form confirm was not added. |
 | BE-WA-12 | low | Closed | #187, v10.118.0 | W8b (#187) counted stale claims as attempts. v10.118.0 (Track T2d; owner: every 5 minutes) adds pg_cron whatsapp-inbox-sweep with a Vault secret (whatsapp_sweep_cron_ok); the sweep also claims messages left pending over 2 minutes (inside 24 h), and a stale claim that runs out of attempts sends one "Sorry, I couldn't p… |
 | INT-CON-07 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): leave_household reads the caller's role null-safely: a non-member leaves nothing, the last owner cannot leave. JOIN-007. |
-| INT-HH-06 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the unique (household_id, user_id) index is in place (with the merge); the W1a deferred owner trigger already guards continuity. The owner's read-only check for households left ownerless before that trigger is listed in the PR. |
+| INT-HH-06 | low | Closed | #166, v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the unique (household_id, user_id) index is in place (with the merge); the W1a deferred owner trigger already guards continuity. The owner's read-only check for households left ownerless before that trigger is listed in the PR. |
 | GATE-03 | low | Closed | #185, #188 | Live-verified 12 Oct: no .map is served for the vyact.app or admin entry chunks. |
 | GATE-04 | low | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): react/tsconfig.tests.json + the `typecheck:tests` gate compile the unit tests and the JS and Edge code they import; 121 errors fixed without changing an assertion (a fixture used a payment mode that never existed; a schedule fixture lacked two fields). |
 | OPS-13 | low | Closed | #185, #189 | The ignoreCommand regression introduced in #185 was fixed in #189. |
-| INT-PAR-11 | info | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): the `test:tz` gate runs 10 date-sensitive suites under UTC, Asia/Kolkata, Europe/London, America/New_York and Pacific/Kiritimati (a planted UTC-day today() passes in UTC and fails in three zones), and scripts/deno-smoke.ts loads the engine bundle and shar… |
+| INT-PAR-11 | info | Closed | #169, #170, #173, v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): the `test:tz` gate runs 10 date-sensitive suites under UTC, Asia/Kolkata, Europe/London, America/New_York and Pacific/Kiritimati (a planted UTC-day today() passes in UTC and fails in three zones), and scripts/deno-smoke.ts loads the engine bundle and shar… |
 | GATE-05 | info | Closed | #189 | Triaged (docs/SECURITY_AUDIT_TRIAGE.md), with a CI npm-audit gate. The moderate React Router advisory is mitigated by safeNext; its full fix is v7. |
