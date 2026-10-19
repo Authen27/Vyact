@@ -15,7 +15,7 @@ import {
   recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs,
   debtDueNotifs, incomeLandedNotifs, staleBalanceNotifs, pipNudgeNotifs,
   splitReceivedNotifs, splitSettledNotifs, splitClosedNotifs,
-  DEFAULT_PREFS, isInQuietHours, showWebPush, resolvedBillCards,
+  DEFAULT_PREFS, isInQuietHours, showWebPush, resolvedBillCards, deviceNotificationText,
 } from '../../lib/notifications';
 import {
   insertNotifications, fetchNotifications, updateNotificationStatus, purgeExpired,
@@ -123,7 +123,12 @@ export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set,
     // v10.48.0 — a device registered for real push gets these from the server (with the
     // app closed too); popping them here as well would show each one twice.
     if (fresh.length && notificationPrefs.webPushEnabled && !isInQuietHours(notificationPrefs) && !deviceHasServerPush()) {
-      for (const n of fresh) if (n.priority === 'P1') showWebPush(n.title, n.body);
+      // v10.126.0 (T4c, BE-FN-12): with "Show details on the lock screen" off, only the private line.
+      for (const n of fresh) {
+        if (n.priority !== 'P1') continue;
+        const text = deviceNotificationText(n, notificationPrefs);
+        void showWebPush(text.title, text.body);
+      }
     }
   },
 

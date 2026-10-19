@@ -132,3 +132,5 @@ export interface NotifInsertRow {
 export const notificationsOnServer = generated.notificationsOnServer as (
   rows: HouseholdRows, existingKeys: readonly string[], householdId: string,
 ) => NotifInsertRow[];
+/** v10.126.0 (T4c, BE-FN-12) — the private line a device with "Show details on the lock screen" off gets. */
+export const lockScreenTextOnServer = generated.lockScreenTextOnServer as (type: string) => { title: string; body: string };

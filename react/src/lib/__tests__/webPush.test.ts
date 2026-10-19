@@ -28,8 +28,8 @@ vi.mock('https://esm.sh/@supabase/supabase-js@2.45.0', () => ({ createClient: ()
 const loader = vi.hoisted(() => ({ loadHouseholdRows: vi.fn() }));
 vi.mock('../../../../supabase/functions/_shared/agent/householdLoader.ts', () => ({ loadHouseholdRows: loader.loadHouseholdRows }));
 vi.mock('../../../../supabase/functions/_shared/agent/engine.ts', async () => {
-  const { notificationsOnServer: real } = await import('../serverEngine');
-  return { notificationsOnServer: real };
+  const { notificationsOnServer: real, lockScreenTextOnServer } = await import('../serverEngine');
+  return { notificationsOnServer: real, lockScreenTextOnServer };
 });
 
 const enc = new TextEncoder();
@@ -473,6 +473,42 @@ describe('web-push function', () => {
     const again = await run('2026-09-28T02:15:00Z', [{ notification_id: 'n1', subscription_id: 's1' }]);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(again.out.skipped).toEqual({ already_pushed: 1 });
+    vi.useRealTimers();
+  });
+
+  it('CON-UNIT-WP-010 · T4c (BE-FN-12): a device with "Show details on the lock screen" off gets only what needs a look; the others get the details', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-27T05:30:00Z'));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+    loader.loadHouseholdRows.mockResolvedValue({ ...rows(), transactions: [], budgets: [], budgetAllocations: [], accounts: [], recurring: [] });
+    const secret = 'cron-secret-of-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+    api.rpc.mockImplementation(async (name: string, args: { p?: string }) => {
+      if (name === 'web_push_cron_ok') return { data: args.p === secret, error: null };
+      if (name === 'web_push_vapid') return { data: keys, error: null };
+      return { data: null, error: null };
+    });
+    const pending: NotificationRow[] = [{ ...NOTIF, id: 'n1', household_id: HID }];
+    tableSequence({
+      push_subscriptions: [[[
+        subRow('s1', dev1, { household_id: HID, user_id: 'u1', prefs: { ...SUB.prefs, lockScreenDetails: false } }),
+        subRow('s2', dev2, { household_id: HID, user_id: 'u2' }),    // saved before the switch existed: details on
+      ]]],
+      memberships: [[[{ household_id: HID, user_id: 'u1' }, { household_id: HID, user_id: 'u2' }]]],
+      notifications: [[[]], [pending], [null]],
+      push_deliveries: [[null]],
+    });
+    const handler = await load();
+    const out = await (await post(handler, {}, { 'x-cron-secret': secret }, '?mode=dispatch')).json();
+    expect(out.pushed).toBe(2);
+    const sent = Object.fromEntries(await Promise.all(fetchMock.mock.calls.map(async ([url, init]) =>
+      [String(url).split('/').pop(), JSON.parse((await receive(init.body, String(url).endsWith('/s1') ? dev1 : dev2)).text)])));
+    expect(sent.s1).toEqual({
+      title: 'A budget needs a look', body: 'Open Vyact to see which one.', url: NOTIF.deep_link, tag: NOTIF.dedupe_key, type: 'budget_threshold',
+    });
+    expect(JSON.stringify(sent.s1)).not.toMatch(/₹|300|Groceries|September/);
+    expect(sent.s2).toEqual(payloadFor(pending[0]));
+    expect(sent.s2.title).toBe('Groceries at 85% of the September budget');
     vi.useRealTimers();
   });
 });

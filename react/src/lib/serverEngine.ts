@@ -37,7 +37,7 @@ import { spendByCategory } from './calculations';
 import { getCat } from '../constants';
 import {
   DEFAULT_PREFS, recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs, budgetThresholdLines, debtDueNotifs,
-  incomeLandedNotifs, staleBalanceNotifs, type BudgetThresholdLine,
+  incomeLandedNotifs, staleBalanceNotifs, lockScreenText, type BudgetThresholdLine,
 } from './notifications';
 import { toInsertRow, type NotifInsertRow } from './notificationRows';
 import { wallClock } from './format';
@@ -335,6 +335,14 @@ export function notificationsOnServer(rows: HouseholdRows, existingKeys: readonl
     ...incomeLandedNotifs(transactions, prefs, existing, ctx),
     ...staleBalanceNotifs(accounts, prefs, existing, ctx),
   ].map(toInsertRow);
+}
+
+/**
+ * v10.126.0 (T4c; audit BE-FN-12) — what a push says on a device whose "Show details on the lock screen" is
+ * off: the app's own private line for the type (`lockScreenText`), so the server and the open app never differ.
+ */
+export function lockScreenTextOnServer(type: string): { title: string; body: string } {
+  return lockScreenText(type);
 }
 
 // ── T5c (v10.122.0) — WhatsApp's scheduled nudges read the app's own rules ──────────────────────────

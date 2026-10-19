@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.125.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.126.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -728,6 +728,16 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     recently used.
   - A payload over the limit is shortened (`fitPayload`: body, then title), never refused. The dispatcher
     raises at most `RAISE_PER_RUN` (50) households a run, in turns.
+  **A notification outside the app keeps its details only while the phone allows it (v10.126.0, T4c; audit
+  BE-FN-12; owner, 19 Oct 2026: "show by default, and hide via settings").**
+  - `NotificationPrefs.lockScreenDetails` is per device, on by default (absent means on), and reaches the server
+    in the device's push prefs. Off, `payloadFor` (the push) and `deviceNotificationText` (the open app's popup)
+    send the private line for the type: `lockScreenText` in `lib/notifications.ts`, read by the server through
+    the bundle (`lockScreenTextOnServer`). Never write a second wording table in `_shared/`.
+  - Every `NotifType` has a private line (a `Record`), with no amount, number or name in it.
+  - The Android app (a Capacitor WebView) has no Web Push: `pushBlocker()` is `native_app` there, and Settings
+    says to use vyact.app installed from Chrome. Native push (FCM) is separate work in the Android repo.
+  - Why a push did not arrive, and the read-only checks: `docs/PUSH_TROUBLESHOOTING.md`.
 - **"Can I afford …" is budget-first; the safety floor is SOFT (v10.48.1, owner's rule).** The verdict rests on
   the purchase's category budget this month (`purchaseCategory` → `categoryBudget`) and the money free after
   card dues. The three-month floor is stated separately (`safety_floor_note`), last, in its own paragraph, as a
@@ -1050,6 +1060,14 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   - Never write a host into a migration. They named production until v10.123.0, so vyact-test called
     production every few minutes. A new job copies the T5d form, and T5D-004 fails on a later migration naming
     the production host.
+
+- **Production's sign-in settings are recorded (v10.126.0, T4c; audit BE-FN-11; owner, 19 Oct 2026: "snapshot
+  + drift check").** `supabase/auth-config.json` holds the Supabase Auth settings that matter (redirect URLs,
+  sign-up, email confirmation, providers, sessions, passwords, rate limits). After the migrations, Deploy runs
+  `scripts/auth-config-check.mjs` (Management API, read-only), which warns on any difference and prints unrecorded
+  (null) values to copy in. It reads only the tracked, non-secret settings; never add a secret to the list.
+  Change a setting in the dashboard and in the file together. The check is warn-only until the owner adds
+  `--strict`.
 
 - **Views freeze their column list** — `select h.*` expands at creation time.
   Adding a `households` column the consumer reads through `my_households` requires

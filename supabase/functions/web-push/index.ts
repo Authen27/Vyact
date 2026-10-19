@@ -24,7 +24,7 @@ import {
   skipReason, payloadFor, testPayload, type SubscriptionRow, type NotificationRow,
 } from '../_shared/web-push-rules.ts';
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
-import { notificationsOnServer } from '../_shared/agent/engine.ts';
+import { notificationsOnServer, lockScreenTextOnServer } from '../_shared/agent/engine.ts';
 
 const VAPID_SUBJECT = 'https://vyact.app';
 /** Rows older than this are never pushed (a device that was offline gets today's news, not last week's). */
@@ -200,7 +200,8 @@ async function dispatch(admin: SupabaseClient, now: Date) {
       if (!isPushEndpoint(sub.endpoint)) { skipped.endpoint_not_allowed = (skipped.endpoint_not_allowed ?? 0) + 1; continue; }
       // W0 (BE-FN-07) — one device's failure never stops the others.
       try {
-        const outcome = await sendWebPush(sub, payloadFor(n), keys!, { urgency: 'high' });
+        // T4c (BE-FN-12): the device's "Show details on the lock screen" decides the words.
+        const outcome = await sendWebPush(sub, payloadFor(n, sub.prefs, lockScreenTextOnServer), keys!, { urgency: 'high' });
         await record(admin, sub, n.id, 'notification', outcome);
         if (outcome.ok) pushed++;
         if (outcome.gone) sub.disabled_at = now.toISOString();

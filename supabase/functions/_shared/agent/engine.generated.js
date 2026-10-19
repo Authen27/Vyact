@@ -5877,7 +5877,8 @@ const DEFAULT_PREFS = {
 	quietStart: "22:00",
 	quietEnd: "07:00",
 	webPushEnabled: false,
-	defaultLeadDays: 3
+	defaultLeadDays: 3,
+	lockScreenDetails: true
 };
 function typeEnabled(prefs, type) {
 	if (!prefs.master && !NOTIF_LOCKED.includes(type)) return false;
@@ -6116,6 +6117,84 @@ function staleBalanceNotifs(accounts, prefs, existing, ctx) {
 		deepLink: "/accounts",
 		actions: [A("update", "Update balances", "primary"), A("dismiss", "Dismiss", "ghost")]
 	}];
+}
+const PRIVATE_TEXT = {
+	recurring_due_confirm: {
+		title: "A bill is due",
+		body: "Open Vyact to approve or skip it."
+	},
+	recurring_reminder: {
+		title: "A bill is coming up",
+		body: "Open Vyact to see it."
+	},
+	recurring_posted: {
+		title: "A bill was recorded",
+		body: "Open Vyact to see it."
+	},
+	debt_payment_due: {
+		title: "A loan payment is due",
+		body: "Open Vyact to see it."
+	},
+	budget_threshold: {
+		title: "A budget needs a look",
+		body: "Open Vyact to see which one."
+	},
+	stale_balance: {
+		title: "A balance needs a check",
+		body: "Open Vyact to update it."
+	},
+	income_landed: {
+		title: "Money came in",
+		body: "Open Vyact to see it."
+	},
+	insight_fresh: {
+		title: "A new insight is ready",
+		body: "Open Vyact to see it."
+	},
+	trend_alert: {
+		title: "Your spending needs a look",
+		body: "Open Vyact to see it."
+	},
+	member_activity: {
+		title: "New activity in your household",
+		body: "Open Vyact to see it."
+	},
+	milestone: {
+		title: "A milestone was reached",
+		body: "Open Vyact to see it."
+	},
+	split_received: {
+		title: "A split was shared with you",
+		body: "Open Vyact to see it."
+	},
+	split_settled: {
+		title: "A split share was settled",
+		body: "Open Vyact to see it."
+	},
+	split_closed: {
+		title: "A split was closed",
+		body: "Open Vyact to see it."
+	},
+	invite_received: {
+		title: "You're invited to a household",
+		body: "Open Vyact to see it."
+	},
+	invite_pending: {
+		title: "An invitation is waiting",
+		body: "Open Vyact to see it."
+	},
+	sync_conflict: {
+		title: "A change needs your attention",
+		body: "Open Vyact to review it."
+	}
+};
+const PRIVATE_FALLBACK = {
+	title: "Vyact",
+	body: "You have a new notification. Open Vyact to see it."
+};
+/** The private title and body for a notification type: what it is about, never its amounts or names. */
+function lockScreenText(type) {
+	return Object.prototype.hasOwnProperty.call(PRIVATE_TEXT, type) ? PRIVATE_TEXT[type] : PRIVATE_FALLBACK;
 }
 //#endregion
 //#region react/src/lib/notificationRows.ts
@@ -6389,6 +6468,13 @@ function notificationsOnServer(rows, existingKeys, householdId) {
 	].map(toInsertRow);
 }
 /**
+* v10.126.0 (T4c; audit BE-FN-12) — what a push says on a device whose "Show details on the lock screen" is
+* off: the app's own private line for the type (`lockScreenText`), so the server and the open app never differ.
+*/
+function lockScreenTextOnServer(type) {
+	return lockScreenText(type);
+}
+/**
 * Audit XC-ARC-06 — the budget lines at or past a threshold today, by the app's rule
 * (`budgetThresholdLines`, the one the bell and push raise from), over `budgets`, `budget_allocations`
 * and `transactions` rows mapped by the app's adapter. WhatsApp's budget alert kept its own 80% rule
@@ -6442,4 +6528,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, budgetLinesOnServer, cleanOffending, contextFromRows, countSpendEntries, effectiveAmount, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendEntryKey, spendRows, staleAccountCount, systemPromptFor, txnsFromRows };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, budgetLinesOnServer, cleanOffending, contextFromRows, countSpendEntries, effectiveAmount, lockScreenTextOnServer, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendEntryKey, spendRows, staleAccountCount, systemPromptFor, txnsFromRows };

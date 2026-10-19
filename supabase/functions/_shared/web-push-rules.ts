@@ -10,7 +10,12 @@ export interface PushPrefs {
   perType?: Record<string, boolean>;
   quietStart?: string;   // "22:00"
   quietEnd?: string;     // "07:00"
+  /** v10.126.0 (T4c, BE-FN-12) — false: send the private line, not the amounts and names. Absent means on. */
+  lockScreenDetails?: boolean;
 }
+
+/** The private title and body for a type: the app's `lockScreenText`, read through the bundled engine. */
+export type PrivateText = (type: string) => { title: string; body: string };
 
 export interface SubscriptionRow {
   id: string;
@@ -90,10 +95,16 @@ export interface PushPayload { title: string; body: string; url: string; tag: st
 /**
  * What the service worker shows. The deep link is app-relative, never an outside URL: "//host" and
  * "/\host" (which browsers read as "//host") are refused too (T2b-2). It always fits the push limit.
+ * v10.126.0 (T4c; audit BE-FN-12; owner: "show by default, and hide via settings"): a device whose
+ * "Show details on the lock screen" is off gets the private line for the type instead of the title and body.
  */
-export function payloadFor(n: NotificationRow): PushPayload {
+export function payloadFor(n: NotificationRow, prefs?: PushPrefs | null, privateText?: PrivateText): PushPayload {
   const link = n.deep_link && /^\/(?![/\\])/.test(n.deep_link) ? n.deep_link : '/';
-  return fitPayload({ title: n.title, body: n.body ?? '', url: link, tag: n.dedupe_key, type: n.type });
+  const hide = prefs?.lockScreenDetails === false;
+  const text = hide && privateText ? privateText(n.type)
+    : hide ? { title: 'Vyact', body: 'You have a new notification. Open Vyact to see it.' }
+    : { title: n.title, body: n.body ?? '' };
+  return fitPayload({ title: text.title, body: text.body, url: link, tag: n.dedupe_key, type: n.type });
 }
 
 /** v10.116.0 (T2b-2, BE-FN-07) — the plaintext limit `encryptPayload` enforces (web-push.ts MAX_PAYLOAD_BYTES). */

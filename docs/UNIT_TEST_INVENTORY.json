@@ -2484,6 +2484,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/pushPrivacy.test.tsx",
+      "feature": "Lock-screen details and the Android app (T4c)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "T4c (audit BE-FN-12): every notification type has a private line with no amount or name, read by the server through the bundle; with \"Show details on the lock screen\" off the open app's popup and the pushed payload say only what needs a look, on by default and for prefs saved before; the Settings switch shows with push on; the Android app says push is not there yet and where it is",
+      "count": 4,
+      "tests": [
+        "Settings → Notifications → Push on this device T4C-004 · with push on, a \"Show details on the lock screen\" switch, on by default; the Android app says push is not there yet and where it is",
+        "the open app's own popup (local mode) T4C-003 · with details off the popup says only \"A bill is due\"; on, or never set, it names the bill",
+        "the private line (BE-FN-12) T4C-001 · every notification type has a private title and body with no amount, number or name, and the server reads the same table",
+        "the private line (BE-FN-12) T4C-002 · details on (the default, and prefs saved before the switch) show the notification; off shows the private line, link and tag kept"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/ratios.test.ts",
       "feature": "Money screen ratios and liabilities (W6)",
       "availability": "available",
@@ -3233,7 +3248,7 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "RFC 8291/8292 crypto / push rules / server-raised notifications / web-push handler (not a live push service)",
-      "count": 12,
+      "count": 13,
       "tests": [
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-001 · a message encrypted for a subscription is read back by an independent receiver; each send is freshly keyed",
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-002 · the VAPID token is ES256, verifies with the advertised public key, and names the push service origin",
@@ -3246,7 +3261,8 @@
         "web-push function CON-UNIT-W3-D12-005 · a push held back for quiet hours stays pending, goes out when they end, and reaches each device once",
         "web-push function CON-UNIT-WP-007 · a test goes to the caller's own devices, readable by each, with the push service's answer; signed out → 401; rate-limited",
         "web-push function CON-UNIT-WP-008 · dispatch: raises the app's notifications as the server's, pushes only the server's new P1s to eligible devices, stamps them, retires a gone device",
-        "web-push function CON-UNIT-WP-009 · T2b-2 (BE-FN-07): households take turns — at most 50 raised a run, and the next run starts where this one stopped"
+        "web-push function CON-UNIT-WP-009 · T2b-2 (BE-FN-07): households take turns — at most 50 raised a run, and the next run starts where this one stopped",
+        "web-push function CON-UNIT-WP-010 · T4c (BE-FN-12): a device with \"Show details on the lock screen\" off gets only what needs a look; the others get the details"
       ]
     },
     {
@@ -3256,7 +3272,7 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "RFC 8291/8292 crypto / push rules / server-raised notifications / web-push handler (not a live push service)",
-      "count": 7,
+      "count": 9,
       "tests": [
         "passive sign-out (W7a, audit FE-PLT-08) W7a-PLT08-001 · an expired session drops the device subscription without a server call",
         "passive sign-out (W7a, audit FE-PLT-08) W7a-PLT08-002 · the store runs it on the signed-in → signed-out transition",
@@ -3264,7 +3280,9 @@
         "turning push on for this device CON-UNIT-WPD-002 · each stop says why: blocked, an old worker, no worker, iPhone outside the Home Screen",
         "turning push on for this device CON-UNIT-WPD-003 · the browser's push service refusing is NOT a Vyact error; in Brave the message says what to switch on",
         "turning push on for this device CON-UNIT-WPD-004 · Vyact failing to hand out its key or register is a server error, told apart from the push service",
-        "turning push on for this device CON-UNIT-WPD-005 · \"on for this device\" needs a registered subscription; the silent re-sync never prompts"
+        "turning push on for this device CON-UNIT-WPD-005 · \"on for this device\" needs a registered subscription; the silent re-sync never prompts",
+        "turning push on for this device CON-UNIT-WPD-006 · T4c (BE-FN-12): \"Show details on the lock screen\" off reaches the server with the switches",
+        "turning push on for this device CON-UNIT-WPD-007 · T4c: the Android app (a WebView, no Web Push) says so and where push works, without asking for permission"
       ]
     },
     {

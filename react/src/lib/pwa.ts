@@ -32,6 +32,13 @@ export function isStandalone(): boolean {
   return iosStandalone || window.matchMedia('(display-mode: standalone)').matches;
 }
 
+/** Inside the Vyact Android app (a Capacitor WebView), not a browser or the installed web app. */
+export function isNativeApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  try { return !!cap?.isNativePlatform?.(); } catch { return false; }
+}
+
 export function isIos(): boolean {
   if (typeof window === 'undefined') return false;
   const ua = window.navigator.userAgent;

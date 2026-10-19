@@ -557,6 +557,10 @@ export interface NotificationPrefs {
   quietEnd: string;    // HH:MM
   webPushEnabled: boolean;
   defaultLeadDays: 1 | 3 | 7;
+  /** v10.126.0 (T4c; audit BE-FN-12; owner: "show by default, and hide via settings") — this device's
+   *  notifications show their amounts and names. Off: a private line per type (`lockScreenText`).
+   *  Absent (prefs saved before v10.126.0) means on. */
+  lockScreenDetails?: boolean;
 }
 
 /** How a part-payment was applied. 'apply_advance' survives only on legacy payment-log entries (W4f retired it). */
