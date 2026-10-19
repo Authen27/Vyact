@@ -7,6 +7,8 @@
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
 **Remediation status (updated 19 Oct 2026):** 151 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 19 Oct 2026):** 148 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 19 Oct 2026):** 144 of 212 resolved, including all 3 critical and 25 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -66,6 +68,26 @@ Two developers did the work:
 | What the 61 need | Count |
 |---|---:|
 | Nothing but work: no decision, no blocker | 22 |
+| Medium | 100 | 64 | 3 | 14 | 1 | 7 | 7 | 4 |
+| Low | 75 | 49 | 1 | 9 | 8 | 6 | 0 | 2 |
+| Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
+| **Total** | **212** | **138** | **10** | **24** | **10** | **14** | **10** | **6** |
+
+**148 of 212 are resolved (70%): all 3 critical and 25 of 29 high.** The other 64 fall into four groups:
+
+| What the 64 need | Count |
+|---|---:|
+| Nothing but work: no decision, no blocker | 25 |
+| Medium | 100 | 61 | 3 | 15 | 3 | 7 | 7 | 4 |
+| Low | 75 | 48 | 1 | 9 | 9 | 6 | 0 | 2 |
+| Info | 5 | 3 | 0 | 0 | 1 | 1 | 0 | 0 |
+| **Total** | **212** | **134** | **10** | **25** | **13** | **14** | **10** | **6** |
+
+**144 of 212 are resolved (68%): all 3 critical and 25 of 29 high.** The other 68 fall into four groups:
+
+| What the 68 need | Count |
+|---|---:|
+| Nothing but work: no decision, no blocker | 29 |
 | An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 8 |
@@ -87,11 +109,14 @@ Two developers did the work:
 | #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, FE-PUB-01, BE-WA-01, ADM-03, INT-HH-12, INT-CON-04, INT-HH-06 | XC-PRV-11 |
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
 | #168 | v10.64.0 | W1c abuse limits | FE-PIP-09, BE-FN-06, BE-FN-09, BE-PIP-02, BE-PIP-03, FE-PIP-18 | OPS-11 |
+| #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-FN-09, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, OPS-11 |
+| #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, BE-FN-09, OPS-11 |
 | #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05, INT-PAR-11 | — |
 | #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08, INT-PAR-11 | FE-UIS-03 |
 | #171 | v10.67.0 | W3c lost edits | FE-SYN-01, FE-SYN-03, INT-TXN-08 | — |
 | #172 | v10.68.0 | W3d recurrence schema | FE-MNY-01, INT-TXN-05 | — |
 | #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02, XC-ARC-06, INT-PAR-11 | — |
+| #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02, INT-PAR-11 | XC-ARC-06 |
 | #174 | v10.70.0 | W4a server posts bills | INT-TXN-06 | — |
 | #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
 | #176 | v10.72.0 | W4c split edit | FE-PIP-03, INT-TXN-01, FE-UIC-09 | — |
@@ -105,6 +130,7 @@ Two developers did the work:
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
 | #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, INT-HH-09, INT-PAR-05, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, XC-PRV-09 |
+| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, INT-HH-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, INT-PAR-05, XC-PRV-09 |
 | #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-06, BE-WA-09, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | BE-PIP-04 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
@@ -203,12 +229,18 @@ Plus **R1** (high, new): see §0.3.
 
 **Medium (30)**
 - *Ready to do (no decision):* FE-UIC-10, FE-UIS-03, FE-UIS-07, XC-PRV-08, XC-PRV-09.
+**Medium (33)**
+- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, INT-PAR-05, XC-ARC-06, XC-PRV-08, XC-PRV-09.
+**Medium (36)**
+- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, INT-HH-08, OPS-11.
 
 **Low and info (27)**
 - *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16.
+**Low and info (28)**
+- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16.
 - *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, DB-INT-15, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
 - *Backlog:* FE-PUB-08, BE-PIP-06.
 
@@ -873,6 +905,13 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-ARC-08 | MEDIUM | Cross-cutting | 'Retired' Money Map flag still picks the transaction account picker; e2e tests the legacy path | confirmed-with-caveats (adversarial: partial) |  | Closed | v10.121.0 |
 | XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) | Closed | v10.120.0 |
 | XC-ARC-11 | MEDIUM | Cross-cutting | The 'never a silent write-loss catch {}' rule has no enforcement: 110 empty catches, 7 on writes | confirmed-with-caveats (adversarial: partial) | TD-24 (marked resolved; rule not enforced) | Closed | v10.121.0 |
+| XC-ARC-06 | MEDIUM | Cross-cutting | Bundled engine left hand ports live: server money, recurring and budget alerts are duplicated | confirmed-with-caveats (adversarial: partial) |  | Partly | #173, v10.96.0 |
+| XC-ARC-08 | MEDIUM | Cross-cutting | 'Retired' Money Map flag still picks the transaction account picker; e2e tests the legacy path | confirmed-with-caveats (adversarial: partial) |  | Closed | v10.121.0 |
+| XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) | Closed | v10.120.0 |
+| XC-ARC-11 | MEDIUM | Cross-cutting | The 'never a silent write-loss catch {}' rule has no enforcement: 110 empty catches, 7 on writes | confirmed-with-caveats (adversarial: partial) | TD-24 (marked resolved; rule not enforced) | Closed | v10.121.0 |
+| XC-ARC-08 | MEDIUM | Cross-cutting | 'Retired' Money Map flag still picks the transaction account picker; e2e tests the legacy path | confirmed-with-caveats (adversarial: partial) |  | Open | — |
+| XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) | Closed | v10.120.0 |
+| XC-ARC-11 | MEDIUM | Cross-cutting | The 'never a silent write-loss catch {}' rule has no enforcement: 110 empty catches, 7 on writes | confirmed-with-caveats (adversarial: partial) | TD-24 (marked resolved; rule not enforced) | Open | — |
 | XC-ARC-13 | MEDIUM | Cross-cutting | Test effort sits away from risk: 1,390 unit cases, 5 SQL tests, 10 optional cloud tests | confirmed (adversarial: confirmed) | TD-31, TD-19, TD-32 (open) | On hold (dev question) | — |
 | XC-PRV-02 | MEDIUM | Cross-cutting | Recipient email and household-invite bearer tokens sent to GA4/Contentsquare via page URLs | confirmed-with-caveats (adversarial: partial) |  | Closed | #165 |
 | XC-PRV-04 | MEDIUM | Cross-cutting | Email-code re-auth for erase/delete is client-side only; any session can wipe data immediately | confirmed (adversarial: confirmed) |  | Closed | #167 |
@@ -1260,6 +1299,8 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
 ### C.1 Unresolved (61)
+### C.1 Unresolved (64)
+### C.1 Unresolved (68)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1279,6 +1320,8 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
+| XC-ARC-08 | medium | Open | — | The retired Money Map flag still chooses the account pickers (TransactionFormModal.tsx:181, SplitFormModal.tsx:139 getMoneyMapMode). | — | S |
+| XC-ARC-11 | medium | Open | — | A lint rule against empty catches on write paths (W8 §4). | — | S |
 | FE-MNY-08 | medium | Owner decision | — | Decide the split money model: (a) the paying account drops by the full bill; (b) the others' shares become a receivable, and the owner chooses where it shows (Net Worth, Pip, free-to-spend); (c) settling moves money back into a named account. Then implement it with a money-model invariant (an account drops by the full amount; settling restores the share) and update the golden file deliberately. | Owner decision: split money model (full debit + receivable). Not raised in the W8 plan's section 3. | L |
 | FE-UIC-12 | medium | Owner decision | #178, #179 | Remove (or redirect to Add account) the cash, checking and savings asset types, and define 'free to spend' once: the Accounts summary should read the same projection as Net Worth and Pip, stating whether archived accounts count. Add a fixture test: Accounts spendable == Net Worth/Pip free-to-spend. | Owner decision W8 plan section 3: remove the cash/checking/savings asset types? | S |
 | DB-INT-13 | medium | Owner decision | — | A WhatsApp alias matches by kind with "limit 1". Pick the default account, or ask? (W8 §3) | Owner: alias with two accounts | S |
@@ -1312,6 +1355,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | DB-OPS-07 | low | Open | — | Every pg_cron job hard-codes the production URL; build it from a Vault project_url instead (W8 §4). | — | S |
 | DB-OPS-09 | low | Open | — | RLS helper and index tuning (W8 §4). | — | M |
 | INT-TXN-14 | low | Open | — | Audit trail: keep the actor for server-side writers, and record deletes as deletes (needs a migration; W8 §4). | — | S |
+| XC-ARC-10 | low | Open | — | A store helper that commits post-await writes with a household guard (W8 §4). | — | M |
 | XC-ARC-12 | low | Open | — | Structural: encode the money model in domain types. Not planned. | — | L |
 | XC-ARC-14 | low | Open | — | Process: release cadence versus stabilisation. Not a code item. | — | — |
 | FE-MNY-12 | low | Owner decision | — | Either refuse to archive an account with a non-zero balance (offer move or transfer first), or count archived balances the same way on every surface and label them. Add the test from the finding. | Owner decision W8 plan section 3: archiving an account with a balance, refuse it or count it everywhere? | S |
@@ -1347,6 +1391,8 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
 ### C.3 Resolved, with a residual note (66)
+### C.3 Resolved, with a residual note (63)
+### C.3 Resolved, with a residual note (59)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1400,6 +1446,10 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-ARC-08 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the Money Map flag (getMoneyMapMode, `money_map`) and the assets + debts picker derivation (buildAccounts) are deleted; both forms list the household's accounts in every build. In local-only builds (Lane A, the guest demo) the legacy list of… |
 | XC-ARC-09 | medium | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): every Edge Function is type-checked under strict TypeScript (`typecheck:edge`, scripts/typecheck/edge.tsconfig.json, Deno globals stubbed; 12 errors fixed) in the automation gates, and .github/workflows/edge.yml runs `deno check` (1 more error fixed) and… |
 | XC-ARC-11 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the gate No silent catches (scripts/silent-catch-check.mjs, TypeScript AST, app + admin + Edge; tests in scripts/__tests__) refuses any catch block or empty .catch callback that neither reports nor says why (`fault-ok: <reason>`). All 134 we… |
+| XC-ARC-08 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the Money Map flag (getMoneyMapMode, `money_map`) and the assets + debts picker derivation (buildAccounts) are deleted; both forms list the household's accounts in every build. In local-only builds (Lane A, the guest demo) the legacy list of… |
+| XC-ARC-09 | medium | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): every Edge Function is type-checked under strict TypeScript (`typecheck:edge`, scripts/typecheck/edge.tsconfig.json, Deno globals stubbed; 12 errors fixed) in the automation gates, and .github/workflows/edge.yml runs `deno check` (1 more error fixed) and… |
+| XC-ARC-11 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the gate No silent catches (scripts/silent-catch-check.mjs, TypeScript AST, app + admin + Edge; tests in scripts/__tests__) refuses any catch block or empty .catch callback that neither reports nor says why (`fault-ok: <reason>`). All 134 we… |
+| XC-ARC-09 | medium | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): every Edge Function is type-checked under strict TypeScript (`typecheck:edge`, scripts/typecheck/edge.tsconfig.json, Deno globals stubbed; 12 errors fixed) in the automation gates, and .github/workflows/edge.yml runs `deno check` (1 more error fixed) and… |
 | XC-PRV-12 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decision 18 Oct 2026: "known emails only"): resolve_participant_names answers only for emails on a split the caller owns or takes part in, or of members of their households, at most 200 per call; everyone else gets no answer. The Split form confirms a new person by email with neutral wordin… |
 | FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
 | FE-MNY-15 | low | Closed | #184 | Nothing for the export. There is still no restore (the owner-only 'Restore from backup' is in the plan's backlog), so the round-trip test from the recommendation has nothing to run against. |
