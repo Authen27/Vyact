@@ -46,7 +46,7 @@ export const createSyncSlice: StateCreator<Store, [], [], SyncSlice> = (set, get
     const { adapter, currentHouseholdId } = get();
     const fullSweep = (adapter as { forceFullResync?: (hid: string) => void }).forceFullResync;
     if (typeof fullSweep === 'function' && currentHouseholdId) {
-      try { fullSweep.call(adapter, currentHouseholdId); } catch { /* noop */ }
+      try { fullSweep.call(adapter, currentHouseholdId); } catch { /* fault-ok: forceFullResync only clears device markers, each already guarded; the refresh below runs */ }
     }
     await get().refresh();
     // F1a — that refresh painted the device's copy while the full pull ran; show what the pull brought.

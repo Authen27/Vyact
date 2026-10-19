@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.120.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.121.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -260,6 +260,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   may remain segmented; names, notes, amounts and invite emails are input fields.
 - **Accounts is a permanent Plan route (v10.27.0)** for every household template. Its
   navigation visibility must not depend on the retired Money Map rollout flag.
+  **The flag itself is deleted (v10.121.0, T5b; audit XC-ARC-08).** Every account picker reads the household's
+  accounts (`buildAccountsFromStore`) in every build. The assets + debts derivation (`buildAccounts`) is gone:
+  in local-only builds it offered Net Worth bank assets that moved no account. Never build a picker from assets
+  or debts again.
 - **Entity forms are routed pages (v10.28.0)** — Add/Edit Transaction, Split, Debt,
   Budget, Account, Asset and Reconcile Account are focused full-screen routes
   (`lib/formRoutes.ts` → `pages/FormPages.tsx`, rendered outside `<Layout>` in a
@@ -272,9 +276,21 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   logic lives in `store/slices/` (modal, reconcile, notify, recurring, cloudAuth,
   sync, data, crud). Keep `useStore`'s public type/behaviour byte-identical when
   refactoring; verify against the money suites.
+  **A store write after an await lands only in the household it was made for (v10.121.0, T5b; audit XC-ARC-10).**
+  - Each slice binds `const commit = landIn(set, get)` (`store/landIn.ts`). After an await, write
+    `commit(householdId, s => ({ … }))`, which drops the result if another household is open by then.
+  - T5B-007 (`appGuards.test.ts`) fails on a new post-await `set(` outside its allowlist. The allowlist holds the
+    person's own lists (households, shared splits, their invitations) and actions that check the household
+    themselves.
 - **Sync is refresh-based** (visibility/focus/online + poll, not a live socket).
   Queue mechanics in `lib/sync/`; faults via `lib/faults.ts` — **never a silent
   write-loss `catch {}`** on a write/contract path.
+  **Since v10.121.0 (T5b; audit XC-ARC-11) the gate No silent catches (`scripts/silent-catch-check.mjs`) holds
+  everyone to it.**
+  - Every catch block, and every `.catch` callback with an empty body, in app, admin and Edge code, either reports
+    or says why ignoring is safe: `/* fault-ok: <reason> */` (at least two words).
+  - A write reports with `failedWrite(e, context)`: no network is `expected`, anything else `unexpected`.
+  - The reason must be true. Never add `fault-ok` to a catch that can lose the person's data.
   **Since v10.67.0 (W3c, owner decision D15):**
   - The cache holds SERVER revisions. Write server rows with `cache.put`; never restamp `updated_at` with the device clock in cloud mode, because it becomes the next edit's precondition and fails as a false conflict.
   - A queued write belongs to the session user, or else the cache owner (`ownerForWrite`). Ownerless ops are adopted only at the session boundary (`adoptOwnerless` in `cacheInvalidation`), never at flush time.
@@ -924,6 +940,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     - Paid shares are never changed or removed.
     - New shares are inserted last; only the people a run added are emailed.
   - Offline, the form says the split is "shared … once you're online", never "sharing failed".
+  - **Marking a person paid queues the same step (v10.121.0, T5b; owner, 19 Oct 2026: "queue it").**
+    - The step carries each person's `paid` (`shareIntentForTxn`, used by the Split form and the Splits page).
+    - Sync settles their share (`paid`, `paid_at`) once and never un-settles one.
+    - Never mark a share paid from a page or the store directly. That call failed offline without a word.
 - **A household invitation can be addressed to a person (v10.94.0; owner decisions 13 Oct 2026; #9).**
   - `invitations.invited_email` is the LABEL the inviter typed (a legacy name). The invitee's address is
     `recipient_email` (lower-case, checked), or null for a link-only invitation.
@@ -946,7 +966,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   normal owner-checked CRUD; a participant has SELECT only + `settle_share()`
   (SECURITY DEFINER RPC) for self-service settling. Settle/close notifications
   are generated **locally on each side** — no cross-household writes needed,
-  since RLS already lets each party read the rows relevant to them.
+  since RLS already lets each party read the rows relevant to them. Every split email's outcome is told
+  (`splitEmailNotice(result, event)`): 'shared' by the sync listener, and 'settled' / 'closed' after the action's
+  own message (v10.121.0, BE-FN-09).
   (v10.16: splits are authored in a **standalone `SplitFormModal`** — removed
   from the txn form — but stay **transaction-backed** (only `yourShare` counts,
   money model unchanged); editable until a member pays/settles; emails use the

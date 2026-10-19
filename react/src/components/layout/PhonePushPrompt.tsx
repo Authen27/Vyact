@@ -26,7 +26,7 @@ export default function PhonePushPrompt() {
 
   useEffect(() => {
     let dismissed = false;
-    try { dismissed = sessionStorage.getItem(DISMISS_KEY) === '1'; } catch { /* show it */ }
+    try { dismissed = sessionStorage.getItem(DISMISS_KEY) === '1'; } catch { /* fault-ok: device storage is optional; the prompt just shows */ }
     if (!cloud || dismissed || pushBlocker() === 'unsupported' || !prefs.master) { setShow(false); return; }
     if (deviceHasServerPush()) {
       // The local marker can outlive a subscription the browser dropped; ask the server.
@@ -54,7 +54,7 @@ export default function PhonePushPrompt() {
   }
 
   function notNow() {
-    try { sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* hide for now anyway */ }
+    try { sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* fault-ok: device storage is optional; the prompt is hidden for this view anyway */ }
     setShow(false);
   }
 

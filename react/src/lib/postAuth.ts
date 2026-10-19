@@ -37,7 +37,7 @@ export function rememberNext(value: string | null | undefined): void {
   const next = safeNext(value);
   try {
     if (next) sessionStorage.setItem(KEY, next);
-  } catch { /* private mode: the default landing still works */ }
+  } catch { /* fault-ok: private mode: the default landing still works */ }
 }
 
 /** A pending household invite wins; then the remembered or given `next`; else the dashboard. */
@@ -51,7 +51,7 @@ export function postAuthPath(next?: string | null): string {
     sessionStorage.removeItem('pending_invite_token');
     stored = sessionStorage.getItem(KEY);
     sessionStorage.removeItem(KEY);
-  } catch { /* ignore */ }
+  } catch { /* fault-ok: storage unavailable: no invitation or destination was kept */ }
   if (pendingInvite) return `/invite/${encodeURIComponent(pendingInvite)}`;
   return safeNext(next) ?? safeNext(stored) ?? '/dashboard';
 }

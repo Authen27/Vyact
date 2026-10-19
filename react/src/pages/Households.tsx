@@ -586,8 +586,7 @@ function CreateHouseholdModal({ open, onClose, onCreated }: {
           await onCreated(name.trim(), type, currency);
           setName('');
         } catch {
-          // Already toasted by onCreated — keep the typed name/type/currency
-          // so a transient failure doesn't force retyping.
+          // fault-ok: onCreated has already said what failed; the typed name, type and currency are kept for a retry
         } finally { setSubmitting(false); }
       }}>
         <Field label="Name"><Input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Smith Family · Acme Consulting · …" required /></Field>
@@ -655,7 +654,7 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
           text: `You're invited to join ${householdName} on Vyact.`,
           url,
         });
-      } catch { /* user cancelled */ }
+      } catch { /* fault-ok: the person closed the share sheet */ }
     } else {
       void copyLink(url);
     }

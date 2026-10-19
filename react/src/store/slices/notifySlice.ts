@@ -24,6 +24,7 @@ import { readLocalJson, setLocalJson } from '../localJson';
 import { deviceHasServerPush, syncPush } from '../../lib/webPush';
 import { normalizeAppRole } from '../../lib/permissions';
 import { expected } from '../../lib/faults';
+import { landIn } from '../landIn';
 
 const KEY = (hid: string) => `notifications_${hid}`;
 const DAY = 86_400_000;
@@ -48,7 +49,10 @@ export interface NotifySlice {
   updateNotificationPrefs: (patch: Partial<NotificationPrefs>) => void;
 }
 
-export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set, get) => ({
+export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set, get) => {
+  // T5b (v10.121.0; audit XC-ARC-10) — a write after an await lands only in the household it was made for.
+  const commit = landIn(set, get);
+  return ({
   notifications: [],
   notificationPrefs: { ...DEFAULT_PREFS, ...readLocalJson('notification_prefs', {}) },
 
@@ -103,16 +107,16 @@ export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set,
         }
         void purgeExpired(hid);
         const { list: all, resolved } = settle(purge(await fetchNotifications(hid)));
-        set({ notifications: all });
+        commit(hid, { notifications: all });
         if (resolved.length) void updateNotificationStatus(resolved, 'read');
       } catch {
         // Offline / RLS hiccup — keep whatever we have; a later refresh retries.
-        set({ notifications: purge(existing) });
+        commit(hid, { notifications: purge(existing) });
       }
     } else {
       const { list: merged } = settle(purge(fresh.length ? [...existing, ...fresh] : existing));
       setLocalJson(KEY(hid), merged);
-      set({ notifications: merged });
+      commit(hid, { notifications: merged });
     }
 
     // Web Push for action-required (P1) types outside quiet hours (opt-in).
@@ -168,3 +172,4 @@ export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set,
     }
   },
 });
+};

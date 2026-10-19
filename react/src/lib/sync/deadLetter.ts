@@ -132,5 +132,5 @@ export async function retryDeadLettered(
       );
     }
     write(bucket, retained);
-  } catch { /* storage error — non-fatal */ }
+  } catch (e) { unexpected(e, 'deadLetter.retryAll'); }
 }

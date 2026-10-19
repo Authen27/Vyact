@@ -11,6 +11,7 @@
 import { sb } from './supabase';
 import { isIos, isStandalone } from './pwa';
 import type { NotificationPrefs } from '../types';
+import { expected } from './faults';
 
 const ENDPOINT_KEY = 'vyact_push_endpoint';
 
@@ -107,7 +108,7 @@ async function register(sub: PushSubscription, householdId: string, prefs: Notif
     p_prefs: prefsForServer(prefs),
   });
   if (error) throw error;
-  try { localStorage.setItem(ENDPOINT_KEY, sub.endpoint); } catch { /* status only */ }
+  try { localStorage.setItem(ENDPOINT_KEY, sub.endpoint); } catch { /* fault-ok: the stored endpoint is only for the status line */ }
 }
 
 async function subscribe(reg: ServiceWorkerRegistration): Promise<PushSubscription> {
@@ -163,20 +164,20 @@ export async function syncPush(householdId: string, prefs: NotificationPrefs): P
     const reg = await registration();
     if (!reg || !(await workerHandlesPush(reg))) return;
     await register(await subscribe(reg), householdId, prefs);
-  } catch { /* retried on the next load; nothing the person needs to act on */ }
+  } catch (e) { expected(e, 'webPush.sync'); }
 }
 
 /** Turn push off for this device (switch off, or signing out): server first, then the browser. */
 export async function disablePush(): Promise<void> {
   let endpoint: string | null = null;
-  try { endpoint = localStorage.getItem(ENDPOINT_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch { /* ignore */ }
+  try { endpoint = localStorage.getItem(ENDPOINT_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch { /* fault-ok: storage unavailable: no endpoint was kept */ }
   try {
     const reg = await registration();
     const sub = await reg?.pushManager.getSubscription();
     endpoint = sub?.endpoint ?? endpoint;
     if (endpoint) await sb().rpc('unregister_push_subscription', { p_endpoint: endpoint });
     await sub?.unsubscribe();
-  } catch { /* best effort: a dead endpoint is retired by the server on its first 410 */ }
+  } catch (e) { expected(e, 'webPush.unregister'); }
 }
 
 /** W7a (audit FE-PLT-08) — a PASSIVE sign-out (expired or revoked session) can no longer authorise the
@@ -184,12 +185,12 @@ export async function disablePush(): Promise<void> {
  *  server retires the endpoint on its next send. Without this the next person on the device kept
  *  receiving the previous user's notifications. */
 export async function forgetPushOnDevice(): Promise<void> {
-  try { localStorage.removeItem(ENDPOINT_KEY); } catch { /* ignore */ }
+  try { localStorage.removeItem(ENDPOINT_KEY); } catch { /* fault-ok: storage unavailable: no endpoint was kept */ }
   try {
     const reg = await registration();
     const sub = await reg?.pushManager.getSubscription();
     await sub?.unsubscribe();
-  } catch { /* best effort */ }
+  } catch { /* fault-ok: an unsubscribed endpoint is retired by the server at its first 410 */ }
 }
 
 export interface TestResult { device: string; status: number; accepted: boolean; gone: boolean }
@@ -201,7 +202,7 @@ export async function sendTestPush(): Promise<{ ok: true; results: TestResult[] 
   const { data, error } = await sb().functions.invoke('web-push', { body: { mode: 'test', endpoint } });
   if (error) {
     let code = 'failed';
-    try { code = (await (error as { context?: Response }).context?.json())?.error ?? code; } catch { /* keep generic */ }
+    try { code = (await (error as { context?: Response }).context?.json())?.error ?? code; } catch { /* fault-ok: an unreadable error body keeps the generic code */ }
     return { ok: false, error: code };
   }
   return { ok: true, results: (data?.results ?? []) as TestResult[] };

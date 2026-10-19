@@ -29,7 +29,7 @@ import { kvPurgeWhere } from './kvStore';
 import { ENTITIES } from './dataAdapter';
 import { adoptOwnerless } from './sync/outbox';
 import { adoptOwnerlessDeadLetters } from './sync/deadLetter';
-import { expected } from './faults';
+import { expected, unexpected } from './faults';
 
 /**
  * Bump to force a one-time purge on every device at next sign-in.
@@ -127,7 +127,7 @@ export async function purgeCachedCloudData(scope: PurgeScope = 'cache'): Promise
   let removed = 0;
   try {
     removed = await kvPurgeWhere(purgeable);
-  } catch { /* storage unavailable — nothing cached, nothing to purge */ }
+  } catch (e) { unexpected(e, 'cacheInvalidation.purge:kv'); }
 
   // Sweep raw localStorage too. kvStore only knows keys it wrote; the store and
   // its slices also persist `vt_*` values directly through localJson (sentinels
@@ -141,9 +141,9 @@ export async function purgeCachedCloudData(scope: PurgeScope = 'cache'): Promise
     for (const raw of all) {
       const bare = raw.startsWith('vt_') || raw.startsWith('ff_') ? raw.slice(3) : null;
       if (bare === null || !purgeable(bare)) continue;
-      try { localStorage.removeItem(raw); removed++; } catch { /* keep going */ }
+      try { localStorage.removeItem(raw); removed++; } catch { /* fault-ok: one key that cannot be removed does not stop the rest */ }
     }
-  } catch { /* storage unavailable */ }
+  } catch { /* fault-ok: localStorage unavailable: nothing was kept there to purge */ }
 
   return removed;
 }
@@ -182,11 +182,11 @@ export async function invalidateCacheForSession(userId: string): Promise<Invalid
   try {
     owner = ls.readString(OWNER_KEY);
     epoch = ls.readString(EPOCH_KEY);
-  } catch { /* treated as absent → purge */ }
+  } catch { /* fault-ok: unreadable counts as absent, which purges: the safe side */ }
 
   const stamp = () => {
     try { ls.setString(OWNER_KEY, userId); ls.setString(EPOCH_KEY, CACHE_EPOCH); }
-    catch { /* noop */ }
+    catch { /* fault-ok: an unwritten stamp purges again at the next sign-in: the safe side */ }
   };
 
   // A first-ever sign-in on this device has no owner recorded. Purge anyway: the
@@ -214,6 +214,6 @@ export async function invalidateCacheForSession(userId: string): Promise<Invalid
 export async function clearCacheOnSignOut(): Promise<number> {
   await adoptFor(cacheOwnerUid());   // before the owner stamp goes: they stay the outgoing user's
   const removed = await purgeCachedCloudData('person');
-  try { ls.removeBoth(OWNER_KEY); } catch { /* noop */ }
+  try { ls.removeBoth(OWNER_KEY); } catch { /* fault-ok: an owner stamp left behind only makes the next sign-in compare against it */ }
   return removed;
 }

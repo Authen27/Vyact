@@ -31,7 +31,7 @@ const replyTo = () => env('EMAIL_REPLY_TO') || 'support@vyact.app';
 /** A provider refusal, logged by status only — never the address or the body. */
 async function refused(fn: string, provider: string, res: Response): Promise<false> {
   let code = '';
-  try { code = String(((await res.json()) as { name?: string; message?: string })?.name ?? ''); } catch { /* not json */ }
+  try { code = String(((await res.json()) as { name?: string; message?: string })?.name ?? ''); } catch { /* fault-ok: a refusal that is not JSON keeps an empty code */ }
   console.error(JSON.stringify({ fn, provider, status: res.status, code }));
   return false;
 }
@@ -70,7 +70,7 @@ async function sendViaSmtp(fn: string, from: string, to: string, subject: string
     console.error(JSON.stringify({ fn, provider: 'smtp', error: String((e as Error)?.name ?? 'error') }));
     return false;
   } finally {
-    try { await client.close(); } catch { /* ignore */ }
+    try { await client.close(); } catch { /* fault-ok: the SMTP connection is closing anyway */ }
   }
 }
 

@@ -107,7 +107,7 @@ export async function forceReloadForUpdate(): Promise<void> {
         return;
       }
     } catch {
-      /* fall through to the nuclear path */
+      // fault-ok: the reload below still runs
     }
   }
   // No waiting worker — the precache is just stale. Wipe SW + caches and
@@ -123,7 +123,7 @@ export async function forceReloadForUpdate(): Promise<void> {
       await Promise.all(keys.map(k => caches.delete(k).catch(() => false)));
     }
   } catch {
-    /* best-effort — fall through to the reload either way */
+    // fault-ok: the reload below still runs
   }
   // Cache-busting query param defeats any HTTP / memory cache for the doc.
   const url = new URL(window.location.href);

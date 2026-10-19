@@ -58,9 +58,8 @@
 `docs/ROADMAP_AUTO_LINKING.md` plus two app-gap items surfaced in CI —
 - **NWRT-FC-001 / -002 / -005 / -006** — need Auto-Linking **Phase A**
   (verified: `upsertTransaction` does not mutate `Asset.value`; no
-  transaction→asset reflection exists yet). NWRT-FC-002 is `fixme` in CI;
-  the other three carry the same dependency and are tagged 🟠 for
-  consistency.
+  transaction→asset reflection exists yet). The other three carry the same dependency and are tagged 🟠
+  for consistency. NWRT-FC-002 runs since v10.121.0 (below).
 - **GOAL-FC-003 / -004** — Auto-Linking **Phase B** (income→goal credit).
 - **BDGT-FC-008** — Auto-Linking **Phase C** (budget surplus routing).
 - **SPLIT-FC-005 / -006, TXN-DEL-FC-004** — Auto-Linking **Phase D**
@@ -441,10 +440,11 @@ closes the modal at any stage.
 - **Blocked**: Auto-Linking Phase A — `upsertTransaction` does not mutate
   `Asset.value` today. Same dependency as NWRT-FC-002.
 
-### 🟠 NWRT-FC-002 — Income increases asset balance (Phase A)
+### ✅ NWRT-FC-002 — Income increases asset balance
 - **Scenario**: $5k salary into $10k Checking → NetWorth $15,000.
-- **Blocked**: Auto-Linking Phase A. Currently `fixme` in
-  `react/e2e/tests/networth-impact.spec.ts`.
+- **Runs since v10.121.0 (T5b; audit XC-ARC-08)** as CON-E2E-009 in `react/e2e/tests/networth-impact.spec.ts`.
+  The deposit moves the Checking ACCOUNT, whose live balance is in Net Worth. The local-only build used to offer
+  the legacy asset list through the retired Money Map flag, where the entry moved no account.
 
 ### ✅ NWRT-FC-003 — Adding an asset increases total assets
 - **Scenario**: Add Real Estate $500k, liquidity `long`.

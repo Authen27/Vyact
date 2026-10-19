@@ -654,7 +654,7 @@ export async function chatCompletion(
   // 6. HTTP outcome. The provider body may echo our request — never surface it.
   if (!res.ok) {
     let detail = '';
-    try { detail = (await res.text()).slice(0, 200); } catch { /* best effort */ }
+    try { detail = (await res.text()).slice(0, 200); } catch { /* fault-ok: the error detail is only for the log */ }
     const retryAfter = res.headers?.get?.('retry-after') ?? '';
     return fail('http_error', `Provider returned HTTP ${res.status}.`, {
       status: res.status,
@@ -784,7 +784,7 @@ async function bedrockCompletion(
 
   if (!res.ok) {
     let detail = '';
-    try { detail = (await res.text()).slice(0, 400); } catch { /* best effort */ }
+    try { detail = (await res.text()).slice(0, 400); } catch { /* fault-ok: the error detail is only for the log */ }
     return fail('http_error', `Provider returned HTTP ${res.status}.`, { status: res.status, hint: bedrockErrorHint(res.status, detail) });
   }
   let data: unknown;

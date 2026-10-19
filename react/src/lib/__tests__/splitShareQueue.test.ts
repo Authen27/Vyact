@@ -20,7 +20,7 @@ vi.mock('../splitEmail', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../splitEmail')>()), sendSplitEmail: email.send,
 }));
 
-import { syncSharedSplit, type SplitShareIntent } from '../sharedSplits';
+import { syncSharedSplit, shareIntentForTxn, type NewSharedSplitParticipant, type SplitShareIntent } from '../sharedSplits';
 import { splitSavedNotice } from '../splitParticipants';
 import { HybridAdapter } from '../hybridAdapter';
 import { claimDue, ack, release, enqueueOp, nextWakeAt, IdbDriver, MemoryDriver, pendingCount, setDriverForTests } from '../sync/outbox';
@@ -117,7 +117,7 @@ class FakeQuery {
   }
 }
 
-const intent = (txnId: string, participants: { email: string; share: number }[], over: Partial<SplitShareIntent> = {}): SplitShareIntent =>
+const intent = (txnId: string, participants: NewSharedSplitParticipant[], over: Partial<SplitShareIntent> = {}): SplitShareIntent =>
   ({ txnId, description: 'Dinner', currency: 'INR', totalAmount: 4500, txnType: 'expense', date: '2026-10-18', participants, ...over }) as SplitShareIntent;
 const shares = (cloud: FakeCloud) => cloud.tables.shared_split_shares
   .map(s => [s.email, s.share, s.paid] as const).sort((l, r) => String(l[0]).localeCompare(String(r[0])));
@@ -325,5 +325,65 @@ describe('the Split form and the store queue the sharing', () => {
     expect(form).not.toMatch(/sharing failed/);
     expect(form).toMatch(/toast\(splitSavedNotice\(editing, sharedOnceOnline\), 'success'\)/);
     expect(read('react/src/store/index.ts')).toMatch(/adapter\.onSplitShared\?\.\([\s\S]*?refreshSharedSplits\(\)/);
+  });
+});
+
+// T5B-001..002 — v10.121.0 (T5b; owner, 19 Oct 2026: "queue it"). Marking a person paid settles their
+// cloud share through the same queued step. It used to call the cloud straight from the Splits page and
+// swallow the failure, so offline the other household kept seeing the money as owed; and a person ticked
+// paid in the Split form never reached the cloud at all.
+describe('marking a person paid goes through the queued share step (T5b)', () => {
+  it('T5B-001 · the step settles a share marked paid, once, never un-settles one, and a new person can arrive paid', async () => {
+    const cloud = new FakeCloud();
+    cloud.transactions.add('t1');
+    const ravi = { email: 'ravi@example.com', share: 1500 }, meera = { email: 'meera@example.com', share: 1500 };
+    await syncSharedSplit(cloud.client(), 'hh', intent('t1', [ravi, meera]));
+    expect(shares(cloud)).toEqual([['meera@example.com', 1500, false], ['ravi@example.com', 1500, false]]);
+
+    // Ravi is marked paid: his share is settled with a time, Meera's untouched.
+    cloud.writes = [];
+    await syncSharedSplit(cloud.client(), 'hh', intent('t1', [{ ...ravi, paid: true }, meera]));
+    expect(shares(cloud)).toEqual([['meera@example.com', 1500, false], ['ravi@example.com', 1500, true]]);
+    expect(cloud.tables.shared_split_shares.find(s => s.email === 'ravi@example.com')!.paid_at).toEqual(expect.any(String));
+    expect(cloud.writes).toEqual(['update shared_split_shares']);
+    // A repeat writes nothing; a later step that no longer says paid never un-settles him.
+    cloud.writes = [];
+    await syncSharedSplit(cloud.client(), 'hh', intent('t1', [{ ...ravi, paid: true }, meera]));
+    await syncSharedSplit(cloud.client(), 'hh', intent('t1', [ravi, meera]));
+    expect(cloud.writes).toEqual([]);
+    expect(shares(cloud)).toEqual([['meera@example.com', 1500, false], ['ravi@example.com', 1500, true]]);
+    // A changed amount and paid together are one write; a person added already paid arrives paid.
+    await syncSharedSplit(cloud.client(), 'hh', intent('t1', [ravi, { ...meera, share: 1400, paid: true }, { email: 'sam@example.com', share: 100, paid: true }]));
+    expect(shares(cloud)).toEqual([['meera@example.com', 1400, true], ['ravi@example.com', 1500, true], ['sam@example.com', 100, true]]);
+  });
+
+  it('T5B-002 · the step is built from the split row (paid ticks included), and the Splits page queues it instead of calling the cloud', async () => {
+    const txn = {
+      id: 't1', type: 'expense' as const, amount: 3000, currency: 'INR', date: '2026-10-19', description: 'Dinner',
+      split: { isSplit: true as const, totalAmount: 3000, yourShare: 1000, paidBy: 'me' as const, participants: [
+        { name: 'You', isYou: true, share: 1000, paid: true },
+        { name: 'Ravi', share: 1000, paid: true, paidOn: '2026-10-19', email: 'ravi@example.com' },
+        { name: 'Meera', share: 1000, paid: false, email: 'meera@example.com' },
+        { name: 'Cash friend', share: 0, paid: false },
+      ] },
+    };
+    expect(shareIntentForTxn(txn)).toEqual({
+      txnId: 't1', description: 'Dinner', currency: 'INR', totalAmount: 3000, txnType: 'expense', date: '2026-10-19',
+      participants: [{ email: 'ravi@example.com', share: 1000, paid: true }, { email: 'meera@example.com', share: 1000 }],
+    });
+    expect(shareIntentForTxn({ ...txn, split: undefined })).toBeNull();
+
+    const queueSplitShare = vi.fn().mockResolvedValue(undefined);
+    useStore.setState({ ...useStore.getInitialState(), adapter: { queueSplitShare } as never, cloudEnabled: true,
+      currentHouseholdId: 'hh', session: { user: { id: 'alice' } } as never });
+    await useStore.getState().updateSharedSplitForTxn(shareIntentForTxn(txn)!);
+    expect(queueSplitShare).toHaveBeenCalledWith('hh', expect.objectContaining({
+      participants: expect.arrayContaining([{ email: 'ravi@example.com', share: 1000, paid: true }]) }));
+    expect('markSplitShareRowPaid' in useStore.getState()).toBe(false);
+
+    const page = read('react/src/pages/Splits.tsx');
+    expect(page).not.toMatch(/markSplitShareRowPaid|markShareRowPaid/);
+    expect(page).toMatch(/const intent = shareIntentForTxn\(txn\);\s*if \(intent\?\.participants\.length\) await updateSharedSplitForTxn\(intent\);/);
+    expect(read('react/src/components/splits/SplitFormModal.tsx')).toMatch(/const cloudInput = shareIntentForTxn\(txn\)!;/);
   });
 });

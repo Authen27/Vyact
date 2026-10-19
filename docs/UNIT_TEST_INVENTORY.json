@@ -815,6 +815,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/appGuards.test.ts",
+      "feature": "App guardrails (T5b)",
+      "availability": "available",
+      "layer": "store-integration",
+      "owner": "T5b (audit XC-ARC-11, XC-ARC-10, XC-ARC-08, BE-FN-09): a failed write is recorded (failedWrite; the legacy recurring import keeps what did not land; onboarding steps), a write after an await lands only in its own household (landIn, and a check over every post-await set in the slices), the pickers read the accounts (Money Map flag retired), settled / closed split emails that did not go out are said",
+      "count": 7,
+      "tests": [
+        "a failed write is recorded, never swallowed (XC-ARC-11) T5B-003 · failedWrite: no network is the expected offline path; a refusal or a bug is unexpected",
+        "a failed write is recorded, never swallowed (XC-ARC-11) T5B-004 · the legacy recurring import keeps a schedule that failed, tries it again next load, and never imports into a household that has its own",
+        "a failed write is recorded, never swallowed (XC-ARC-11) T5B-005 · onboarding: each step that fails is recorded, the others still run, and a join-month budget that exists is expected",
+        "a split email that didn't go out is said, for every event (BE-FN-09) T5B-009 · settled and closed get their own notice after the action's own message; a sent email says nothing more",
+        "a store write after an await lands only in its own household (XC-ARC-10) T5B-006 · landIn drops a result for a household no longer open; the store's saves and deletes use it",
+        "a store write after an await lands only in its own household (XC-ARC-10) T5B-007 · every store write after an await goes through commit, except the person's own lists and actions that check the household themselves",
+        "the account pickers read the household's accounts in every build (XC-ARC-08) T5B-008 · the Money Map flag and the assets + debts derivation are gone; the list is the accounts"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/askVyact.test.ts",
       "feature": "Ask Vyact",
       "availability": "conditional",
@@ -2728,9 +2746,11 @@
       "feature": "Split sharing through the sync queue (F1c)",
       "availability": "conditional",
       "layer": "store-integration",
-      "owner": "F1c: a split's sharing is a queued step that waits for its transaction, retries until it lands in its own lane (never holding up transactions), and makes the cloud match the split each run (repeat-safe: a run cut off half-way is finished, a repeat writes nothing, paid shares untouched, new people emailed once); the store and the Split form queue it (fake IndexedDB, an in-memory cloud enforcing the transaction FK; owner decisions 18 Oct 2026)",
-      "count": 7,
+      "owner": "F1c: a split's sharing is a queued step that waits for its transaction, retries until it lands in its own lane (never holding up transactions), and makes the cloud match the split each run (repeat-safe: a run cut off half-way is finished, a repeat writes nothing, paid shares untouched, new people emailed once); the store and the Split form queue it (fake IndexedDB, an in-memory cloud enforcing the transaction FK; owner decisions 18 Oct 2026); T5b: a person marked paid (Splits page or the form) is settled by the same step, never un-settled",
+      "count": 9,
       "tests": [
+        "marking a person paid goes through the queued share step (T5b) T5B-001 · the step settles a share marked paid, once, never un-settles one, and a new person can arrive paid",
+        "marking a person paid goes through the queued share step (T5b) T5B-002 · the step is built from the split row (paid ticks included), and the Splits page queues it instead of calling the cloud",
         "sharing through the sync queue (INT-TXN-11) F1C-004 · a split saved offline is shared once online: the transaction first, then its shares, emailed once",
         "sharing through the sync queue (INT-TXN-11) F1C-005 · a network failure while sharing is retried until it lands, and later transactions still go",
         "sharing through the sync queue (INT-TXN-11) F1C-006 · a share whose transaction the database refused is set aside with it, never stuck",
