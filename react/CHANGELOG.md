@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.122.0`** (consumer)
+> **Current production version: `v10.123.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,31 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.123.0 — Each project's scheduled jobs call that project *(2026-10-19)*
+
+One migration (`20261106120000_t5d_cron_project_url.sql`) and the two deploy workflows; no change to the app.
+Track T5 (engineering guardrails), part d: audit DB-OPS-07 and the cron half of BE-FN-11. Owner decision,
+19 Oct 2026: the Deploy workflow stores each project's own URL.
+
+- **Scheduled jobs call their own project.** Eight jobs call Edge Functions:
+  - the five WhatsApp dispatches;
+  - web push;
+  - posting due bills;
+  - the WhatsApp inbox sweep.
+
+  Each named the production address, so the test database, which builds the same jobs from the same
+  migrations, called production every few minutes. Production refused those calls, so nothing ran twice,
+  but the test project's own jobs never ran.
+- **How:** each job now reads its project's address from Vault (`project_url`), and a database without one calls
+  nothing. Each project's deploy stores it right after its migrations:
+  - production's Deploy fails if it can't, because its jobs would otherwise stop;
+  - vyact-test's warns, because its migrations come from the non-production pipeline.
+- **For developers:**
+  - `set_project_url` accepts only `https://<ref>.supabase.co` and can't be called from the app.
+  - `scripts/store-project-url.mjs` calls it through the Management API, with the access token the workflows
+    already hold.
+  - A new gate, Deploy tooling, tests it. T5D-004 fails if a later migration names the production host.
 
 ## v10.122.0 — WhatsApp and the bell say the same thing; Pip's usage is counted once *(2026-10-19)*
 

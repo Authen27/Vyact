@@ -1273,6 +1273,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/cronProjectUrlSql.test.ts",
+      "feature": "Scheduled jobs call their own project (T5d)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "T5d (audit DB-OPS-07): the eight HTTP cron jobs build their URL from Vault project_url (no row, no call), set only through set_project_url (a Supabase project URL, never from the app); no later migration names the production host (cron, vault and pg_net stood in on PGlite)",
+      "count": 4,
+      "tests": [
+        "no migration names the production host in a job any more T5D-004 · the jobs are rewritten by the latest migration that touches them",
+        "scheduled jobs call this project, from its own project_url (DB-OPS-07) T5D-001 · no project_url: no job calls anything, and no command names a host",
+        "scheduled jobs call this project, from its own project_url (DB-OPS-07) T5D-002 · with project_url set, each job calls its own function on this project, with its own secret",
+        "scheduled jobs call this project, from its own project_url (DB-OPS-07) T5D-003 · only a Supabase project URL is accepted, and the app cannot call it"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/dashboardPresentation.test.tsx",
       "feature": "Dashboard MVP presentation",
       "availability": "available",

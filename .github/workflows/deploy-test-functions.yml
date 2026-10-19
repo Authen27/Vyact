@@ -60,3 +60,8 @@ jobs:
             fi
             echo "::notice title=Deployed to vyact-test::$fn"
           done
+      # T5d (v10.123.0; audit DB-OPS-07) — vyact-test's scheduled jobs call vyact-test, from its own Vault
+      # `project_url`. --soft: its database may not have migration 20261106120000 yet (its migrations come from
+      # the non-production pipeline), and until it does its jobs keep their old commands.
+      - name: Store vyact-test's URL for its scheduled jobs
+        run: node scripts/store-project-url.mjs "$TEST_PROJECT_REF" --soft

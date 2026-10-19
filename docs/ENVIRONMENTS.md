@@ -33,7 +33,9 @@ that mention the `bhushandandolus-projects` team or `vyact-twentyx.vercel.app` a
   Supabase env of its own builds **local-only** (`react/vite.config.ts` preview guard). Pointing those
   previews at `vyact-test` needs the Vercel **Preview** env set to it (owner action, master-todo #42).
 - **`vyact-test` is shared** by stage, dev and CI E2E Lane B (`e2e/lane-b/env.ts`; `@vyact.test` fixture
-  accounts — **do not wipe**). Free plan: auto-pauses after ~7 idle days. Auth: Site URL
+  accounts — **do not wipe**). Since v10.123.0 its scheduled jobs call vyact-test itself, from its own Vault
+  `project_url` (stored by **Deploy test functions**; until its database has migration 20261106120000 they keep
+  their old commands, which named production). Free plan: auto-pauses after ~7 idle days. Auth: Site URL
   `https://stage.vyact.app`, redirect allow-list has the four stage/dev domains. Google sign-in is **not**
   enabled there yet. Edge functions deploy there with **Deploy test functions**
   (`.github/workflows/deploy-test-functions.yml`, v10.49.0); their secrets (WhatsApp, web push, AI) must be

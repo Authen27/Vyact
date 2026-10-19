@@ -106,6 +106,13 @@ jobs:
         run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
       - name: Push pending migrations
         run: supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}" --include-all
+      # T5d (v10.123.0; audit DB-OPS-07, BE-FN-11; owner, 19 Oct 2026: "Deploy writes it") — the scheduled jobs
+      # build their URL from this project's Vault `project_url` (migration 20261106120000); they used to name
+      # the production host, so a test database called production. Stored on every deploy, right after the
+      # migrations, with the token above (scripts/store-project-url.mjs). A failure fails the run: without
+      # `project_url` the jobs call nothing.
+      - name: Store this project's URL for the scheduled jobs
+        run: node scripts/store-project-url.mjs "${{ secrets.SUPABASE_PROJECT_REF }}"
 
   # Deploy the Supabase Edge Functions. Gated with db-migrations since v10.20.5
   # (it was best-effort, and was silently failing on a stale token for four
