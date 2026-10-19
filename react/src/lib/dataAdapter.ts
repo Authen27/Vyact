@@ -192,7 +192,7 @@ export class LocalStorageAdapter implements DataAdapter {
   constructor() {
     // Run a one-time anon-key migration (legacy -> vt_) where appropriate.
     // This is intentionally best-effort and idempotent.
-    try { this.migrateAnonKeys(); } catch { /* noop */ }
+    try { this.migrateAnonKeys(); } catch { /* fault-ok: the old keys stay where they are; nothing is lost */ }
   }
 
   private async read<T>(suffix: string, householdId: string, fallback: T): Promise<T> {
@@ -229,7 +229,7 @@ export class LocalStorageAdapter implements DataAdapter {
   private migrateAnonKeys(): void {
     try {
       // Guard so we only attempt this once per device
-      try { if (ls.readString('migrated_v1') === '1') return; } catch { /* continue */ }
+      try { if (ls.readString('migrated_v1') === '1') return; } catch { /* fault-ok: unreadable: the copy runs again and skips keys already copied */ }
       const anonKeys = [
         'transactions','budgets','goals','members','debts','assets','rates','profile',
         'profiles_list','active_profile','recurring','notifications','notification_prefs',
@@ -242,13 +242,13 @@ export class LocalStorageAdapter implements DataAdapter {
           if (localStorage.getItem(nk) === null) {
             const v = localStorage.getItem(lk);
             if (v !== null) {
-              try { localStorage.setItem(nk, v); } catch { /* noop */ }
+              try { localStorage.setItem(nk, v); } catch { /* fault-ok: the old key stays; the copy runs again next load */ }
             }
           }
-        } catch { /* continue */ }
+        } catch { /* fault-ok: the old keys stay; the copy runs again next load */ }
       }
-      try { ls.setString('migrated_v1', '1'); } catch { /* noop */ }
-    } catch { /* noop */ }
+      try { ls.setString('migrated_v1', '1'); } catch { /* fault-ok: the copy runs again next load and skips keys already copied */ }
+    } catch { /* fault-ok: the old keys stay where they are; nothing is lost */ }
   }
 
   // ── households ────────────────────────────────────────────────
@@ -294,11 +294,11 @@ export class LocalStorageAdapter implements DataAdapter {
     await this.write('profiles_list', ANON, list);
   }
   async getActiveHousehold(): Promise<string> {
-    try { const v = ls.readString('active_profile'); if (v) return v; } catch { /* noop */ }
+    try { const v = ls.readString('active_profile'); if (v) return v; } catch { /* fault-ok: unreadable: the default household opens */ }
     return ANON;
   }
   async setActiveHousehold(id: string): Promise<string> {
-    try { ls.setString('active_profile', id); } catch { /* noop */ }
+    try { ls.setString('active_profile', id); } catch { /* fault-ok: device storage is optional; the default household opens next time */ }
     return id;
   }
 

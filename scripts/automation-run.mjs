@@ -86,6 +86,9 @@ const gates = [
     cmd: `node scripts/test-scenarios-check.mjs --react-report="${consumerVitestJson}" --admin-report="${adminVitestJson}"` },
   { id: 'inventory-tooling', name: 'Inventory tooling regression tests', cwd: '.',
     cmd: 'node --test scripts/__tests__/test-inventory.test.mjs' },
+  // T5b (audit XC-ARC-11): a catch that does nothing must say why (`fault-ok: <reason>`), or report.
+  { id: 'silent-catches',      name: 'No silent catches (app, admin, Edge)', cwd: '.',
+    cmd: 'node --test scripts/__tests__/silent-catch-check.test.mjs && node scripts/silent-catch-check.mjs' },
   { id: 'db-migrations',       name: 'DB migrations (naming + schema.sql snapshot in sync)', cwd: '.',
     cmd: 'node scripts/db-migrations-check.mjs' },
   { id: 'version-drift',       name: 'Version drift (README/VERSIONS/CHANGELOG vs package.json)', cwd: '.',

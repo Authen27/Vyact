@@ -37,7 +37,7 @@
 - [ ] **NWRT-FC-007** — account drawer / multi-account-split E2E test
 - [ ] **`AccountDrawer.tsx`** — multi-account split UI on the transaction modal (Item #5 M-tier)
 - [ ] Wire `v_txn_by_*` views as the Reports read path on mobile (Item #8 mobile perf)
-- [ ] Promote `getMoneyMapMode()` default to `'on'` (v7.2.1) once shadow-mode parity is confirmed
+- [x] ~~Promote `getMoneyMapMode()` default to `'on'`~~ — the flag is retired in v10.121.0 (T5b): every picker reads the accounts
 - [ ] `2026_06_education_progress.sql` migration + Education progress UI (Item #7)
 - [ ] `2026_07_saved_views.sql` migration + entity slice + Saved Views UI (Item #4, v7.3)
 - [ ] Retire the `vt_feature_money_map` flag (v7.3)

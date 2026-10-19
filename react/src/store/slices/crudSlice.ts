@@ -16,6 +16,7 @@ import { can } from '../../lib/permissions';
 import { track } from '../../lib/analytics';
 import { hasDependencies, localAccountDependencies, loansRecordingFrom, moveDestinations } from '../../lib/accountsView';
 import { withRow, withRows, withoutRow } from '../../lib/rowMerge';
+import { landIn } from '../landIn';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -68,7 +69,10 @@ export interface CrudSlice {
   removeSavedView: (id: string) => Promise<void>;
 }
 
-export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get) => ({
+export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get) => {
+  // T5b (v10.121.0; audit XC-ARC-10) — a write after an await lands only in the household it was made for.
+  const commit = landIn(set, get);
+  return ({
   upsertBudget: async (b) => {
     assertCanManageBudgets(get().myRole);
     const { adapter, currentHouseholdId } = get();
@@ -90,7 +94,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     // rowToBudget mapper returns `period` / `periodStart` / `periodEnd`.
     const merged: Budget = { ...saved, period: saved.period || b.period || 'monthly' };
     // F1b (FE-SYN-06): every write below lands in the CURRENT list, never in one read before its await.
-    set(s => ({ budgets: withRow(s.budgets, merged) }));
+    commit(currentHouseholdId, s => ({ budgets: withRow(s.budgets, merged) }));
     return merged;
   },
   removeBudget: async (id) => {
@@ -99,7 +103,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     await adapter.remove('budgets', currentHouseholdId, id);
     // Cascade allocations locally (DB cascades via FK on delete; soft-delete
     // here just drops them from memory).
-    set(s => ({
+    commit(currentHouseholdId, s => ({
       budgets: withoutRow(s.budgets, id),
       budgetAllocations: s.budgetAllocations.filter(a => a.budgetId !== id),
     }));
@@ -114,7 +118,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const { budget: saved, allocations } = await adapter.upsertBudgetWithAllocations(currentHouseholdId, budget, allocs, mode);
     if (mode === 'create') track('budget_created', { surface: 'budgets', count: allocations.length });
     const merged: Budget = { ...saved, period: saved.period || budget.period || 'monthly' };
-    set(s => ({
+    commit(currentHouseholdId, s => ({
       budgets: withRow(s.budgets, merged),
       budgetAllocations: [...s.budgetAllocations.filter(a => a.budgetId !== saved.id), ...allocations],
     }));
@@ -129,7 +133,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     );
     track('budget_created', { surface: 'onboarding', count: allocations.length });
     const merged: Budget = { ...saved, period: saved.period || budget.period || 'monthly' };
-    set(s => ({
+    commit(currentHouseholdId, s => ({
       budgets: withRow(s.budgets, merged),
       budgetAllocations: [...s.budgetAllocations.filter(a => a.budgetId !== saved.id), ...allocations],
     }));
@@ -149,25 +153,25 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       const row = await adapter.upsert('budgetAllocations', currentHouseholdId, { ...r, budgetId });
       saved.push(row as BudgetAllocation);
     }
-    set(s => ({ budgetAllocations: [...s.budgetAllocations.filter(a => a.budgetId !== budgetId), ...saved] }));
+    commit(currentHouseholdId, s => ({ budgetAllocations: [...s.budgetAllocations.filter(a => a.budgetId !== budgetId), ...saved] }));
     return saved;
   },
   upsertGoal: async (g) => {
     const { adapter, currentHouseholdId } = get();
     // TD-03 phase B (PR #12): thread the version precondition on edits.
     const saved = await adapter.upsert('goals', currentHouseholdId, g, g.id && g.updated_at ? g.updated_at : undefined);
-    set(s => ({ goals: withRow(s.goals, saved as Goal) }));
+    commit(currentHouseholdId, s => ({ goals: withRow(s.goals, saved as Goal) }));
     return saved as Goal;
   },
   removeGoal: async (id) => {
     const { adapter, currentHouseholdId } = get();
     await adapter.remove('goals', currentHouseholdId, id);
-    set(s => ({ goals: withoutRow(s.goals, id) }));
+    commit(currentHouseholdId, s => ({ goals: withoutRow(s.goals, id) }));
   },
   upsertMember: async (m) => {
     const { adapter, currentHouseholdId } = get();
     const saved = await adapter.upsert('members', currentHouseholdId, m);
-    set(s => ({ members: withRow(s.members, saved as Member) }));
+    commit(currentHouseholdId, s => ({ members: withRow(s.members, saved as Member) }));
     return saved as Member;
   },
   removeMember: async (id) => {
@@ -179,7 +183,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       await adapter.upsert('transactions', currentHouseholdId, updated);
     }
     await adapter.remove('members', currentHouseholdId, id);
-    set(s => ({
+    commit(currentHouseholdId, s => ({
       members: withoutRow(s.members, id),
       transactions: s.transactions.map(t => t.memberId === id ? { ...t, memberId: '' } : t),
     }));
@@ -188,7 +192,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const { adapter, currentHouseholdId } = get();
     // TD-03 phase B (PR #12): thread the version precondition on edits.
     const saved = await adapter.upsert('debts', currentHouseholdId, d, d.id && d.updated_at ? d.updated_at : undefined);
-    set(s => ({ debts: withRow(s.debts, saved as Debt) }));
+    commit(currentHouseholdId, s => ({ debts: withRow(s.debts, saved as Debt) }));
     return saved as Debt;
   },
   // W4f (D17) — a loan with money owed cannot be deleted; the rule lives in deleteDebt (and the database).
@@ -199,7 +203,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const { adapter, currentHouseholdId } = get();
     // TD-03 phase B (PR #12): thread the version precondition on edits.
     const saved = await adapter.upsert('assets', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
-    set(s => ({ assets: withRow(s.assets, saved as Asset) }));
+    commit(currentHouseholdId, s => ({ assets: withRow(s.assets, saved as Asset) }));
     return saved as Asset;
   },
   removeAsset: async (id) => {
@@ -211,7 +215,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       throw new Error('This investment has buys or withdrawals recorded against it — delete or move those first.');
     }
     await adapter.remove('assets', currentHouseholdId, id);
-    set(s => ({ assets: withoutRow(s.assets, id) }));
+    commit(currentHouseholdId, s => ({ assets: withoutRow(s.assets, id) }));
   },
   upsertAccount: async (a) => {
     const { adapter, currentHouseholdId, accounts } = get();
@@ -284,7 +288,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       for (const d of demoted) await adapter.upsert('accounts', currentHouseholdId, d);
     }
     // F1b (FE-SYN-06): into the CURRENT list (one read before the awaits would undo a refresh).
-    set(s => ({
+    commit(currentHouseholdId, s => ({
       accounts: withRow(s.accounts, saved)
         .map(x => (makesDefault && x.id !== saved.id && x.isDefault ? { ...x, isDefault: false } : x)),
     }));
@@ -298,7 +302,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       throw new Error('Cash in Hand cannot be deleted — every household keeps exactly one.');
     }
     await adapter.remove('accounts', currentHouseholdId, id);
-    set(s => ({ accounts: withoutRow(s.accounts, id) }));
+    commit(currentHouseholdId, s => ({ accounts: withoutRow(s.accounts, id) }));
   },
   accountDependencies: async (id) => {
     const { adapter, currentHouseholdId, cloudEnabled, transactions, recurringSchedules } = get();
@@ -328,7 +332,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       }
       await adapter.remove('accounts', currentHouseholdId, id);
     }
-    set({ accounts: get().accounts.filter(x => x.id !== id) });
+    commit(currentHouseholdId, { accounts: get().accounts.filter(x => x.id !== id) });
   },
   moveAccountAndDelete: async (fromId, toId) => {
     const { adapter, currentHouseholdId, cloudEnabled, accounts } = get();
@@ -344,7 +348,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       // One database transaction moves the rows, folds the balance and tombstones
       // the source; refresh pulls back everything it changed.
       const result = await adapter.moveAccountAndDelete(currentHouseholdId, fromId, toId);
-      set({ accounts: get().accounts.filter(a => a.id !== fromId) });
+      commit(currentHouseholdId, { accounts: get().accounts.filter(a => a.id !== fromId) });
       await get().refresh();
       return result;
     }
@@ -379,7 +383,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     for (const t of movedTxns) await adapter.upsert('transactions', currentHouseholdId, t);
     for (const s of movedSchedules) await adapter.upsert('recurring', currentHouseholdId, s);
     for (const d of movedDebts) await adapter.upsert('debts', currentHouseholdId, d);
-    set(state => ({
+    commit(currentHouseholdId, state => ({
       transactions: withRows(state.transactions, movedTxns),
       recurringSchedules: withRows(state.recurringSchedules, movedSchedules),
       debts: withRows(state.debts, movedDebts),
@@ -397,7 +401,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       });
     }
     await adapter.remove('accounts', currentHouseholdId, fromId);
-    set({ accounts: get().accounts.filter(a => a.id !== fromId) });
+    commit(currentHouseholdId, { accounts: get().accounts.filter(a => a.id !== fromId) });
     return { status: 'moved', transactions: movedTxns.length, schedules: movedSchedules.length, folded };
   },
   // Every household gets exactly one default Cash account, even at $0 — cash
@@ -447,12 +451,13 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
   upsertSavedView: async (v) => {
     const { adapter, currentHouseholdId } = get();
     const saved = await adapter.upsert('savedViews', currentHouseholdId, v, v.id && v.updated_at ? v.updated_at : undefined);
-    set(s => ({ savedViews: withRow(s.savedViews, saved as SavedView) }));
+    commit(currentHouseholdId, s => ({ savedViews: withRow(s.savedViews, saved as SavedView) }));
     return saved as SavedView;
   },
   removeSavedView: async (id) => {
     const { adapter, currentHouseholdId } = get();
     await adapter.remove('savedViews', currentHouseholdId, id);
-    set(s => ({ savedViews: withoutRow(s.savedViews, id) }));
+    commit(currentHouseholdId, s => ({ savedViews: withoutRow(s.savedViews, id) }));
   },
 });
+};

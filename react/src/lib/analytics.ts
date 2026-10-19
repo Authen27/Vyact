@@ -145,7 +145,7 @@ export function platform(): 'android-app' | 'pwa' | 'web' {
   try {
     if (window.matchMedia?.('(display-mode: standalone)').matches) return 'pwa';
     if ((window.navigator as Navigator & { standalone?: boolean }).standalone) return 'pwa';
-  } catch { /* fall through */ }
+  } catch { /* fault-ok: a display mode that cannot be read counts as the web */ }
   return 'web';
 }
 
@@ -162,7 +162,7 @@ export function track(name: EventName, params: EventParams = {}): void {
   try {
     window.gtag?.('event', name, { ...params, platform: params.platform ?? platform() } as Record<string, unknown>);
   } catch {
-    // Analytics must never break the app.
+    // fault-ok: analytics must never break the app
   }
 }
 
@@ -177,7 +177,7 @@ export function setUserProperties(props: {
   if (!isEnabled()) return;
   try {
     window.gtag?.('set', 'user_properties', props);
-  } catch { /* no-op */ }
+  } catch { /* fault-ok: analytics must never break the app */ }
 }
 
 /** Bucket a money amount before sending — never send raw values. */
@@ -204,7 +204,7 @@ const REF_KEY = 'vy_signup_ref';
 /** Keep the landing / Learn `?ref=` through the auth flow, so sign_up can say where it came from. */
 export function rememberSignupRef(ref: string | null): void {
   if (!ref) return;
-  try { localStorage.setItem(REF_KEY, ref.slice(0, 80)); } catch { /* private mode */ }
+  try { localStorage.setItem(REF_KEY, ref.slice(0, 80)); } catch { /* fault-ok: device storage is optional (private mode, quota) */ }
 }
 
 /** How old an account can be and still count as "new" on its first session (v10.53.0). */
@@ -255,5 +255,5 @@ export async function setAnalyticsUser(userId: string | null): Promise<void> {
   try {
     const user_id = userId ? await sha256Hex(`vyact:${userId}`) : null;
     window.gtag?.('set', { user_id });
-  } catch { /* analytics must never break the app */ }
+  } catch { /* fault-ok: analytics must never break the app */ }
 }

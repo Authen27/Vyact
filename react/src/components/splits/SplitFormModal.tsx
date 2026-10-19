@@ -28,9 +28,8 @@ import { recentCategories, suggestCategory, type CategorySuggestion } from '../.
 import { confirmSheet } from '../../lib/confirmSheet';
 import { deleteSplitRequest } from '../../lib/confirmCopy';
 import { CURRENCIES } from '../../constants';
-import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
-import { getMoneyMapMode } from '../../lib/featureFlags';
-import { resolveParticipantNames } from '../../lib/sharedSplits';
+import { buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
+import { resolveParticipantNames, shareIntentForTxn } from '../../lib/sharedSplits';
 import { participantEmailProblem, needsConfirmation, confirmQuestion, paidOnFor, splitSavedNotice, type ConfirmItem } from '../../lib/splitParticipants';
 import { editPatch } from '../../lib/txnEdit';
 import Modal from '../ui/Modal';
@@ -104,8 +103,6 @@ export default function SplitFormModal(props: Props) {
   const profile           = useStore(s => s.profile);
   const members           = useStore(s => s.members);
   const session           = useStore(s => s.session);
-  const assets            = useStore(s => s.assets);
-  const debts             = useStore(s => s.debts);
   const transactions      = useStore(s => s.transactions);
   const accountsState     = useStore(s => s.accounts);
   const upsertTransaction = useStore(s => s.upsertTransaction);
@@ -145,11 +142,11 @@ export default function SplitFormModal(props: Props) {
   const [catMissing, setCatMissing] = useState(false);
   const ownEmail = session?.user?.email ?? null;
 
-  const useFirstClass = getMoneyMapMode() !== 'off' && accountsState.length > 0;
   // v10.17 item 15 — a split is never paid from an investment account.
+  // T5b (XC-ARC-08) — always the household's accounts; the retired Money Map flag no longer picks the list.
   const accounts = useMemo(
-    () => useFirstClass ? buildAccountsFromStore(accountsState, { filter: notInvestment }) : buildAccounts(assets, debts),
-    [useFirstClass, accountsState, assets, debts],
+    () => buildAccountsFromStore(accountsState, { filter: notInvestment }),
+    [accountsState],
   );
 
   // v10.17 item 10 — autocomplete of people you might tag: distinct emails from
@@ -279,7 +276,7 @@ export default function SplitFormModal(props: Props) {
     try {
       const map = await resolveParticipantNames([e]);
       setResolvedNames(prev => ({ ...prev, [e]: map[e] ?? '' }));
-    } catch { /* best-effort */ }
+    } catch { /* fault-ok: a name is a nicety; the email is shown instead */ }
   }
   function editShare(i: number, share: string) {
     setForm(f => ({ ...f, auto: false, participants: f.participants.map((x, j) => j === i ? { ...x, share } : x) }));
@@ -375,15 +372,9 @@ export default function SplitFormModal(props: Props) {
       let sharedOnceOnline: string[] = [];
       if (cloudActive) {
         const emailed = split.participants.filter(p => !p.isYou && p.email);
-        const cloudInput = {
-          txnId: txn.id,
-          description: txn.description,
-          currency: txn.currency,
-          totalAmount: amount,
-          txnType: form.type,
-          date: txn.date,
-          participants: emailed.map(p => ({ email: p.email!, share: p.share })),
-        };
+        // T5b (v10.121.0) — the same step the Splits page queues, so a person ticked as paid here has
+        // their cloud share settled too (it never reached the cloud before).
+        const cloudInput = shareIntentForTxn(txn)!;
         // F1c (v10.112.0, INT-TXN-11): sharing is QUEUED behind the transaction and sent by sync,
         // offline included, retried until it lands. Only the device's own queue can refuse it here.
         try {

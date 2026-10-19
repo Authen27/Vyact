@@ -4,12 +4,9 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.120.0`** (consumer)
+> **Current production version: `v10.121.0`** (consumer)
 > **Live URL:** https://vyact.app
-> **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
-> the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
-> clients viewing the same household stay consistent. Promotes to `'on'` in
-> v7.2.1 once parity dashboards confirm.
+> **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
 
 ## Version provenance & gaps
@@ -24,6 +21,41 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.121.0 — Nothing a save needs is dropped without a word *(2026-10-19)*
+
+No change to the database. Track T5 (engineering guardrails), part b: audit XC-ARC-11, XC-ARC-10, XC-ARC-08 and
+BE-FN-09. Owner decision, 19 Oct 2026: marking a split paid goes through the split's queued sharing ("queue it").
+
+- **Marking someone paid on a split reaches the other household, even offline.** It used to call the cloud from
+  the Splits page and ignore a failure, so offline the person who paid kept seeing the money as owed. It now goes
+  through the split's queued sharing step (v10.112.0), behind the transaction, and is retried until it lands.
+  - A person ticked as paid in the Split form is settled too; before, that tick never reached the cloud.
+  - A settled share is never un-settled.
+- **Settling your share, or closing a split, says when its email didn't go out**, as sharing already did. The
+  split action stands either way; the people on it see it when they open Vyact.
+- **A failed self-settle says so** ("Settle failed: …"); it used to fail without a word.
+- **Switching household while something saves no longer shows the old household's row in the new one.** A save,
+  a delete, a payment or a read that finishes after the switch lands only in its own household. This covers
+  entries, budgets, goals, accounts, loans, schedules, notifications, the role and the household's invitations.
+  Nothing was written to the wrong household before; the screen showed it until the next refresh.
+- **Every account picker lists your accounts, in every build.** The retired "Money Map" switch still chose the
+  list in the guest demo and other local-only builds, where it offered Net Worth bank assets that moved no
+  account. Those builds now offer the accounts on the Accounts screen, as the live app always has.
+- **A write that fails is recorded instead of vanishing.** This covers:
+  - the default Cash account;
+  - Learn progress;
+  - onboarding's opening balance, paycheck, bills and budget;
+  - clearing this device's cache at sign-out;
+  - retrying writes that were set aside.
+  - **The pre-cloud recurring list:** a schedule that failed to copy used to be deleted from the device with the
+    rest. It is now kept and copied on the next load.
+- **For developers:**
+  - A new gate, No silent catches (`scripts/silent-catch-check.mjs`): every catch that does nothing must say why
+    (`fault-ok: <reason>`) or report the failure. All 134 existing ones were reviewed: 113 now say why ignoring
+    the failure is safe, and 21 report it or were replaced.
+  - `store/landIn.ts` is the household guard, and a test fails on a new post-await store write that skips it.
+  - CON-E2E-009, a Net Worth deposit test parked since it was written, now runs and passes.
 
 ## v10.120.0 — The server code and the tests are checked too *(2026-10-19)*
 

@@ -261,5 +261,5 @@ export async function deleteInfographic(publicUrl: string): Promise<void> {
   const idx = publicUrl.indexOf(marker);
   if (idx === -1) return;
   const path = publicUrl.slice(idx + marker.length);
-  await sb().storage.from(INFOGRAPHIC_BUCKET).remove([path]).catch(() => {});
+  await sb().storage.from(INFOGRAPHIC_BUCKET).remove([path]).catch(() => { /* fault-ok: an image file left behind is only tidy-up; nothing points at it */ });
 }

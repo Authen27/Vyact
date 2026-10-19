@@ -194,7 +194,7 @@ Deno.serve(async (req: Request) => {
   //    or a concurrent worker never double-processes and a crash after ACK
   //    loses nothing.
   let payload: Record<string, unknown> = {};
-  try { payload = JSON.parse(rawBody); } catch { /* keep {} */ }
+  try { payload = JSON.parse(rawBody); } catch { /* fault-ok: a body that is not JSON carries no messages and is acknowledged as empty */ }
 
   const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
 

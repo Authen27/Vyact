@@ -173,6 +173,6 @@ export async function logAiUsage(opts: {
       await supabase.from('ai_usage').insert(withoutTimings);
     }
   } catch {
-    // Metrics are best-effort; never disrupt the chat experience.
+    // fault-ok: client metering is optional and never blocks the chat; the gateway meters every call itself
   }
 }

@@ -111,8 +111,8 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
       if (scoped) return scoped.filter(m => !m.pending);
       const legacy = ls.readJson<ChatRow[]>('chat_history');
       if (legacy) {
-        try { ls.setJson(key, legacy); } catch { /* noop */ }
-        try { localStorage.removeItem('vt_chat_history'); localStorage.removeItem('chat_history'); } catch { /* noop */ }
+        try { ls.setJson(key, legacy); } catch { /* fault-ok: device storage is optional (private mode, quota); the old history stays where it was */ }
+        try { localStorage.removeItem('vt_chat_history'); localStorage.removeItem('chat_history'); } catch { /* fault-ok: the old keys only take space; the history was copied above */ }
         return legacy;
       }
       return [];
@@ -179,7 +179,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   // Surface one proactive insight on open (rate-limited to one per session).
   useEffect(() => {
     if (!isAskVyactEnabled() || !FEATURES.askVyact.proactiveInsight) return;
-    try { if (sessionStorage.getItem('askvyact_proactive_shown') === '1') return; } catch { /* noop */ }
+    try { if (sessionStorage.getItem('askvyact_proactive_shown') === '1') return; } catch { /* fault-ok: storage unavailable: the greeting shows again */ }
     const ctx: AssistantContext = {
       summary, transactions: txns, budgets, budgetAllocations, goals, debts, assets, recurring,
       profile, rates, baseCurrency: profile.baseCurrency,
@@ -187,7 +187,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     const insight = proactiveInsight(ctx);
     if (insight) {
       setProactive(insight);
-      try { sessionStorage.setItem('askvyact_proactive_shown', '1'); } catch { /* noop */ }
+      try { sessionStorage.setItem('askvyact_proactive_shown', '1'); } catch { /* fault-ok: storage unavailable: the greeting may show again */ }
     }
     // Run once on mount; summary is stable enough for a first-open insight.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -429,7 +429,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
 
   function stopVoice() {
     if (recRef.current) {
-      try { recRef.current.stop(); } catch { /* already stopped */ }
+      try { recRef.current.stop(); } catch { /* fault-ok: the recogniser was already stopped */ }
       recRef.current = null;
     }
     setListening(false);

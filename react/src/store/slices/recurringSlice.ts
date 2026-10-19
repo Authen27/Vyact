@@ -13,6 +13,7 @@ import { uid, today } from '../../lib/format';
 import { unexpected } from '../../lib/faults';
 import { withRow, withRows } from '../../lib/rowMerge';
 import { readLocalJson } from '../localJson';
+import { landIn } from '../landIn';
 
 export interface RecurringSlice {
   recurringSchedules: RecurringSchedule[];
@@ -27,7 +28,10 @@ export interface RecurringSlice {
   runRecurringEngine: () => Promise<void>;
 }
 
-export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> = (set, get) => ({
+export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> = (set, get) => {
+  // T5b (v10.121.0; audit XC-ARC-10) — a write after an await lands only in the household it was made for.
+  const commit = landIn(set, get);
+  return ({
   recurringSchedules: readLocalJson<RecurringSchedule[]>('recurring', []),
 
   // ── v7: RECURRING ────────────────────────────────────────────
@@ -85,12 +89,13 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
 
     // v8.9 — persist through the adapter so the schedule is household-scoped +
     // synced (and attributed to the creating user server-side via created_by).
+    const currentHouseholdId = get().currentHouseholdId;
     const saved = await get().adapter.upsert(
-      'recurring', get().currentHouseholdId, next,
+      'recurring', currentHouseholdId, next,
       next.id && next.updated_at ? next.updated_at : undefined,
     ) as RecurringSchedule;
     // F1b (FE-SYN-06): into the CURRENT list, not the one read before the await.
-    set(state => ({
+    commit(currentHouseholdId, state => ({
       recurringSchedules: withRow(state.recurringSchedules, saved),
       transactions: seededTxn ? [...state.transactions, seededTxn] : state.transactions,
     }));
@@ -98,8 +103,9 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
   },
 
   removeRecurring: async (id) => {
-    await get().adapter.remove('recurring', get().currentHouseholdId, id);
-    set({ recurringSchedules: get().recurringSchedules.filter(s => s.id !== id) });
+    const currentHouseholdId = get().currentHouseholdId;
+    await get().adapter.remove('recurring', currentHouseholdId, id);
+    commit(currentHouseholdId, s => ({ recurringSchedules: s.recurringSchedules.filter(x => x.id !== id) }));
   },
 
   approveRecurring: async (id, occurrenceDate) => {
@@ -204,10 +210,11 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
       try { await adapter.upsert('recurring', currentHouseholdId, next); } catch (err) { unexpected(err, 'recurring.engine.advance'); }
     }
     // F1b (FE-SYN-06): the moved schedules and the posted rows go into the CURRENT lists.
-    set(state => ({
+    commit(currentHouseholdId, state => ({
       recurringSchedules: withRows(state.recurringSchedules, advanced),
       transactions: withRows(state.transactions, newTxns),
     }));
     void get().refreshNotifications();
   },
 });
+};

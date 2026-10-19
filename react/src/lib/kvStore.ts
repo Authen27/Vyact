@@ -103,9 +103,9 @@ async function kvGetImpl<T>(key: string, strict: boolean): Promise<T | null> {
   if (legacy !== null) {
     try { const parsed = JSON.parse(legacy) as T;
       // best-effort migrate; don't await failures
-      void kvSet(key, parsed).catch(() => { /* noop */ });
+      void kvSet(key, parsed).catch(() => { /* fault-ok: kvSet reports its own failure; the legacy copy is returned */ });
       return parsed;
-    } catch { /* fall through */ }
+    } catch (e) { expected(e, `kvStore.kvGet:legacy:${key}`); }
   }
   if (memoryFallback.has(key)) {
     try { return JSON.parse(memoryFallback.get(key)!) as T; } catch (e) { expected(e, `kvStore.kvGet:memory:${key}`); return null; }
@@ -120,7 +120,7 @@ export async function kvSet<T = unknown>(key: string, value: T): Promise<void> {
       await withStore<IDBValidKey>('readwrite', s => s.put(value as unknown as IDBValidKey, key));
       // After a successful IDB write, drop the legacy localStorage copy
       // so the data lives in exactly one place. Safe to fail silently.
-      try { ls.removeBoth(key); } catch { /* noop */ }
+      try { ls.removeBoth(key); } catch { /* fault-ok: IndexedDB holds the value; the old localStorage copy is only a fallback */ }
       return;
     } catch (err) {
       if (isQuotaError(err)) emitStorageEvent({ kind: 'quota-exceeded', key, error: err });
@@ -148,9 +148,9 @@ export async function kvSet<T = unknown>(key: string, value: T): Promise<void> {
 export async function kvRemove(key: string): Promise<void> {
   if (hasIDB()) {
     try { await withStore<undefined>('readwrite', s => s.delete(key) as IDBRequest<undefined>); }
-    catch { /* noop */ }
+    catch (e) { expected(e, 'kvStore.kvRemove:idb'); }
   }
-  try { ls.removeBoth(key); } catch { /* noop */ }
+  try { ls.removeBoth(key); } catch { /* fault-ok: storage unavailable: nothing was kept there */ }
   memoryFallback.delete(key);
 }
 
@@ -187,7 +187,7 @@ export async function kvKeys(): Promise<string[]> {
     try {
       const idbKeys = await withStore<IDBValidKey[]>('readonly', s => s.getAllKeys());
       for (const k of idbKeys) if (typeof k === 'string') keys.add(k);
-    } catch { /* fall through to the other backends */ }
+    } catch { /* fault-ok: IndexedDB unavailable: the other backends are listed below */ }
   }
   for (const k of memoryFallback.keys()) keys.add(k);
   try {
@@ -197,7 +197,7 @@ export async function kvKeys(): Promise<string[]> {
       // Stored under the `vt_`/`ff_` namespaces; kv keys are the bare suffix.
       if (raw.startsWith('vt_') || raw.startsWith('ff_')) keys.add(raw.slice(3));
     }
-  } catch { /* storage unavailable */ }
+  } catch { /* fault-ok: storage unavailable: nothing was kept there */ }
   return [...keys];
 }
 
@@ -246,5 +246,5 @@ export async function _closeKvForTests(): Promise<void> {
   memoryFallback.clear();
   generation = 0;
   if (!p) return;
-  try { (await p).close(); } catch { /* already closed or never opened */ }
+  try { (await p).close(); } catch { /* fault-ok: already closed, or never opened */ }
 }

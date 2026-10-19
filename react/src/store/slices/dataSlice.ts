@@ -26,19 +26,21 @@ import {
 } from '../../lib/onboardingState';
 import { accountValueOf } from '../../lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
-import { expected, unexpected } from '../../lib/faults';
+import { expected, unexpected, failedWrite } from '../../lib/faults';
 import { keepLocalChanges, withRow, withoutRow } from '../../lib/rowMerge';
 import { computeNetWorth } from '../../lib/netWorth';
 import { nextHouseholdAfterExit } from '../../lib/householdTypes';
 import {
   hasPositionData, mergeSnapshot, shouldRecordSnapshot, snapshotFromProjection, type NetWorthSnapshot,
 } from '../../lib/netWorthSnapshots';
-import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
+import { readLocalString, setLocalString } from '../localJson';
+import { importLegacyRecurring } from '../legacyRecurring';
 import { syncPush } from '../../lib/webPush';
 import { track } from '../../lib/analytics';
 import { appNavigate } from '../../lib/appNavigation';
 import { can } from '../../lib/permissions';
 import { maybeAskForReview } from '../../lib/playStore';
+import { landIn } from '../landIn';
 
 export interface DataSlice {
   // ── data ────────────────────────────────────────────────────
@@ -53,9 +55,8 @@ export interface DataSlice {
   members: Member[];
   debts: Debt[];
   assets: Asset[];
-  /** v7.1.2 — first-class accounts (Money Map). Populated for cloud
-   *  households that have run the Phase 1 backfill; empty in legacy
-   *  local-only mode. Consumers gate reads on `getMoneyMapMode()`. */
+  /** v7.1.2 — first-class accounts (Money Map), in every mode: Cash in Hand always, plus whatever the
+   *  Accounts screen holds. Since T5b (v10.121.0) every picker reads them (the Money Map flag is retired). */
   accounts: Account[];
   /** v7.3 — per-user saved filter views (Money Map Item #4). Owner-
    *  scoped on the server via RLS; the array here is whatever the
@@ -152,7 +153,10 @@ const initialAdapter: DataAdapter = (isCloudEnabled() && supabase)
   ? new HybridAdapter(supabase)
   : new LocalStorageAdapter();
 
-export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get) => ({
+export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get) => {
+  // T5b (v10.121.0; audit XC-ARC-10) — a write after an await lands only in the household it was made for.
+  const commit = landIn(set, get);
+  return ({
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
@@ -208,7 +212,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     }
 
     if (cloudEnabled && active !== 'local') {
-      try { setLocalString('last_cloud_hid', active); } catch { /* noop */ }
+      try { setLocalString('last_cloud_hid', active); } catch { /* fault-ok: device storage is optional (private mode, quota); the household is picked again at the next sign-in */ }
     }
     await get().refresh();
 
@@ -240,7 +244,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       await adapter.updateProfile(active, seed.profile);
       // v10.30.0 — demo rows carry no marker, so remember that this household
       // began as the demo: its invented figures must never become recorded history.
-      try { setLocalString(DEMO_SEEDED_KEY, active); } catch { /* noop */ }
+      try { setLocalString(DEMO_SEEDED_KEY, active); } catch { /* fault-ok: device storage is optional (private mode, quota); only a demo household is marked */ }
       await get().refresh();
     }
     // v6.4: One-shot anon → cloud migration when the user signs in for the
@@ -257,20 +261,13 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         if (typeof console !== 'undefined') console.warn('[Vyact] auto-migration failed', e);
       }
     }
-    // v8.9 — one-shot migration of the pre-cloud localStorage recurring list
-    // (legacy global `recurring` key) into the household-scoped synced entity.
-    // Runs only when the household has no recurring rows yet but legacy data
-    // exists; idempotent thereafter.
+    // v8.9 — the pre-cloud recurring list joins the household (store/legacyRecurring.ts; since T5b a
+    // schedule that fails to store is kept and tried again, never dropped).
     try {
-      const legacy = readLocalJson<RecurringSchedule[]>('recurring', []);
-      if (legacy.length && get().recurringSchedules.length === 0) {
-        for (const s of legacy) {
-          try { await adapter.upsert('recurring', active, s); } catch { /* best-effort */ }
-        }
-        removeLocal('recurring');             // retire the legacy global key after migrating
+      if (await importLegacyRecurring(adapter, active, get().recurringSchedules.length > 0)) {
         set({ recurringSchedules: await adapter.list<RecurringSchedule>('recurring', active) });
       }
-    } catch { /* migration is best-effort */ }
+    } catch (e) { unexpected(e, 'init.legacyRecurring'); }
 
     // v7: run recurring + refresh notifications on every load
     await get().runRecurringEngine();
@@ -282,8 +279,8 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
 
     // Every household gets a default Cash account from day one (idempotent —
     // no-op once one exists). Runs after refresh()/seeding so `accounts` is
-    // populated either way.
-    try { await get().ensureDefaultCashAccount(); } catch { /* best-effort */ }
+    // populated either way. T5b — offline it runs again on the next load; any other failure is recorded.
+    try { await get().ensureDefaultCashAccount(); } catch (e) { failedWrite(e, 'init.ensureDefaultCashAccount'); }
 
     set({ loading: false });
     void get().recordNetWorthSnapshot();
@@ -436,7 +433,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId)
         .catch((e) => { unexpected(e, 'refetchBudgets:budgetAllocations'); return get().budgetAllocations; }),
     ]);
-    set({ budgets, budgetAllocations });
+    commit(currentHouseholdId, { budgets, budgetAllocations });
   },
 
   recordNetWorthSnapshot: async () => {
@@ -479,7 +476,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     // F1a (FE-SYN-08) — the sync time belongs to the household it was read for.
     set({ currentHouseholdId: id, lastSyncedAt: null });
     if (cloudEnabled && id !== 'local') {
-      try { setLocalString('last_cloud_hid', id); } catch { /* noop */ }
+      try { setLocalString('last_cloud_hid', id); } catch { /* fault-ok: device storage is optional (private mode, quota); the household is picked again at the next sign-in */ }
     }
     await get().refresh();
     void get().settleFromCloud();         // F1a — paint the new household's cloud rows once they land
@@ -487,7 +484,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     void get().refreshSharedSplits();
     // v10.48.0 — this device's pushes follow the household it has open.
     if (cloudEnabled && id !== 'local') void syncPush(id, get().notificationPrefs);
-    try { await get().ensureDefaultCashAccount(); } catch { /* best-effort */ }
+    try { await get().ensureDefaultCashAccount(); } catch (e) { failedWrite(e, 'switchHousehold.ensureDefaultCashAccount'); }
     void get().recordNetWorthSnapshot();
     get().toast('Switched profile', 'success');
   },
@@ -645,7 +642,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     }
     // F1b (FE-SYN-06) — into the CURRENT list: one captured before the await would undo anything a
     // refresh or another save changed meanwhile.
-    set(s => ({ transactions: withRow(s.transactions, saved as Transaction) }));
+    commit(currentHouseholdId, s => ({ transactions: withRow(s.transactions, saved as Transaction) }));
     // v10.48.0 — an expense can cross a budget line's 80% / 100%: raise it now,
     // not at the next reload (TD-39).
     if (saved.type === 'expense') void get().refreshNotifications();
@@ -662,11 +659,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     if (tag) {
       const pair = transactions.filter(x => x.note?.includes(tag));
       await Promise.all(pair.map(p => adapter.remove('transactions', currentHouseholdId, p.id)));
-      set(s => ({ transactions: s.transactions.filter(x => !x.note?.includes(tag)) }));
+      commit(currentHouseholdId, s => ({ transactions: s.transactions.filter(x => !x.note?.includes(tag)) }));
       return;
     }
     await adapter.remove('transactions', currentHouseholdId, id);
-    set(s => ({ transactions: withoutRow(s.transactions, id) }));
+    commit(currentHouseholdId, s => ({ transactions: withoutRow(s.transactions, id) }));
   },
   // Entity CRUD (budget/allocation/goal/member/debt/asset/account/savedView) lives
   // in CrudSlice (store/slices/crudSlice.ts, TD-25), composed via the spread above.
@@ -719,8 +716,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const accounts = patch.baseCurrency !== undefined
       ? get().accounts.map(a => (a.currency === patch.baseCurrency ? a : { ...a, currency: patch.baseCurrency! }))
       : get().accounts;
-    set({ profile: merged, households, accounts });
-    setNumberSystem(merged.numberSystem === 'indian' ? 'indian' : 'western');
+    set({ households });   // the list of households is the person's, whichever is open
+    // T5b (XC-ARC-10) — the profile and the accounts are the household's: only if it is still open.
+    if (commit(currentHouseholdId, { profile: merged, accounts })) {
+      setNumberSystem(merged.numberSystem === 'indian' ? 'indian' : 'western');
+    }
   },
   markEducation: async (topicId, patch) => {
     const { profile, cloudEnabled } = get();
@@ -731,7 +731,8 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const nextProgress = mergeProgress(profile.educationProgress ?? {}, topicId, finalTopic);
     set({ profile: { ...profile, educationProgress: nextProgress } });
     if (cloudEnabled) {
-      try { await get().updateProfile({ educationProgress: nextProgress }); } catch { /* swallow — local copy already set */ }
+      // On screen already; a failed save is recorded (T5b), and the tip may show again on another device.
+      try { await get().updateProfile({ educationProgress: nextProgress }); } catch (e) { failedWrite(e, 'markEducation.save'); }
     } else {
       writeLocalEducationProgress(nextProgress);
     }
@@ -760,7 +761,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       if (!adapter.payLoan || !online) throw new Error('Loan payments require an online connection');
       const res = await adapter.payLoan(currentHouseholdId, { ...input, operationId, date, fundingAccountId: funding.id });
       if (get().currentHouseholdId === currentHouseholdId && get().session?.user.id === actorId) {
-        set(state => ({
+        commit(currentHouseholdId, state => ({
           transactions: [...state.transactions.filter(row => !res.transactions.some(saved => saved.id === row.id)), ...res.transactions],
           debts: state.debts.map(row => (row.id === res.debt.id ? res.debt : row)),
           accounts: res.loanAccount
@@ -795,13 +796,13 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       for (const row of [...written].reverse()) {
         try {
           await adapter.remove('transactions', currentHouseholdId, row.id);
-          set({ transactions: get().transactions.filter(t => t.id !== row.id) });
+          commit(currentHouseholdId, { transactions: get().transactions.filter(t => t.id !== row.id) });
         } catch (e) { unexpected(e, `payLoan:rollback transaction ${row.id}`); }
       }
       if (createdAccount) {
         try {
           await adapter.remove('accounts', currentHouseholdId, createdAccount.id);
-          set({ accounts: get().accounts.filter(a => a.id !== createdAccount!.id) });
+          commit(currentHouseholdId, { accounts: get().accounts.filter(a => a.id !== createdAccount!.id) });
         } catch (e) { unexpected(e, `payLoan:rollback account ${createdAccount.id}`); }
       }
     };
@@ -831,7 +832,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         } as Transaction;
         written.push(await adapter.upsert('transactions', currentHouseholdId, transfer) as Transaction);
       }
-      set({ transactions: [...get().transactions, ...written] });
+      commit(currentHouseholdId, { transactions: [...get().transactions, ...written] });
       const saved = await get().upsertDebt({
         ...debt, currentBalance: plan.outstandingAfter, minimumPayment: plan.emiAfter,
         instalmentsPaid: (debt.instalmentsPaid ?? 0) + (plan.closes ? 1 : 0), dueDate: plan.dueAfter ?? undefined,
@@ -864,7 +865,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       const online = typeof navigator === 'undefined' || navigator.onLine;
       if (!adapter.reverseLoanPayment || !online) throw new Error('Undoing a loan payment requires an online connection');
       const res = await adapter.reverseLoanPayment(currentHouseholdId, operationId);
-      set(state => ({
+      commit(currentHouseholdId, state => ({
         transactions: state.transactions.filter(row => !res.removedTransactionIds.includes(row.id)),
         debts: res.debt ? state.debts.map(row => (row.id === res.debt!.id ? res.debt! : row)) : state.debts,
       }));
@@ -876,7 +877,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     if (!legs.length) throw new LoanPaymentRefused('payment_unavailable');
     if (latestLoanPayment(debtId, transactions)?.operationId !== operationId) throw new LoanPaymentRefused('not_latest_payment');
     for (const leg of legs) await adapter.remove('transactions', currentHouseholdId, leg.id);
-    set({ transactions: get().transactions.filter(row => row.emiSplit?.operation_id !== operationId) });
+    commit(currentHouseholdId, { transactions: get().transactions.filter(row => row.emiSplit?.operation_id !== operationId) });
     const debt = debts.find(d => d.id === debtId);
     const before = legs[0].emiSplit?.before;
     if (debt && before) {
@@ -895,7 +896,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       const online = typeof navigator === 'undefined' || navigator.onLine;
       if (!adapter.markLoanPaidOff || !online) throw new Error('Closing a loan requires an online connection');
       const res = await adapter.markLoanPaidOff(currentHouseholdId, debtId, note);
-      set(state => ({
+      commit(currentHouseholdId, state => ({
         debts: state.debts.map(row => (row.id === res.debt.id ? res.debt : row)),
         accounts: res.loanAccount ? state.accounts.map(row => (row.id === res.loanAccount!.id ? res.loanAccount! : row)) : state.accounts,
       }));
@@ -945,10 +946,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       const account = loanAccountOf(debt, accounts);
       if (account && !account.isArchived) await get().upsertAccount({ ...account, isArchived: true });
     }
-    set(state => ({
+    commit(currentHouseholdId, state => ({
       debts: state.debts.filter(row => row.id !== debtId),
       accounts: state.accounts.map(row => (row.kind === 'loan' && row.debtId === debtId ? { ...row, isArchived: true } : row)),
     }));
   },
 
 });
+};

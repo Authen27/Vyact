@@ -65,7 +65,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     // v10.53.0 (#46) — after counting a sign-up, mark the account so a second device
     // doesn't count it again (fire-and-forget; the per-device flag still holds).
     if (trackSignUpOnce(session.user)) {
-      void supabase?.auth.updateUser({ data: { vy_signup_tracked: true } }).catch(() => {});
+      void supabase?.auth.updateUser({ data: { vy_signup_tracked: true } }).catch(() => { /* fault-ok: the device's own once-only mark still stops a second event here */ });
     }
     (async () => {
       if (sessionStorage.getItem('pending_policy_accept')) {

@@ -199,11 +199,11 @@ export class HybridAdapter implements DataAdapter {
     }
     if (cursor) {
       this.track(this.pullDelta(entity as Exclude<Entity, 'members'>, householdId, cursor, gen)
-        .catch(() => {/* network error — cache stays */}));
+        .catch(() => { /* fault-ok: a network error keeps the cache as it is */ }));
     } else {
       this.track(this.cloud.list<T>(entity, householdId)
         .then(fresh => this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen))
-        .catch(() => {/* network error — cache stays */}));
+        .catch(() => { /* fault-ok: a network error keeps the cache as it is */ }));
     }
     // Served from cache: fresh only if a cloud read had landed before this read began.
     const appliedAt = this.cloudAppliedAt.get(freshKey);
@@ -218,7 +218,7 @@ export class HybridAdapter implements DataAdapter {
     } catch { return false; }
   }
   private markSynced(entity: Entity, householdId: string): void {
-    try { ls.setString(`cloud_synced_${householdId}_${entity}`, '1'); } catch { /* noop */ }
+    try { ls.setString(`cloud_synced_${householdId}_${entity}`, '1'); } catch { /* fault-ok: without the marker the next pull reads in full */ }
   }
   private async applyCloudList(entity: Entity, householdId: string, cached: unknown[], fresh: unknown[], gen?: number): Promise<void> {
     // A purge ran while this read was in flight — the rows belong to a session
@@ -301,7 +301,7 @@ export class HybridAdapter implements DataAdapter {
     try { return ls.readString(this.cursorKey(entity, householdId)) || null; } catch { return null; }
   }
   private writeCursor(entity: Entity, householdId: string, value: string): void {
-    try { ls.setString(this.cursorKey(entity, householdId), value); } catch { /* noop */ }
+    try { ls.setString(this.cursorKey(entity, householdId), value); } catch { /* fault-ok: an unsaved cursor makes the next pull start earlier, reading more, never less */ }
   }
   private seedCursorFromRows(entity: Entity, householdId: string, rows: unknown[]): void {
     // Audit F8 — seed the COMPOSITE (updated_at, id) cursor so a burst of
@@ -354,9 +354,9 @@ export class HybridAdapter implements DataAdapter {
    *  cache corruption or want to re-trust the cloud. */
   forceFullResync(householdId: string): void {
     for (const e of ENTITIES) {
-      try { ls.removeBoth(`cloud_synced_${householdId}_${e}`); } catch { /* noop */ }
+      try { ls.removeBoth(`cloud_synced_${householdId}_${e}`); } catch { /* fault-ok: storage unavailable: no marker was kept either */ }
       // TD-06: also drop the delta-sync cursor so the next list() refills it.
-      try { ls.removeBoth(`cursor_${householdId}_${e}`); } catch { /* noop */ }
+      try { ls.removeBoth(`cursor_${householdId}_${e}`); } catch { /* fault-ok: storage unavailable: no cursor was kept either */ }
     }
   }
 
@@ -405,7 +405,7 @@ export class HybridAdapter implements DataAdapter {
     // another member's unsynced one) is rejected up front rather than silently
     // dead-lettered. The returned, DB-id'd row is then written to cache.
     const saved = await this.cloud.createBudgetChecked(householdId, budget);
-    try { await this.cache.put('budgets', householdId, saved); } catch { /* cache is best-effort */ }
+    try { await this.cache.put('budgets', householdId, saved); } catch { /* fault-ok: the cache is best-effort; the cloud write landed and the next refresh re-reads it */ }
     return saved;
   }
   async upsertBudgetWithAllocations(
@@ -420,11 +420,11 @@ export class HybridAdapter implements DataAdapter {
     const res = await this.cloud.upsertBudgetWithAllocations(householdId, budget, allocations, mode);
     // Seed cache with the authoritative rows (best-effort): the budget + a SCOPED
     // replace of just this budget's allocations (preserve other budgets' cached rows).
-    try { await this.cache.put('budgets', householdId, res.budget); } catch { /* best-effort */ }
+    try { await this.cache.put('budgets', householdId, res.budget); } catch { /* fault-ok: the cache is best-effort; the cloud write landed and the next refresh re-reads it */ }
     try {
       await this.cache.updateList<BudgetAllocation>('budgetAllocations', householdId,
         cached => [...cached.filter(a => a.budgetId !== res.budget.id), ...res.allocations]);
-    } catch { /* best-effort */ }
+    } catch { /* fault-ok: the cache is best-effort; the cloud write landed and the next refresh re-reads it */ }
     return res;
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
@@ -455,7 +455,7 @@ export class HybridAdapter implements DataAdapter {
         await this.cache.updateProfile(householdId, cloud);
         return cloud;
       }
-    } catch { /* offline — use cache */ }
+    } catch { /* fault-ok: offline: the cached profile is used */ }
     return this.cache.getProfile(householdId);
   }
 
@@ -476,7 +476,7 @@ export class HybridAdapter implements DataAdapter {
   async listHouseholds(): Promise<HouseholdMeta[]> {
     try {
       const cloud = await this.cloud.listHouseholds();
-      try { ls.setJson('cloud_households', cloud); } catch { /* noop */ }
+      try { ls.setJson('cloud_households', cloud); } catch { /* fault-ok: device storage is optional; the list is read from the cloud next time */ }
       return cloud;
     } catch {
       try { return ls.readJson<HouseholdMeta[]>('cloud_households') || []; }
@@ -779,7 +779,7 @@ export class HybridAdapter implements DataAdapter {
       for (const d of rows.debts ?? []) { if (!isCacheGenerationCurrent(gen)) return; await this.cache.put('debts', householdId, d); }
       for (const a of rows.accounts ?? []) { if (!a || !isCacheGenerationCurrent(gen)) continue; await this.cache.put('accounts', householdId, a); }
       for (const id of rows.removedTransactionIds ?? []) { if (!isCacheGenerationCurrent(gen)) return; await this.cache.remove('transactions', householdId, id); }
-    } catch { /* cache is best-effort; the cloud write is authoritative and the next refresh re-reads it */ }
+    } catch { /* fault-ok: the cache is best-effort; the cloud write landed and the next refresh re-reads it */ }
     this.emitCacheChanged();
   }
 
@@ -807,7 +807,7 @@ export class HybridAdapter implements DataAdapter {
 
   async deleteDebt(householdId: string, debtId: string): Promise<void> {
     await this.cloud.deleteDebt(householdId, debtId);
-    try { await this.cache.remove('debts', householdId, debtId); } catch { /* the next refresh drops it */ }
+    try { await this.cache.remove('debts', householdId, debtId); } catch { /* fault-ok: the cache is best-effort; the next refresh drops it */ }
     this.emitCacheChanged();
   }
 
@@ -824,7 +824,7 @@ export class HybridAdapter implements DataAdapter {
       if (!isCacheGenerationCurrent(gen)) return cash;
       await this.cache.updateList<Account>('accounts', householdId, cached => (!isCacheGenerationCurrent(gen) ? cached
         : [...cached.filter(row => row.id !== cash.id && row.kind !== 'cash'), cash]));
-    } catch { /* cache is best-effort; the cloud row is authoritative */ }
+    } catch { /* fault-ok: the cache is best-effort; the cloud write landed and the next refresh re-reads it */ }
     return cash;
   }
 
@@ -857,7 +857,7 @@ export class HybridAdapter implements DataAdapter {
       if (!isCacheGenerationCurrent(gen)) return stored;
       await this.cache.replaceNetWorthSnapshots(householdId,
         mergeSnapshot(cached.filter(row => row.month !== stored.month), stored));
-    } catch { /* cache is best-effort; the cloud row is authoritative */ }
+    } catch { /* fault-ok: the cache is best-effort; the cloud write landed and the next refresh re-reads it */ }
     return stored;
   }
 
@@ -894,6 +894,6 @@ export class HybridAdapter implements DataAdapter {
     try {
       await this.cache.updateList<Account>('accounts', householdId, cached => (!isCacheGenerationCurrent(gen) ? cached
         : cached.filter(row => row.id !== accountId)));
-    } catch { /* cache is best-effort; the next refresh reconciles it */ }
+    } catch { /* fault-ok: the cache is best-effort; the cloud write landed and the next refresh re-reads it */ }
   }
 }
