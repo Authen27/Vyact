@@ -24,6 +24,15 @@ export function fromB64url(s: string): Uint8Array {
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
+/**
+ * The bytes as a plain ArrayBuffer (a copy of exactly this view). WebCrypto and fetch are typed to take
+ * an ArrayBuffer-backed view, while a Uint8Array may view a SharedArrayBuffer (T5a, XC-ARC-09: the Edge
+ * type-check).
+ */
+export function ab(u: Uint8Array): ArrayBuffer {
+  return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
+}
+
 export function concat(...parts: Uint8Array[]): Uint8Array {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let at = 0;
@@ -61,8 +70,8 @@ export async function vapidAuthorization(endpoint: string, keys: VapidKeys, nowS
 }
 
 async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, bytes: number): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
-  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, bytes * 8));
+  const key = await crypto.subtle.importKey('raw', ab(ikm), 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: ab(salt), info: ab(info) }, key, bytes * 8));
 }
 
 /** One record is the whole message; the payload must fit in it. */
@@ -89,7 +98,7 @@ export async function encryptPayload(plaintext: Uint8Array, p256dh: string, auth
   const sender = opts.senderKeys
     ?? await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
   const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', sender.publicKey));
-  const uaKey = await crypto.subtle.importKey('raw', uaPublic, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const uaKey = await crypto.subtle.importKey('raw', ab(uaPublic), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
   const ecdhSecret = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, sender.privateKey, 256));
 
   // IKM = HKDF(auth_secret, ecdh_secret, "WebPush: info" ‖ 0x00 ‖ ua_public ‖ as_public, 32)
@@ -98,8 +107,8 @@ export async function encryptPayload(plaintext: Uint8Array, p256dh: string, auth
   const cek = await hkdf(salt, ikm, enc.encode('Content-Encoding: aes128gcm\u0000'), 16);
   const nonce = await hkdf(salt, ikm, enc.encode('Content-Encoding: nonce\u0000'), 12);
 
-  const aes = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
-  const record = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aes, concat(plaintext, new Uint8Array([2]))));
+  const aes = await crypto.subtle.importKey('raw', ab(cek), 'AES-GCM', false, ['encrypt']);
+  const record = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: ab(nonce) }, aes, ab(concat(plaintext, new Uint8Array([2])))));
 
   const header = new Uint8Array(16 + 4 + 1 + asPublic.length);
   header.set(salt, 0);
@@ -170,7 +179,7 @@ export async function sendWebPush(
         Urgency: opts.urgency ?? 'normal',
         Authorization: await vapidAuthorization(target.endpoint, keys),
       },
-      body,
+      body: new Uint8Array(body),   // an ArrayBuffer-backed copy: what fetch is typed to take
       signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
     });
   } catch (e) {

@@ -36,7 +36,7 @@ export interface EngineTurn {
 
 export interface WhatsAppAnswer { text: string; chipPrompts: string[] }
 
-export const contextFromRows = generated.contextFromRows as (rows: HouseholdRows) => EngineContext;
+export const contextFromRows = generated.contextFromRows as unknown as (rows: HouseholdRows) => EngineContext;   // opaque: deno infers the bundle's own type
 export const answerOnServer = generated.answerOnServer as (
   utterance: string, ctx: EngineContext, call: ServerModelCall, prevAllowed?: readonly string[],
 ) => Promise<EngineTurn>;

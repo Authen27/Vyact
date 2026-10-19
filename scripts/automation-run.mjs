@@ -65,6 +65,14 @@ const gates = [
   // and their page objects in sync with the app by compile error, not by
   // stopwatch.
   { id: 'consumer-typecheck-e2e', name: 'Consumer · type-check (e2e specs)', cwd: 'react', cmd: 'npm run typecheck:e2e' },
+  // T5a (audit GATE-04): Vitest only transpiles, so the unit tests and their fixtures were never
+  // type-checked; 121 errors had built up, a fixture still using a payment mode that no longer exists among them.
+  { id: 'consumer-typecheck-tests', name: 'Consumer · type-check (unit tests)', cwd: 'react', cmd: 'npm run typecheck:tests' },
+  // T5a (audit XC-ARC-09): the Edge Functions (12k lines) were never type-checked. Strict TypeScript with
+  // Deno's globals stubbed; the Deno job in ci.yml runs deno check / lint and a bundle smoke test.
+  { id: 'edge-typecheck',      name: 'Edge Functions · type-check', cwd: 'react', cmd: 'npm run typecheck:edge' },
+  // T5a (audit INT-PAR-11): the date-sensitive suites in five device time zones (UTC-5 to UTC+14).
+  { id: 'consumer-timezones',  name: 'Consumer · date suites in 5 time zones', cwd: 'react', cmd: 'npm run test:tz' },
   { id: 'consumer-unit',       name: 'Consumer · unit tests', cwd: 'react',
     cmd: `npm test -- --reporter=json --outputFile="${consumerVitestJson}"` },
   { id: 'consumer-build',      name: 'Consumer · build (local-only env)', cwd: 'react', cmd: 'npm run build',

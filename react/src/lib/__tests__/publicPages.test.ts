@@ -67,7 +67,7 @@ describe('lesson pages (#11, #12, #20)', () => {
     expect(ld[1].itemListElement[1].item).toBe('https://vyact.app/learn/topic/saving');
     expect(ld.map(o => o['@type'])).toEqual([['Article', 'LearningResource'], 'BreadcrumbList', 'FAQPage']);   // quick answer → FAQPage; no video → no VideoObject
     const related = relatedLessons(ALL[0], ALL);
-    expect(related.map(c => c.slug)).toEqual(['ev-002-pay-yourself-first', 'ev-010-emergency-fund', 'ev-030-net-worth']);
+    expect(related.map((c: { slug: string }) => c.slug)).toEqual(['ev-002-pay-yourself-first', 'ev-010-emergency-fund', 'ev-030-net-worth']);
     for (const r of related) expect(html).toContain(`/learn/${r.slug}`);
     expect(html).toContain('href="/auth/sign-up?ref=learn_ev-001-the-500-a-day-idea&amp;next=%2Freports"');
     expect(html).toContain('See your savings rate in Vyact');
@@ -256,9 +256,9 @@ describe('the landing page (#9, #12, #19)', () => {
     // The landing page carries the same entity; its app node is published by it.
     const copy = await import('../../content/landingCopy');
     const { landingJsonLd } = await import('../../../scripts/landingHtml.mjs');
-    const landing = landingJsonLd(copy);
-    expect(landing.find((o: { '@type': string }) => o['@type'] === 'Organization')['@id']).toBe(brand.ORG_ID);
-    expect(landing.find((o: { '@type': string }) => o['@type'] === 'SoftwareApplication').publisher['@id']).toBe(brand.ORG_ID);
+    const landing = landingJsonLd(copy) as { '@type': string; '@id'?: string; publisher?: { '@id'?: string } }[];
+    expect(landing.find(o => o['@type'] === 'Organization')?.['@id']).toBe(brand.ORG_ID);
+    expect(landing.find(o => o['@type'] === 'SoftwareApplication')?.publisher?.['@id']).toBe(brand.ORG_ID);
     expect(copy.STANDARD_DESCRIPTION).toMatch(/^Vyact is the family budget app/);
     // Owner rule: never "Vyact Finance"; the tagline is "Family budget app", not "Family Finance OS".
     const { readFileSync, readdirSync } = await import('node:fs');
@@ -393,7 +393,7 @@ describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
 
   it('CON-UNIT-PUB-015 · the use-case pages (couples, families, splitwise-users, money-owed, /private): one H1, a quick answer, a FAQPage that matches the visible FAQ, links to each other; unknown → 404', async () => {
     const { audiencePage, audiencePath, AUDIENCES, default: forHandler } = await import('../../../api/for.js');
-    const keys = ['couples', 'families', 'splitwise-users', 'money-owed', 'private'];
+    const keys = ['couples', 'families', 'splitwise-users', 'money-owed', 'private'] as (keyof typeof AUDIENCES)[];
     expect(Object.keys(AUDIENCES)).toEqual(keys);
     expect(audiencePath('private')).toBe('/private');
     for (const key of keys) {

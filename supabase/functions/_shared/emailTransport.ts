@@ -77,8 +77,8 @@ async function sendViaSmtp(fn: string, from: string, to: string, subject: string
 /** Deliver a pre-rendered email via the first configured transport. `fn` names the caller in logs. */
 export async function deliver(fn: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
   const from = env('SPLIT_EMAIL_FROM') || DEFAULT_FROM;
-  if (env('MAILERSEND_API_KEY')) return sendViaMailerSend(fn, from, to, subject, html, text);
-  if (env('SMTP_HOST')) return sendViaSmtp(fn, from, to, subject, html, text);
-  if (env('RESEND_API_KEY')) return sendViaResend(fn, from, to, subject, html, text);
+  if (env('MAILERSEND_API_KEY')) return await sendViaMailerSend(fn, from, to, subject, html, text);
+  if (env('SMTP_HOST')) return await sendViaSmtp(fn, from, to, subject, html, text);
+  if (env('RESEND_API_KEY')) return await sendViaResend(fn, from, to, subject, html, text);
   return false;
 }

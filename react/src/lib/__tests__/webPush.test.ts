@@ -36,9 +36,11 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 
 // ── An independent receiver (what the browser does) ──────────────────────────
+/** The bytes in an ArrayBuffer of their own: what WebCrypto is typed to take. */
+const buf = (u: Uint8Array): ArrayBuffer => u.slice().buffer as ArrayBuffer;
 async function hmac(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return new Uint8Array(await crypto.subtle.sign('HMAC', k, data));
+  const k = await crypto.subtle.importKey('raw', buf(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', k, buf(data)));
 }
 /** RFC 5869, written out: extract, then ONE expand block (every length here is ≤ 32). */
 async function hkdfManual(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, len: number): Promise<Uint8Array> {
@@ -62,8 +64,8 @@ async function receive(body: Uint8Array, sub: Awaited<ReturnType<typeof subscrib
   const ikm = await hkdfManual(sub.auth, ecdh, concat(enc.encode('WebPush: info\u0000'), sub.pub, asPublic), 32);
   const cek = await hkdfManual(salt, ikm, enc.encode('Content-Encoding: aes128gcm\u0000'), 16);
   const nonce = await hkdfManual(salt, ikm, enc.encode('Content-Encoding: nonce\u0000'), 12);
-  const aes = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['decrypt']);
-  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, aes, record));
+  const aes = await crypto.subtle.importKey('raw', buf(cek), 'AES-GCM', false, ['decrypt']);
+  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf(nonce) }, aes, buf(record)));
   expect(plain[plain.length - 1]).toBe(2);           // the last-record delimiter (RFC 8188 §2)
   return { text: dec.decode(plain.slice(0, -1)), rs };
 }
@@ -97,8 +99,8 @@ describe('Web Push crypto (RFC 8291 / 8292)', () => {
     expect(JSON.parse(dec.decode(fromB64url(m[1])))).toEqual({ typ: 'JWT', alg: 'ES256' });
     const claims = JSON.parse(dec.decode(fromB64url(m[2])));
     expect(claims).toEqual({ aud: 'https://fcm.googleapis.com', exp: now + 12 * 3600, sub: 'https://vyact.app' });
-    const verifyKey = await crypto.subtle.importKey('raw', fromB64url(m[4]), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-    const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, verifyKey, fromB64url(m[3]), enc.encode(`${m[1]}.${m[2]}`));
+    const verifyKey = await crypto.subtle.importKey('raw', buf(fromB64url(m[4])), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, verifyKey, buf(fromB64url(m[3])), enc.encode(`${m[1]}.${m[2]}`));
     expect(ok).toBe(true);
     // A pair round-tripped through JSON (as Vault stores it) still signs.
     const stored = JSON.parse(JSON.stringify(keys)) as VapidKeys;

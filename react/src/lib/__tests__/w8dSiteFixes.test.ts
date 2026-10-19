@@ -8,11 +8,8 @@ import { join, resolve } from 'node:path';
 import * as mw from '../../../middleware.js';
 import { demoRedirect } from '../../../api/_demo.js';
 import robots from '../../../api/robots.js';
-// @ts-expect-error — plain .mjs build scripts, no types
 import { isCloudBuild } from '../../../scripts/cloudMode.mjs';
-// @ts-expect-error — plain .mjs build script, no types
 import { findProdRef } from '../../../scripts/assert-preview-isolated.mjs';
-// @ts-expect-error — plain .mjs build script, no types
 import { entryScript, ENTRY_BUDGET_KB } from '../../../scripts/assert-bundle-budget.mjs';
 
 const repo = resolve(__dirname, '../../../..');

@@ -1,0 +1,18 @@
+{
+  "//": "T5a (XC-ARC-09): type-checks every Edge Function under strict TypeScript, locally and in CI. supabase-js resolves to the app's copy (the same version the functions import from esm.sh); Deno's globals are stubbed in edge-globals.d.ts. CI also runs `deno check` for Deno's own types.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "https://esm.sh/@supabase/supabase-js@2.45.0": ["../../react/node_modules/@supabase/supabase-js"]
+    }
+  },
+  "include": ["edge-globals.d.ts", "../../supabase/functions/**/*.ts"]
+}
