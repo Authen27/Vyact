@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1569 passing deterministic cases in 175 files. Zero failed, skipped or TODO cases at generation.**
+**1573 passing deterministic cases in 176 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 113 |
 | react | contract-unit | conditional | 127 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 127 |
+| react | sql-integration | conditional | 131 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
@@ -103,6 +103,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/chunkRecovery.test.ts](../react/src/lib/__tests__/chunkRecovery.test.ts) | Frontend guards (W6) | unit | available | 3 |
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 9 |
+| [react/src/lib/__tests__/cronProjectUrlSql.test.ts](../react/src/lib/__tests__/cronProjectUrlSql.test.ts) | Scheduled jobs call their own project (T5d) | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 2 |
 | [react/src/lib/__tests__/demoSeed.test.ts](../react/src/lib/__tests__/demoSeed.test.ts) | First-run demo household | unit | available | 2 |
 | [react/src/lib/__tests__/emiHandoffPulse.test.ts](../react/src/lib/__tests__/emiHandoffPulse.test.ts) | EMI hand-off and Pulse archived | unit | available | 11 |

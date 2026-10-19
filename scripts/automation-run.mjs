@@ -89,6 +89,9 @@ const gates = [
   // T5b (audit XC-ARC-11): a catch that does nothing must say why (`fault-ok: <reason>`), or report.
   { id: 'silent-catches',      name: 'No silent catches (app, admin, Edge)', cwd: '.',
     cmd: 'node --test scripts/__tests__/silent-catch-check.test.mjs && node scripts/silent-catch-check.mjs' },
+  // T5d (audit DB-OPS-07): the deploy step that stores each project's own URL for its scheduled jobs.
+  { id: 'deploy-tooling',      name: 'Deploy tooling (project_url for the scheduled jobs)', cwd: '.',
+    cmd: 'node --test scripts/__tests__/store-project-url.test.mjs' },
   { id: 'db-migrations',       name: 'DB migrations (naming + schema.sql snapshot in sync)', cwd: '.',
     cmd: 'node scripts/db-migrations-check.mjs' },
   { id: 'version-drift',       name: 'Version drift (README/VERSIONS/CHANGELOG vs package.json)', cwd: '.',

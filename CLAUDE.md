@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.122.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.123.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -1002,6 +1002,17 @@ computed style, and grep before shipping:
 Palette/nav/typography detail: see CLAUDE-1.md § Design System.
 
 ## DB gotchas
+
+- **A scheduled job calls its OWN project (v10.123.0, T5d; audit DB-OPS-07, BE-FN-11; owner, 19 Oct 2026).**
+  - Every pg_cron job that calls an Edge Function builds its URL from Vault `project_url`:
+    `u.decrypted_secret || '/functions/v1/…' from vault.decrypted_secrets s, vault.decrypted_secrets u where
+    s.name = '<its secret>' and u.name = 'project_url'`. No `project_url`, no row, no call.
+  - Each project's deploy stores it right after the migrations (`scripts/store-project-url.mjs` →
+    `set_project_url`, which accepts only `https://<ref>.supabase.co`). Production's Deploy fails if it isn't
+    stored, because its jobs would call nothing; vyact-test's is `--soft`.
+  - Never write a host into a migration. They named production until v10.123.0, so vyact-test called
+    production every few minutes. A new job copies the T5d form, and T5D-004 fails on a later migration naming
+    the production host.
 
 - **Views freeze their column list** — `select h.*` expands at creation time.
   Adding a `households` column the consumer reads through `my_households` requires
