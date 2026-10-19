@@ -25,15 +25,15 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1586 passing deterministic cases in 178 files. Zero failed, skipped or TODO cases at generation.**
+**1593 passing deterministic cases in 179 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 122 |
-| react | contract-unit | conditional | 127 |
+| react | contract-unit | available | 126 |
+| react | contract-unit | conditional | 130 |
 | react | handler-integration | conditional | 112 |
 | react | sql-integration | conditional | 134 |
 | react | storage-integration | available | 28 |
@@ -170,6 +170,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 30 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
 | [react/src/lib/__tests__/pulseContentSql.test.ts](../react/src/lib/__tests__/pulseContentSql.test.ts) | Pulse content unpublished SQL | sql-integration | conditional | 2 |
+| [react/src/lib/__tests__/pushPrivacy.test.tsx](../react/src/lib/__tests__/pushPrivacy.test.tsx) | Lock-screen details and the Android app (T4c) | contract-unit | available | 4 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |
@@ -214,8 +215,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/w8aAppFixes.test.ts](../react/src/lib/__tests__/w8aAppFixes.test.ts) | App fixes (W8a) | unit | available | 12 |
 | [react/src/lib/__tests__/w8bEdgeFixes.test.ts](../react/src/lib/__tests__/w8bEdgeFixes.test.ts) | Edge robustness (W8b) | contract-unit | available | 6 |
 | [react/src/lib/__tests__/w8dSiteFixes.test.ts](../react/src/lib/__tests__/w8dSiteFixes.test.ts) | Site, platform and docs (W8d) | contract-unit | available | 11 |
-| [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 12 |
-| [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 7 |
+| [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 13 |
+| [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 9 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts](../react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts) | WhatsApp EMI correction SQL | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/whatsappDispatch.test.ts](../react/src/lib/__tests__/whatsappDispatch.test.ts) | WhatsApp dispatch | contract-unit | conditional | 17 |

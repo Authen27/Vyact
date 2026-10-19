@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.125.0`** (consumer)
+> **Current production version: `v10.126.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,30 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.126.0 — Notifications can keep amounts off the lock screen; the Android app says where push works *(2026-10-19)*
+
+App, the web-push Edge Function and the Deploy workflow; no migration. Track T4 (privacy and compliance), part c:
+audit BE-FN-12 and BE-FN-11. Owner decisions, 19 Oct 2026: lock-screen details "show by default, and hide via
+settings"; auth settings "snapshot + drift check", warn first.
+
+- **"Show details on the lock screen" (Settings → Notifications, with push on).** On by default. Turned off on a
+  phone, its notifications say only what needs a look ("A bill is due", "A budget needs a look"), with no
+  amount, payee, account or name, both pushed ones and the open app's own popups. The words come from one table
+  the app and the server share.
+- **The Android app says why it has no lock-screen notifications.** The Play Store app is a WebView, which
+  cannot receive web push. Its switch used to say "This browser can't receive push notifications". Now it is
+  disabled, and the app says to open vyact.app in Chrome, add it to the Home screen and turn them on there.
+  Native push for the Android app is a separate piece of work.
+- **Why pushes may not have arrived: `docs/PUSH_TROUBLESHOOTING.md`.** It explains how a push travels and what
+  the review found. It lists the known reasons a push isn't sent: not registered, another household, not
+  action-required, quiet hours, already read, retired by the push service, the job, and Android settings. It
+  gives read-only queries that find which one applies to a phone.
+- **Production's sign-in settings have a record.** `supabase/auth-config.json` lists the Supabase Auth settings
+  that matter (redirect URLs, sign-up, email confirmation, providers, sessions, passwords, rate limits). After
+  the migrations, each Deploy compares them with the live project (`scripts/auth-config-check.mjs`, read-only,
+  never a secret) and warns on any difference. The values start unrecorded: the first Deploy prints the live
+  ones to copy in, or run the script with `--write`.
 
 ## v10.125.0 — Analytics asks first; the policies say what is true, and you're asked to accept them *(2026-10-19)*
 

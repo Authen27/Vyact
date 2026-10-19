@@ -9,13 +9,13 @@
 // (iOS 16.4+). Android Chrome, desktop Chrome/Edge/Firefox and macOS Safari work in
 // the browser too.
 import { sb } from './supabase';
-import { isIos, isStandalone } from './pwa';
+import { isIos, isNativeApp, isStandalone } from './pwa';
 import type { NotificationPrefs } from '../types';
 import { expected } from './faults';
 
 const ENDPOINT_KEY = 'vyact_push_endpoint';
 
-export type RefusalReason = 'unsupported' | 'ios_not_installed' | 'denied' | 'update_needed' | 'push_service' | 'server';
+export type RefusalReason = 'unsupported' | 'ios_not_installed' | 'native_app' | 'denied' | 'update_needed' | 'push_service' | 'server';
 export type EnableResult = { ok: true } | { ok: false; reason: RefusalReason; detail?: string };
 
 /** Brave exposes `navigator.brave`; it can block the Google push service Chromium uses. */
@@ -28,6 +28,10 @@ export function pushRefusalMessage(reason: RefusalReason, detail?: string): stri
   switch (reason) {
     case 'ios_not_installed':
       return 'On iPhone, add Vyact to your Home Screen first (Share → Add to Home Screen), open it from there, then turn this on.';
+    case 'native_app':
+      // v10.126.0 (T4c) — the Android app is a WebView, which has no Web Push. Until it has push of its own,
+      // say so, and where it does work (it used to say "This browser can't receive push notifications").
+      return "The Vyact Android app can't show notifications on your lock screen yet. To get them now, open vyact.app in Chrome, add it to your Home screen, and turn them on there.";
     case 'unsupported':
       return "This browser can't receive push notifications.";
     case 'denied':
@@ -50,8 +54,9 @@ export function pushSupported(): boolean {
 }
 
 /** Why push cannot work here, before asking for anything. */
-export function pushBlocker(): 'ios_not_installed' | 'unsupported' | null {
+export function pushBlocker(): 'ios_not_installed' | 'native_app' | 'unsupported' | null {
   if (typeof window === 'undefined') return 'unsupported';
+  if (isNativeApp()) return 'native_app';
   if (isIos() && !isStandalone()) return 'ios_not_installed';
   return pushSupported() ? null : 'unsupported';
 }
@@ -97,7 +102,11 @@ async function serverKey(): Promise<string> {
 }
 
 function prefsForServer(prefs: NotificationPrefs) {
-  return { master: prefs.master, perType: prefs.perType, quietStart: prefs.quietStart, quietEnd: prefs.quietEnd };
+  return {
+    master: prefs.master, perType: prefs.perType, quietStart: prefs.quietStart, quietEnd: prefs.quietEnd,
+    // v10.126.0 (T4c, BE-FN-12): the server sends the private line when this is false.
+    lockScreenDetails: prefs.lockScreenDetails !== false,
+  };
 }
 
 async function register(sub: PushSubscription, householdId: string, prefs: NotificationPrefs): Promise<void> {

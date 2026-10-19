@@ -113,6 +113,13 @@ jobs:
       # `project_url` the jobs call nothing.
       - name: Store this project's URL for the scheduled jobs
         run: node scripts/store-project-url.mjs "${{ secrets.SUPABASE_PROJECT_REF }}"
+      # T4c (v10.126.0; audit BE-FN-11; owner, 19 Oct 2026: "snapshot + drift check", warn first) — production's
+      # sign-in settings are compared with supabase/auth-config.json (scripts/auth-config-check.mjs, read-only,
+      # tracked non-secret settings only). A difference is a warning on this run; an unrecorded setting prints
+      # its live value to copy into the file. Never blocks a deploy until the owner adds --strict.
+      - name: Check the auth settings against supabase/auth-config.json
+        continue-on-error: true
+        run: node scripts/auth-config-check.mjs "${{ secrets.SUPABASE_PROJECT_REF }}"
 
   # Deploy the Supabase Edge Functions. Gated with db-migrations since v10.20.5
   # (it was best-effort, and was silently failing on a stale token for four
