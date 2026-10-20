@@ -105,14 +105,20 @@ Rewritten 9 Oct 2026 (W8d, audit DB-OPS-14). This section used to describe a man
 
 | Environment | How | When |
 |---|---|---|
-| **Production** | GitHub Actions **Deploy** → `db-migrations`: `supabase db push --include-all` (fails loudly) | Automatically, on the push to `main` that merges the migration PR |
+| **Production** | GitHub Actions **Deploy** → `db-migrations`: `supabase db push` (in order since Q1; fails loudly) | Automatically, on the push to `main` that merges the migration PR |
 | **vyact-test** (Lane B) | Not migrated automatically. Its schema lags production, so mappers must omit columns it doesn't return | By hand, when a test needs the new schema |
 | **Local dev (cloud-mode)** | `supabase db push` against your own project | When you pull a PR that changes the schema |
 
 **Order of a schema change:**
 1. Open the migration as its **own PR** and test it against production with a rolled-back `DO` block (see OPERATIONS.md).
 2. Merge it. Deploy applies it.
-3. Merge the app PR that uses it. Vercel ships the app in parallel with Deploy, so an app merged in the same push can reach users before the schema does.
+3. Merge the app PR that uses it. Since v10.128.0 (Q1), once the owner has turned Vercel's auto-assign off,
+   Deploy puts the app live only after the migration and the Edge deploy, so one PR may carry both. Until
+   then, Vercel ships the app in parallel with Deploy, and an app merged in the same push can reach users
+   before the schema does.
+
+A new migration's timestamp must be later than every migration on main (`scripts/migration-order-check.mjs`,
+a CI gate): Deploy no longer applies an out-of-order file.
 
 A migration file must never say "not auto-applied" or "do not apply": every file in
 `supabase/migrations/` is applied by `db push`. `scripts/db-migrations-check.mjs` (a CI gate) rejects

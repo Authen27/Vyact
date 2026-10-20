@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test:ci": "node --test scripts/__tests__/test-inventory.test.mjs scripts/__tests__/secret-scan.test.mjs scripts/__tests__/silent-catch-check.test.mjs scripts/__tests__/store-project-url.test.mjs scripts/__tests__/auth-config-check.test.mjs && node scripts/secret-scan.mjs && node scripts/silent-catch-check.mjs && node scripts/test-inventory.mjs",
+    "test:ci": "node --test scripts/__tests__/test-inventory.test.mjs scripts/__tests__/secret-scan.test.mjs scripts/__tests__/silent-catch-check.test.mjs scripts/__tests__/store-project-url.test.mjs scripts/__tests__/auth-config-check.test.mjs scripts/__tests__/promote-app.test.mjs scripts/__tests__/migration-order-check.test.mjs scripts/__tests__/deploy-workflow.test.mjs && node scripts/secret-scan.mjs && node scripts/silent-catch-check.mjs && node scripts/test-inventory.mjs",
     "test:inventory:update": "node scripts/test-inventory.mjs --update"
   },
   "dependencies": {

@@ -62,12 +62,31 @@ Vercel account. Neither has been used since PR #140.
      - `vite.config.ts` makes a preview local-only unless it has a non-production Supabase URL;
      - `scripts/assert-preview-isolated.mjs` fails a preview build that names the production project.
 
-2. **GitHub Actions `Deploy`** (`deploy.yml`) ships the database and the server:
-   - **`db-migrations`:** `supabase db push --include-all` against production, in the `production-database` environment. It **fails loudly** (since v10.20.5): a failed migration is a red run, not a warning.
-   - **`deploy-edge-functions`** (`needs: db-migrations`): every function in `supabase/functions`.
+2. **GitHub Actions `Deploy`** (`deploy.yml`) ships the database, then the server, then puts the apps live
+   (v10.128.0, Q1; owner decision D8):
+   - **`db-migrations`:** `supabase db push` against production (no `--include-all` since Q1: an out-of-order
+     migration is refused, never applied), in the `production-database` environment. It **fails loudly**: a
+     failed migration is a red run.
+   - **`deploy-edge-functions`** (`needs: db-migrations`):
+     - the engine bundle must match the app code (`build-agent-engine --check`);
+     - the commit is stored as the `BUILD_SHA` secret;
+     - every function in `supabase/functions` is deployed;
+     - the `version` function must then report this commit.
+   - **`promote-apps`** (`needs` both): promotes Vercel's staged production build of this commit for `vyact`
+     and `vyact-admin` (`scripts/promote-app.mjs`). A docs-only commit Vercel skipped has nothing to promote.
+     A broken build fails the run, and the previous app stays live.
 
-   Vercel and Actions run in parallel, so **a schema change ships in its own PR, merged before the app that
-   needs it** (db/MIGRATIONS.md §4).
+   **Turning the gate on (owner, once):**
+   1. Create a Vercel token for the account that owns the projects (Account Settings → Tokens; scope: the
+      `authen27` team). Store it as the repository secret `VERCEL_PROMOTE_TOKEN`. If the projects sit in a
+      team, set the repository variable `VERCEL_TEAM` to its slug (`authen27`).
+   2. Watch one Deploy run: `promote-apps` says "already serving this commit" (auto-assign is still on).
+   3. In each of `vyact` and `vyact-admin`: Settings → Environments → Production → turn
+      **Auto-assign Custom Production Domains** off. Leave `vyact-demo` as it is.
+   4. The next Deploy run says "promoted …", and https://vyact.app/version.json shows the new version.
+
+   Until step 3, Vercel and Actions run in parallel, so a schema change ships in its own PR, merged before the
+   app that needs it (db/MIGRATIONS.md §4).
 
 **Verify a deploy reached production.** A green run is not enough:
 

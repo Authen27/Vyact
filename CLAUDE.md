@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.127.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.128.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -1180,11 +1180,21 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   question or answer (the `ai_usage` rule). While Pip answers, the UI shows
   typing dots only (owner rule): don't bring back step narration, "thinking"
   copy or the "Analysed in Ns" line.
-- 🔴 **Schema ships before the app that needs it (1 Oct 2026).** Vercel's GitHub
-  connection publishes vyact.app on every push to main, in parallel with the
-  Actions `Deploy` workflow (migrations + Edge Functions only). Nothing makes the
-  app wait. Merge the migration PR first, confirm its Deploy run is green, then
-  merge the app change. See `docs/ENVIRONMENTS.md`.
+- 🔴 **The app goes live LAST (v10.128.0, Q1; audit OPS-01, OPS-03, INT-PAR-08; owner decision D8).**
+  - `Deploy` runs, in order:
+    1. `db-migrations`: `supabase db push`, with no `--include-all`. `scripts/migration-order-check.mjs` (a CI
+       gate) refuses a branch's migration that is not newer than main's latest.
+    2. `deploy-edge-functions`: `build-agent-engine --check` on the code being deployed, the `BUILD_SHA`
+       secret, every function, and then the `version` function must answer this commit.
+    3. `promote-apps`: `scripts/promote-app.mjs` promotes Vercel's staged production build of this commit for
+       `vyact` and `vyact-admin`.
+  - Vercel builds every push itself. With "Auto-assign Custom Production Domains" off (owner, per project), a
+    build waits as STAGED until step 3. A failed migration or Edge deploy therefore keeps the previous app
+    live. Rollback is Vercel's Instant Rollback.
+  - **Until the owner has set `VERCEL_PROMOTE_TOKEN` AND turned auto-assign off, the old rule holds.** The app
+    then publishes in parallel with Deploy, so merge a migration PR first, confirm its Deploy is green, and only
+    then merge the app change. After both, one PR may carry a migration, Edge code and the app.
+  - Never turn auto-assign back on, and never add a second production deploy path. See `DEPLOY.md`.
 
 ```bash
 cd react && npm install && npm run dev   # → http://localhost:5173
