@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1612 passing deterministic cases in 182 files. Zero failed, skipped or TODO cases at generation.**
+**1627 passing deterministic cases in 184 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 131 |
 | react | contract-unit | conditional | 132 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 139 |
+| react | sql-integration | conditional | 154 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
@@ -90,6 +90,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/assetStaleness.test.ts](../react/src/lib/__tests__/assetStaleness.test.ts) | Net worth history | unit | available | 4 |
 | [react/src/lib/__tests__/assistantCore.test.ts](../react/src/lib/__tests__/assistantCore.test.ts) | Ask Vyact on the server | unit | conditional | 2 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
+| [react/src/lib/__tests__/authzMatrixSql.test.ts](../react/src/lib/__tests__/authzMatrixSql.test.ts) | Who can read and change what (Q2) | sql-integration | conditional | 9 |
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/billCardsAndSigns.test.ts](../react/src/lib/__tests__/billCardsAndSigns.test.ts) | Bill cards and signed figures | store-integration | available | 3 |
 | [react/src/lib/__tests__/budgetForecast.test.ts](../react/src/lib/__tests__/budgetForecast.test.ts) | Budget forecast | unit | available | 7 |
@@ -139,6 +140,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 14 |
 | [react/src/lib/__tests__/loanScheduleParity.test.ts](../react/src/lib/__tests__/loanScheduleParity.test.ts) | Loan arithmetic parity | sql-integration | conditional | 2 |
+| [react/src/lib/__tests__/migrationReplaySql.test.ts](../react/src/lib/__tests__/migrationReplaySql.test.ts) | Every migration replays (Q2) | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/money.test.ts](../react/src/lib/__tests__/money.test.ts) | Money model | unit | available | 8 |
 | [react/src/lib/__tests__/moneyModel.engines.test.ts](../react/src/lib/__tests__/moneyModel.engines.test.ts) | Money model | unit | available | 9 |
 | [react/src/lib/__tests__/moneyModel.invariants.test.ts](../react/src/lib/__tests__/moneyModel.invariants.test.ts) | Money model | unit | available | 19 |

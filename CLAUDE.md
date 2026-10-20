@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.128.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.129.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -1144,6 +1144,21 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
     months or recurrence joins `SUITES` in `react/scripts/test-timezones.mjs`.
   - Never fix one of these by loosening the config. WebCrypto and `fetch` take ArrayBuffer-backed bytes
     (`ab()` in `_shared/web-push.ts`, or `new Uint8Array(x)`).
+- **Every migration replays, and who can do what is a test (v10.129.0, Q2; audit OPS-02, DB-SEC-10, OPS-08; owner
+  decision D10).**
+  - `migrationReplaySql.test.ts` applies every file in `supabase/migrations`, as written, to an empty PGlite set up
+    as a new Supabase project (`helpers/replayMigrations.ts`, `helpers/supabase-standin/`). A migration that does not
+    apply after the ones before it fails on the pull request. It also pins the scheduled jobs (and runs each command),
+    RLS on every table, and a pinned `search_path` on every definer function.
+  - `authzMatrixSql.test.ts` checks, on that schema, what nine kinds of person (signed out, an outsider, owner, admin,
+    member, viewer, and the super / roles / content staff tiers) can do to every table, view and household or staff
+    function, and that nobody in one household reaches another's rows.
+  - The expectation is what the policy is FOR. Where today differs, the cell is a KNOWN GAP naming its finding and
+    the stage that closes it, and the fix makes the test fail until the gap entry goes. Never widen an expectation to
+    pass.
+  - A new table goes into `TABLES` or `SERVER_ONLY`; a new function the API can call goes into `ANON_CALLABLE` or
+    `SIGNED_IN_CALLABLE` (and the RPC matrix when it acts on a household). The test fails until it is placed.
+  - Something the platform provides goes into the stand-in, never a migration.
 - **A failing e2e test may be RIGHT.** Before fixing one, decide which it is:
   a real product defect, a stale test, or a test for a removed feature. v10.22.3
   found two INVERTED tests whose failure was the correct behaviour — TXN-FC-003
