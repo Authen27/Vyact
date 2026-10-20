@@ -1041,6 +1041,26 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/authzMatrixSql.test.ts",
+      "feature": "Who can read and change what (Q2)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "Q2 (audit DB-SEC-10, OPS-08, ADM-07 server half): on the replayed schema, nine kinds of person (signed out, an outsider, owner, admin, member, viewer, three staff tiers) against every table with a policy, the views, the infographics bucket and every household, split and staff function; nobody in one household reaches another's rows; every function the API can call is placed; known gaps (DB-SEC-03, migration_issues) recorded with their Track Q stage",
+      "count": 9,
+      "tests": [
+        "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-006 · anon can call only pure helpers; every signed-in function is placed; the rest are the server's",
+        "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-007 · each household, staff and split function, as each person",
+        "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-008 · prepare_ai_call answers member: false for someone not in the household, and reserves nothing",
+        "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-009 · upsert_budget cannot touch another household's budget (DB-SEC-03, a recorded gap)",
+        "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-001 · every person, every table, H1's row: as intended, or a recorded gap",
+        "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-002 · nobody in H1 reaches H2's rows, in any table, by any operation",
+        "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-003 · published content is public; a member's shared saved view is the household's",
+        "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-004 · the views show only the households the person is in",
+        "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-005 · tables only the server writes: RLS on, and no policy lets the API in"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/billCalendar.test.ts",
       "feature": "Recurring and budgets",
       "availability": "available",
@@ -1909,6 +1929,23 @@
       "tests": [
         "loan arithmetic: app = database (W4f) W4-D19-010 · interest, EMI and instalments left agree across balances, rates, tenures and currencies",
         "loan arithmetic: app = database (W4f) W4-D19-011 · instalment dates keep the loan’s day (a 31st → the month’s last day), and rate changes apply from their date"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/migrationReplaySql.test.ts",
+      "feature": "Every migration replays (Q2)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "Q2 (audit OPS-02; owner decision D10): every file in supabase/migrations applies in order, as written, on an empty PGlite set up as a new Supabase project (auth, storage, vault, realtime and default grants stood in; pg_cron and pg_net created by the migrations themselves); the jobs a new project gets and that each one's command runs; RLS on every table but the recorded gap; every definer function pins its search_path",
+      "count": 6,
+      "tests": [
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-001 · each file applies after the ones before it",
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-002 · the migrations create pg_cron and pg_net themselves; the rest are the baseline's",
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-003 · a new project gets these scheduled jobs, at these times",
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-004 · every job's command runs against the schema the migrations built",
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-005 · row-level security is on for every table in public, but one (DB-OPS-03, Track Q3)",
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-006 · every SECURITY DEFINER function in public pins its search_path"
       ]
     },
     {

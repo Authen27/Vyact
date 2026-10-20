@@ -87,6 +87,8 @@ node scripts/db-migrations-check.mjs --fix
 
 # 4. Validate (this is what CI runs).
 node scripts/db-migrations-check.mjs
+node scripts/migration-order-check.mjs
+npm --prefix react test -- migrationReplaySql authzMatrixSql   # replays every migration (Q2)
 
 # 5. Apply to staging (uses the Supabase MCP `apply_migration` tool per
 #    the PR template). Confirm `get_advisors` shows no new warnings.
@@ -132,14 +134,29 @@ Pasting `db/schema.sql` into the SQL editor is only for a fresh, empty project.
 
 ## 5. The CI gate
 
-`scripts/automation-run.mjs` invokes `node scripts/db-migrations-check.mjs`
-as the **db-migrations** gate. It fails on:
+`scripts/automation-run.mjs` invokes `node scripts/db-migrations-check.mjs` and
+`node scripts/migration-order-check.mjs` as the **db-migrations** gate. It fails on:
 
 - A filename that doesn't match the naming rule.
 - A duplicate timestamp.
 - An empty migration file.
 - `db/schema.sql` differing from the regenerated concat (line-ending
   normalised, so Windows CRLF checkouts pass).
+- A new migration that is not newer than the base branch's latest (v10.128.0, Q1).
+
+**Every migration is applied before production sees it (v10.129.0, Q2; audit OPS-02, DB-SEC-10).** The consumer
+unit gate runs two SQL suites on every pull request:
+
+- `migrationReplaySql.test.ts` applies every file here, in order and exactly as written, to an empty PGlite set
+  up as a new Supabase project (`react/src/lib/__tests__/helpers/replayMigrations.ts`). The platform's auth,
+  storage, vault, realtime and default grants are stood in by `helpers/supabase-standin/`; pg_cron and pg_net are
+  created by the migrations' own `create extension`. A migration that does not apply after the ones before it
+  fails here, naming the file. The suite also pins the jobs a new project gets and runs each job's command.
+- `authzMatrixSql.test.ts` checks, on the replayed schema, who can read and change every table and call every
+  function (see CLAUDE.md, "Running"). A new table or API-callable function must be placed in it.
+
+What the stand-in cannot show: production-only objects (DB-OPS-03) and Supabase's real extensions. A
+platform object a migration needs goes into the stand-in, never into a migration.
 
 If the gate fails with "schema.sql has drifted", the fix is mechanical:
 
@@ -152,10 +169,9 @@ git add db/schema.sql
 
 ## 6. Out of scope today (tracked elsewhere)
 
-- **Applying** migrations from CI itself (requires a Postgres service on the
-  runner). Not blocking — the MCP `apply_migration` flow against staging is
-  the current discipline, and the static gate covers the most common drift
-  classes.
+- **Applying** migrations to a real Supabase instance from CI. Since v10.129.0
+  every migration is replayed on PGlite (section 5); vyact-test (Lane B) is the
+  live instance.
 - **Down migrations / rollbacks.** Additive-only is the rule; rollback is
   by additive forward fix, not by reverting history.
 - **Type-generation** from migrations into the TypeScript adapter. Future
