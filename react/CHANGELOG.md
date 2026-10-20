@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.127.0`** (consumer)
+> **Current production version: `v10.128.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,36 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.128.0 — The app goes live only after the database and the server it needs *(2026-10-20)*
+
+Workflows, scripts and docs; no app or schema change. Track Q, part 1 (release safety): audit OPS-01, OPS-03,
+INT-PAR-08 and BE-FN-11. Owner decision D8, 20 Oct 2026: "Actions deploys the app last".
+
+- **Deploy now puts the apps live last.** Order: migrations → Edge Functions → apps.
+  - Vercel still builds every push.
+  - With "Auto-assign Custom Production Domains" off, the build waits, staged.
+  - The Deploy workflow promotes it for vyact.app and admin.vyact.app only after the migrations and the Edge
+    Functions succeeded (`scripts/promote-app.mjs`).
+  - A failed migration now keeps the previous app live, instead of shipping an app whose schema never arrived.
+  - Turning it on is two steps for the owner, in DEPLOY.md: a Vercel token, then the auto-assign toggle. Until
+    then the old rule holds: a schema PR merges first.
+- **Migrations apply in order or not at all.**
+  - `supabase db push` no longer runs with `--include-all`, which applied a migration older than the last one
+    out of order.
+  - A pull request's new migration must be newer than main's latest (`scripts/migration-order-check.mjs`, a CI
+    gate).
+- **The server is the code that was checked.**
+  - Before the Edge deploy, the bundled engine must match the app code at that commit.
+  - The commit is stored as `BUILD_SHA`, and a new `version` function must report it after the deploy, or the
+    run fails and the apps are not promoted.
+- **Production's sign-in settings are recorded** (`supabase/auth-config.json`), from the live project, with the
+  owner's decisions applied:
+  - sign-in returns to vyact.app (it fell back to the old vyact-twentyx host);
+  - auth email goes through a real sender at 30 an hour (Supabase's test mailer allows 2 an hour).
+
+  Until those are changed in the dashboard, each Deploy warns about them.
+- **The audit report** lost six copies of its summary that the stacked merges had replayed.
 
 ## v10.127.0 — The Android app can get lock-screen notifications (server side) *(2026-10-19)*
 

@@ -16,7 +16,9 @@ that mention the `bhushandandolus-projects` team or `vyact-twentyx.vercel.app` a
   `vyact.app`; `vyact-admin.vercel.app` → `admin.vyact.app`. Deployment Protection = Standard on both
   projects (every preview needs a Vercel login; production domains stay public).
 - **Who deploys what (1 Oct 2026):**
-  - **The apps** are deployed only by Vercel's GitHub connection above.
+  - **The apps** are built by Vercel's GitHub connection above. Since v10.128.0 (Q1) production goes live only
+    when the Deploy workflow promotes the build, after the migrations and the Edge deploy (DEPLOY.md, "Turning
+    the gate on"). Previews and `vyact-demo` are unchanged.
   - **The Actions `Deploy` workflow** only applies Supabase migrations and deploys Edge Functions. Its
     old consumer/admin jobs published to `bhushandandolus-projects`, never to vyact.app, and were removed.
   - **Nothing makes the app wait for its migration.** A schema change ships as its own PR before the

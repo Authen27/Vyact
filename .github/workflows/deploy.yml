@@ -1,11 +1,19 @@
 name: Deploy
 
-# Applies pending Supabase migrations, then deploys the Supabase Edge Functions,
-# on every push to main.
+# Applies pending Supabase migrations, then deploys the Supabase Edge Functions, then
+# puts the apps live, on every push to main. In that order (v10.128.0, Q1; audit OPS-01;
+# owner decision D8, 20 Oct 2026: "Actions deploys the app last"):
+#   1. db-migrations           supabase db push (in order; never an out-of-order file)
+#   2. deploy-edge-functions   the engine bundle checked against the app code, every function
+#                              deployed, then the `version` function must answer this commit
+#   3. promote-apps            Vercel's production build of this commit is promoted for
+#                              vyact.app and admin.vyact.app (scripts/promote-app.mjs)
+# Vercel still BUILDS each push itself (projects `vyact` and `vyact-admin`), but with
+# "Auto-assign Custom Production Domains" off a build waits, staged, until step 3. A failed
+# migration or Edge deploy therefore keeps the previous app live. (vyact-demo, local-only,
+# keeps auto-assign.)
 #
-# The apps are NOT deployed here. vyact.app and admin.vyact.app are built and
-# deployed by Vercel's GitHub connection on the authen27 projects `vyact` and
-# `vyact-admin` (docs/ENVIRONMENTS.md). This workflow used to carry
+# Before Q1 the apps went live on Vercel's own, in parallel with this workflow. This workflow used to carry
 # `consumer` and `admin` jobs (vercel build/deploy --prebuilt --prod). Their
 # VERCEL_* secrets pointed at the old `bhushandandolus-projects` team, so they
 # never reached vyact.app. From 30 Sep 2026 they hung at "Building…" until the
@@ -15,8 +23,11 @@ name: Deploy
 #   SUPABASE_ACCESS_TOKEN  (personal access token — https://supabase.com/dashboard/account/tokens)
 #   SUPABASE_PROJECT_REF   (the production project ref)
 #   SUPABASE_DB_PASSWORD   (DB password for the production project — Settings → Database)
-# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_CONSUMER_PROJECT_ID and VERCEL_ADMIN_PROJECT_ID
-# are no longer read by any workflow.
+#   VERCEL_PROMOTE_TOKEN   (a Vercel token for the account that owns vyact / vyact-admin; Q1)
+# Variables (optional): VERCEL_TEAM (team id or slug, when the projects are in a team),
+#   VERCEL_PROMOTE_PROJECTS (default "vyact,vyact-admin").
+# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_CONSUMER_PROJECT_ID and VERCEL_ADMIN_PROJECT_ID belong to the
+# old bhushandandolus team and are read by no workflow.
 
 on:
   push:
@@ -59,12 +70,9 @@ jobs:
     # A failure here fails the run and stops the Edge Functions deploy. Refresh
     # the token when it expires.
     #
-    # ⚠️ It does NOT hold back the app (1 Oct 2026). Vercel's GitHub connection
-    # builds and publishes vyact.app on the same push, in parallel, whatever
-    # happens here. A release whose frontend needs new schema can briefly go live
-    # before its migration lands, and stays live if the migration fails. Ship
-    # schema first (migration-only PR, then the app PR) until Vercel waits on this
-    # workflow.
+    # Since v10.128.0 (Q1) it DOES hold back the app: promote-apps runs only after
+    # this job and the Edge deploy succeed, so a failed migration keeps the
+    # previous app live.
     steps:
       - uses: actions/checkout@v7
       # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
@@ -104,8 +112,10 @@ jobs:
       # secret and undo the trim above.
       - name: Link project
         run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+      # Q1 (audit OPS-03): no --include-all. A migration older than the last one applied is refused here
+      # instead of applied out of order (validate-new-migrations refuses it on the PR first).
       - name: Push pending migrations
-        run: supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}" --include-all
+        run: supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
       # T5d (v10.123.0; audit DB-OPS-07, BE-FN-11; owner, 19 Oct 2026: "Deploy writes it") — the scheduled jobs
       # build their URL from this project's Vault `project_url` (migration 20261106120000); they used to name
       # the production host, so a test database called production. Stored on every deploy, right after the
@@ -141,6 +151,17 @@ jobs:
     # Gated with db-migrations (v10.20.5) — see the note on that job.
     steps:
       - uses: actions/checkout@v7
+      # Q1 (audit INT-PAR-08): the bundled engine the Edge Functions run must be the app's code at this
+      # commit. CI checks it on PRs; this checks it again on what is about to be deployed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: react/package-lock.json
+      - name: Install the app's dependencies (the engine bundler)
+        run: npm ci --prefix react --ignore-scripts
+      - name: The engine bundle matches the app code
+        run: node scripts/build-agent-engine.mjs --check
       - uses: supabase/setup-cli@v3
         with: { version: 1.226.4 }
       # Same normalisation as the db-migrations job — see the note there.
@@ -165,11 +186,15 @@ jobs:
       #   recurring-post          pg_cron, no user JWT; checks the Vault cron secret or the
       #                           service key (v10.70.0, posts due bills).
       #   ask-vyact-relay-status  TEST-ONLY relay watcher (TD-44); returns a count only.
+      #   version                 Q1: which commit is deployed (a commit id only; public).
       # ask-vyact verifies a JWT and is inert until a super-admin enables an
       # ai_model_configs row; delete-account and send-split-email act as the signed-in user.
+      # Q1 (INT-PAR-08): stamp the commit being deployed; `version` reports it after the deploy.
+      - name: Record the commit being deployed
+        run: supabase secrets set BUILD_SHA="${{ github.sha }}" --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
       - name: Deploy all Edge Functions
         run: |
-          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post ask-vyact-relay-status"
+          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post ask-vyact-relay-status version"
           deployed=""
           for dir in supabase/functions/*/; do
             fn="$(basename "$dir")"
@@ -191,3 +216,34 @@ jobs:
             echo " $deployed " | grep -q " $fn " || { echo "::error title=NO_JWT entry has no function::$fn"; exit 1; }
           done
 
+      # Q1 (INT-PAR-08): the deployed server is this commit, or the run fails (and the app is not promoted).
+      - name: The deployed functions report this commit
+        env:
+          REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            got="$(curl -fsS "https://$REF.supabase.co/functions/v1/version" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).sha||'')}catch{console.log('')}})")" || got=""
+            if [ "$got" = "${{ github.sha }}" ]; then echo "Edge Functions are at ${{ github.sha }}."; exit 0; fi
+            sleep 10
+          done
+          echo "::error title=Edge deploy not confirmed::the version function reports '${got:-nothing}', not ${{ github.sha }}"
+          exit 1
+
+  # Q1 (v10.128.0; audit OPS-01; owner decision D8): put the apps live LAST, after the schema and the server
+  # they need. Vercel has already built this commit (staged, with auto-assign off); this promotes it. Without
+  # VERCEL_PROMOTE_TOKEN it only warns (auto-assign then still publishes, in parallel, as before Q1).
+  promote-apps:
+    name: Put the apps live
+    needs: [db-migrations, deploy-edge-functions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Promote this commit's production builds
+        env:
+          VERCEL_PROMOTE_TOKEN: ${{ secrets.VERCEL_PROMOTE_TOKEN }}
+          VERCEL_TEAM: ${{ vars.VERCEL_TEAM }}
+          VERCEL_PROMOTE_PROJECTS: ${{ vars.VERCEL_PROMOTE_PROJECTS }}
+        run: node scripts/promote-app.mjs "${{ github.sha }}"
