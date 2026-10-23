@@ -387,9 +387,10 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   daily_nothing_logged: t({
     // v10.58.0 (owner, 3 Oct) — the evening digest on a day with nothing logged, so the
     // household hears from Vyact every evening. No currency symbol, so it suits any
-    // household. Until Meta approves it, the dispatcher sends the approved digest with a
+    // household. Approved by Meta (Active, checked in WhatsApp Manager on 23 Oct 2026). Until
+    // it is on WHATSAPP_APPROVED_TEMPLATES, the dispatcher sends the approved digest with a
     // "nothing logged yet" line instead (INR households only, its body says ₹).
-    name: 'daily_nothing_logged', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'daily_nothing_logged', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '18-nothing-logged.jpg',
     body: 'Evening, {{1}}.\n\nNothing has been logged in Vyact today. If you spent anything, reply here with it, like "450 groceries", and I\'ll add it for you.\n\nOne message a day, never one per spend.',
     params: [{ name: 'firstName', sample: 'Rohan' }],
