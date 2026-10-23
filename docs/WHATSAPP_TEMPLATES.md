@@ -20,6 +20,12 @@ header component before any template below is added to `WHATSAPP_APPROVED_TEMPLA
 fails. The 11 header images are in
 `WhatsApp & Ask Vyact Message Templates/Vyact/vyact-templates/media/` (1200×628 PNG).
 
+## Checked in WhatsApp Manager (23 Oct 2026)
+
+All 22 Vyact templates in the manifest are **Active – Quality pending** (approved) in WABA 1887272231954080; none is paused, rejected or in appeal. The manifest set and the Meta set match exactly. Meta counts 23 active templates in the account (the 22 above, plus Meta's hello_world sample).
+
+The repo statuses were corrected to match: `daily_nothing_logged` (was in_review) and `runway_recovered_alert` (was in review here). Approval does not send anything: a template sends only when its name is on the `WHATSAPP_APPROVED_TEMPLATES` secret. The 22 names to list there: affordability_reply, balance_stale_nudge, bill_due_reminder, bill_overdue_reminder, budget_setup_reminder, budget_threshold_alert, daily_nothing_logged, household_daily_digest, large_transaction_alert, month_close_summary, partner_split_prompt, payday_headroom, payday_headroom_variable, recurring_auto_logged, reengagement_nudge, reengagement_nudge_quiet, runway_recovered_alert, runway_shift_alert, split_settled, split_shared_with_you, weekly_summary, whatsapp_welcome.
+
 ## Reconciled with WhatsApp Manager (4 Oct 2026)
 
 Every template in WhatsApp Manager was read on 4 Oct and compared field by field with the manifest (body, category,
@@ -55,10 +61,10 @@ The manifest was corrected where it lagged Meta:
 | `recurring_auto_logged` | Utility | 17-recurring-logged (pending) | Enriched 25 Sep. **26 Sep:** edit submitted adding the image header; the manifest gets `headerImage` after approval | Was active and verified 26 Sep; image edit in review |
 | `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | Active, verified field by field on 26 Sep |
 | `bill_overdue_reminder` | Utility | 13-bill-overdue | Variant B of the bill reminder (W5). Sent once, 3 days past due | Active, verified field by field on 26 Sep |
-| `daily_nothing_logged` | Utility | 18-nothing-logged | **New 3 Oct (v10.58.0)**: the evening message on a day with nothing logged. Until approved, the dispatcher sends the approved digest with a "nothing logged yet" line (INR households) | Submitted 4 Oct via WhatsApp Manager (status: see reconciliation) |
+| `daily_nothing_logged` | Utility | 18-nothing-logged | **New 3 Oct (v10.58.0)**: the evening message on a day with nothing logged. Until it is on the allow-list, the dispatcher sends the approved digest with a "nothing logged yet" line (INR households) | **Active** in WhatsApp Manager (checked 23 Oct 2026) |
 | `payday_headroom_variable` | Utility | 14-payday-variable | Variant B of payday (W5). Sends once payday is a date (#68) | Active, verified field by field on 26 Sep |
 | `reengagement_nudge_quiet` | **Marketing** | 15-reengage-quiet | Variant B of re-engagement (W5). "Reply LOG" works; the weekly job sends it after 7 quiet days (W6) | Active, verified field by field on 26 Sep |
-| `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | In review (submitted 25 Sep) |
+| `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | **Active** in WhatsApp Manager (checked 23 Oct 2026) |
 | `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
 
 **Activation (26 Sep).** `WHATSAPP_OUTBOUND_ENABLED=true`, and `WHATSAPP_APPROVED_TEMPLATES` lists the templates verified above: 16 on 26 Sep 03:07 UTC, then 18 at 13:25 UTC (adding bill_overdue_reminder, payday_headroom_variable and reengagement_nudge_quiet; recurring_auto_logged removed while its image edit is in review), then 17 at 15:09 UTC (weekly_summary out while its link edit is in review). Each one was checked field by field against the manifest in the Meta edit form: body, variables, samples, header, footer, buttons and links. Templates still in review are left out; add each one only after it is approved and checked. The scheduler (`whatsapp-dispatch`) needed the Vault secret `whatsapp_dispatch_secret`, which was never created, so nothing scheduled went out until 2 Oct 2026: migration 20261006120000 now generates it in Vault and the function checks it through `whatsapp_dispatch_ok()`.
