@@ -9,7 +9,7 @@ import { readContent, READ_TIMEOUT_MS } from '../../../api/_supabase.js';
 import learnHandler from '../../../api/learn.js';
 import { isCloudBuild } from '../../../scripts/cloudMode.mjs';
 import { landingHtml } from '../../../scripts/landingHtml.mjs';
-import { ADMIN_PREVIEW_SKIP } from './helpers/deploySkip';
+import { ADMIN_IGNORE_COMMAND, ADMIN_IGNORE_SCRIPT, VERCEL_COMMAND_MAX } from './helpers/deploySkip';
 
 const repo = resolve(__dirname, '../../../..');
 const read = (p: string) => readFileSync(resolve(repo, p), 'utf8');
@@ -18,8 +18,9 @@ describe('W7b · public site and build config', () => {
   it('W7b-PUB07-001 · the deploy skip compares with the last deployed commit, and builds when unsure (FE-PUB-07, OPS-13)', () => {
     for (const f of ['react/vercel.json', 'admin/vercel.json']) {
       const raw = JSON.parse(read(f)).ignoreCommand as string;
-      if (f.startsWith('admin')) expect(raw.startsWith(ADMIN_PREVIEW_SKIP), f).toBe(true);
-      const cmd = f.startsWith('admin') ? raw.slice(ADMIN_PREVIEW_SKIP.length) : raw;
+      // Admin v1.5.0: the admin skip is a script whose last line is the shared skip.
+      if (f.startsWith('admin')) expect(raw, f).toBe(ADMIN_IGNORE_COMMAND);
+      const cmd = f.startsWith('admin') ? read(ADMIN_IGNORE_SCRIPT).replace(/\r\n/g, '\n').trimEnd().split('\n').pop()! : raw;
       // A push ending in a docs-only commit used to skip the code commits before it (HEAD^..HEAD only).
       expect(cmd, f).not.toMatch(/HEAD\^/);
       // W8d: exit 0 (skip) or exit 1 (build) ONLY — any other code is a Vercel deployment Error. The W7b form
@@ -28,6 +29,18 @@ describe('W7b · public site and build config', () => {
       expect(cmd, f).toMatch(/; then exit 0; else exit 1; fi$/);
       expect(cmd, f).toContain(`':!*.md' ':!**/*.md' ':!docs'`);
     }
+  });
+
+  it('Q3B-PUB-001 · every vercel.json command fits Vercel\'s 256-character limit (a longer one fails every deployment)', () => {
+    // Admin v1.5.0 shipped a 421-character ignoreCommand inline, and every admin deployment failed as invalid configuration.
+    for (const f of ['react/vercel.json', 'admin/vercel.json']) {
+      const config = JSON.parse(read(f)) as Record<string, unknown>;
+      for (const key of ['buildCommand', 'installCommand', 'devCommand', 'ignoreCommand']) {
+        const value = config[key];
+        if (typeof value === 'string') expect(value.length, `${f} ${key}`).toBeLessThanOrEqual(VERCEL_COMMAND_MAX);
+      }
+    }
+    expect(read('.gitattributes')).toMatch(/^\*\.sh text eol=lf$/m);   // the script runs on Linux
   });
 
   it('W7b-GATE03-001 · production builds publish no source maps, and the build gate catches one (GATE-03)', () => {

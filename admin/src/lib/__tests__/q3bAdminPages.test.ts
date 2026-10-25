@@ -83,7 +83,9 @@ describe('admin v1.5.0 (Q3b)', () => {
     expect(previewProblem('production', `https://${PROD_SUPABASE_REF}.supabase.co`)).toBeNull();
     expect(previewProblem(undefined, undefined)).toBeNull();
     const vercel = JSON.parse(root('vercel.json')) as { ignoreCommand: string };
-    expect(vercel.ignoreCommand).toMatch(/^if \[ "\$VERCEL_ENV" = preview \] && \[ "\$VERCEL_GIT_COMMIT_REF" != staging \] && \[ "\$VERCEL_GIT_COMMIT_REF" != develop \]; then .*exit 0; fi;/);
+    // A script, because vercel.json caps each command at 256 characters (the inline form failed every deployment).
+    expect(vercel.ignoreCommand).toBe('sh scripts/ignore-build.sh');
+    expect(root('scripts/ignore-build.sh')).toMatch(/^if \[ "\$VERCEL_ENV" = preview \] && \[ "\$VERCEL_GIT_COMMIT_REF" != staging \] && \[ "\$VERCEL_GIT_COMMIT_REF" != develop \]; then\n {2}echo .*; exit 0\nfi$/m);
     expect(root('vite.config.ts')).toMatch(/const problem = previewProblem\(process\.env\.VERCEL_ENV,/);
     expect(root('vite.config.js')).toMatch(/previewProblem\(process\.env\.VERCEL_ENV/);   // the file Vite loads first
     expect(src('lib/supabase.ts')).not.toMatch(new RegExp(`${PROD_SUPABASE_REF}|FALLBACK_URL|sb_publishable_`));

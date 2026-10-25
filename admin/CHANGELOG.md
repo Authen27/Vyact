@@ -32,7 +32,8 @@ green. Track Q, part 3b. Owner decisions 20 Oct 2026.
   currency.
 - **Infographics (ADM-10).** Only PNG, JPEG or WebP up to 5 MB can be chosen or uploaded, as the bucket now enforces.
 - **Previews (ADM-09, OPS-05).**
-  - Vercel builds admin previews only on `staging` and `develop`.
+  - Vercel builds admin previews only on `staging` and `develop` (`scripts/ignore-build.sh`; a `vercel.json` command may
+    be at most 256 characters, and the first, inline form failed every admin deployment).
   - A preview build that points at the production database fails before it builds (`previewGuard.ts`).
   - The production fallback in `lib/supabase.ts` is gone.
   - The admin CSP now also allows vyact-test, which `stage-admin` and `dev-admin` use.

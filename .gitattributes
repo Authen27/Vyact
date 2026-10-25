@@ -1,0 +1,2 @@
+# Shell scripts run on Vercel and in CI (Linux): always LF, whatever the checkout.
+*.sh text eol=lf

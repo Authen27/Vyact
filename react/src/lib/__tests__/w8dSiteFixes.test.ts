@@ -11,7 +11,7 @@ import robots from '../../../api/robots.js';
 import { isCloudBuild } from '../../../scripts/cloudMode.mjs';
 import { findProdRef } from '../../../scripts/assert-preview-isolated.mjs';
 import { entryScript, ENTRY_BUDGET_KB } from '../../../scripts/assert-bundle-budget.mjs';
-import { ADMIN_PREVIEW_SKIP } from './helpers/deploySkip';
+import { ADMIN_IGNORE_COMMAND, ADMIN_IGNORE_SCRIPT } from './helpers/deploySkip';
 
 const repo = resolve(__dirname, '../../../..');
 const read = (p: string) => readFileSync(resolve(repo, p), 'utf8').replace(/\r\n/g, '\n');
@@ -60,16 +60,18 @@ describe('W8d · site, platform and docs', () => {
 
   it('W8d-PUB07-002 · the deploy skip exits only 0 or 1, so an unknown last-deployed commit builds (FE-PUB-07 fix)', () => {
     const cmd = JSON.parse(read('react/vercel.json')).ignoreCommand as string;
-    // Admin v1.5.0 (ADM-09): the admin skip is a preview rule, then the same skip.
-    const adminCmd = JSON.parse(read('admin/vercel.json')).ignoreCommand as string;
-    expect(adminCmd).toBe(ADMIN_PREVIEW_SKIP + cmd);
-    const run = (sha: string, extra: Record<string, string> = {}, c = cmd) =>
-      spawnSync('sh', ['-c', c], { cwd: repo, env: { ...process.env, VERCEL_ENV: '', VERCEL_GIT_COMMIT_REF: '', VERCEL_GIT_PREVIOUS_SHA: sha, ...extra }, encoding: 'utf8' }).status;
+    // Admin v1.5.0 (ADM-09): the admin skip is a script (the preview rule, then the same skip), run from admin/.
+    expect(JSON.parse(read('admin/vercel.json')).ignoreCommand).toBe(ADMIN_IGNORE_COMMAND);
+    expect(read(ADMIN_IGNORE_SCRIPT).replace(/\r\n/g, '\n').trimEnd().split('\n').pop()).toBe(cmd);
+    const run = (sha: string, extra: Record<string, string> = {}, c = cmd, cwd = repo) =>
+      spawnSync('sh', ['-c', c], { cwd, env: { ...process.env, VERCEL_ENV: '', VERCEL_GIT_COMMIT_REF: '', VERCEL_GIT_PREVIOUS_SHA: sha, ...extra }, encoding: 'utf8' }).status;
     if (spawnSync('sh', ['-c', 'exit 0']).status !== 0) return;   // no POSIX shell on this machine
     // An admin preview of a feature branch is skipped; staging and production fall through to the shared skip.
-    expect(run('', { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'fix/x' }, adminCmd)).toBe(0);
-    expect(run('', { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'staging' }, adminCmd)).toBe(1);
-    expect(run('', { VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'main' }, adminCmd)).toBe(1);
+    const admin = (sha: string, extra: Record<string, string>) => run(sha, extra, ADMIN_IGNORE_COMMAND, resolve(repo, 'admin'));
+    expect(admin('', { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'fix/x' })).toBe(0);
+    expect(admin('', { VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'staging' })).toBe(1);
+    expect(admin('', { VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'main' })).toBe(1);
+    expect(admin('378c16ac8456ed043b5954a125809fef4ecd3db3', { VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'main' })).toBe(1);
     expect(run('')).toBe(1);
     expect(run('378c16ac8456ed043b5954a125809fef4ecd3db3')).toBe(1);   // not in the clone: was git's 128 → a Vercel Error
     const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).stdout.trim();

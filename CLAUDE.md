@@ -824,7 +824,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     table, `PAGE_ROLES` in `admin/src/lib/permissions.ts`, drives the sidebar and the routes: Dashboard, Users,
     Households and Audit are the roles tier's, Content and AI Intelligence the content tier's, Subscriptions and
     Settings super's. A new admin page joins that table with the tiers its RPCs accept; never a second list.
-    Admin previews build only on `staging` / `develop` and never against production (`admin/previewGuard.ts`).
+    Admin previews build only on `staging` / `develop` (`admin/scripts/ignore-build.sh`) and never against production
+    (`admin/previewGuard.ts`). A `vercel.json` command is at most 256 characters (Q3B-PUB-001); longer logic goes in a
+    script, or Vercel refuses every deployment.
   - Admins see who did what and when in a household's activity log, never the values (owner decision
     13 Oct 2026; ADM-03). `admin_activity_feed` (v10.92.0) returns the time, household, actor, action and
     entity, never `activity_log.changes`. Never add `changes`, or a `select *`, to it. The admin Audit

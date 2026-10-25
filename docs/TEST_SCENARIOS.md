@@ -25,14 +25,14 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1652 passing deterministic cases in 187 files. Zero failed, skipped or TODO cases at generation.**
+**1653 passing deterministic cases in 187 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 17 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 131 |
+| react | contract-unit | available | 132 |
 | react | contract-unit | conditional | 132 |
 | react | handler-integration | conditional | 112 |
 | react | sql-integration | conditional | 170 |
@@ -219,7 +219,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 3 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/w7aAppFixes.test.ts](../react/src/lib/__tests__/w7aAppFixes.test.ts) | Small app fixes (W7a) | unit | available | 13 |
-| [react/src/lib/__tests__/w7bPublicBuild.test.ts](../react/src/lib/__tests__/w7bPublicBuild.test.ts) | Public site and build config (W7b) | contract-unit | available | 6 |
+| [react/src/lib/__tests__/w7bPublicBuild.test.ts](../react/src/lib/__tests__/w7bPublicBuild.test.ts) | Public site and build config (W7b) | contract-unit | available | 7 |
 | [react/src/lib/__tests__/w8aAppFixes.test.ts](../react/src/lib/__tests__/w8aAppFixes.test.ts) | App fixes (W8a) | unit | available | 12 |
 | [react/src/lib/__tests__/w8bEdgeFixes.test.ts](../react/src/lib/__tests__/w8bEdgeFixes.test.ts) | Edge robustness (W8b) | contract-unit | available | 6 |
 | [react/src/lib/__tests__/w8dSiteFixes.test.ts](../react/src/lib/__tests__/w8dSiteFixes.test.ts) | Site, platform and docs (W8d) | contract-unit | available | 11 |

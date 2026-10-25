@@ -3314,8 +3314,9 @@
       "availability": "available",
       "layer": "contract-unit",
       "owner": "audit W7b: Vercel skip vs last deployed commit, no source maps + postbuild gate, dead config/deps removed, Learn read timeout + uncached empty library, pre-render cloud rule + $-safe insertions",
-      "count": 6,
+      "count": 7,
       "tests": [
+        "W7b · public site and build config Q3B-PUB-001 · every vercel.json command fits Vercel's 256-character limit (a longer one fails every deployment)",
         "W7b · public site and build config W7b-GATE03-001 · production builds publish no source maps, and the build gate catches one (GATE-03)",
         "W7b · public site and build config W7b-PLT11-001 · no stale root vercel.json, self-dependency, @supabase/ssr or Next.js scaffold (FE-PLT-11)",
         "W7b · public site and build config W7b-PUB03-001 · the Learn read times out, and an empty library is a 503 that is not cached (FE-PUB-03)",
