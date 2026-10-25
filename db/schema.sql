@@ -15185,3 +15185,1478 @@ grant execute on function public.unregister_native_push(text) to authenticated;
 grant execute on function public.native_push_status(text) to authenticated;
 
 commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120000_q3a_budget_writes_owner_admin.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit DB-SEC-03, DB-OPS-03; owner decision D4, 20 Oct 2026).
+--
+-- upsert_budget is the single writer of budgets (CLAUDE.md, "Budget identity lives in the DB"). It is SECURITY
+-- DEFINER and checked only that the caller was a member of the household it was given, so:
+--   - a member or viewer could write a budget, which the budgets policies keep to owners and admins (production
+--     carried an owner/admin guard the repo never had: DB-OPS-03);
+--   - in replace mode, an id naming another household's budget rewrote THAT budget (`on conflict (id) do
+--     update`): DB-SEC-03, pinned by the Q2 access matrix (Q2-AZ-007, Q2-AZ-009).
+-- This is the function as the migrations left it, with those two checks added. upsert_budget_with_allocations
+-- calls it first, so it inherits both.
+
+CREATE OR REPLACE FUNCTION public.upsert_budget(h uuid, b jsonb, p_mode text DEFAULT 'create'::text)
+ RETURNS SETOF budgets
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v   budgets%rowtype;
+  rec budgets%rowtype;
+  sc  text := nullif(b->>'scope','');
+begin
+  if auth.uid() is null then raise exception 'Must be signed in' using errcode = '28000'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household' using errcode = '42501'; end if;
+  -- Q3a (DB-SEC-03; owner decision D4): budgets are the owner's and admins', as the budgets policies say.
+  if coalesce(public.role_in(h), '') not in ('owner', 'admin') then
+    raise exception 'budget_owner_or_admin: only the owner or an admin can change budgets' using errcode = '42501';
+  end if;
+  if p_mode not in ('create','replace') then raise exception 'bad mode %', p_mode; end if;
+
+  v := jsonb_populate_record(null::budgets, b);
+  v.household_id := h;
+  if v.id is null then v.id := gen_random_uuid(); end if;
+  -- Q3a (DB-SEC-03): an id that names another household's budget is refused, never rewritten through this one
+  -- (replace mode's `on conflict (id) do update` rewrote it).
+  if exists (select 1 from budgets where id = v.id and household_id is distinct from h) then
+    raise exception 'budget_not_found' using errcode = 'P0002';
+  end if;
+  if v.currency   is null or v.currency   = '' then v.currency   := 'USD';       end if;
+  if v.period     is null or v.period     = '' then v.period     := 'monthly';   end if;
+  if v.confidence is null or v.confidence = '' then v.confidence := 'confirmed'; end if;
+  if v.source     is null or v.source     = '' then v.source     := 'user';      end if;
+  if v.created_at is null then v.created_at := now(); end if;
+  v.updated_at := now();
+  v.deleted_at := null;   -- a write always yields a LIVE row
+
+  if p_mode = 'create' then
+    if sc = 'month' then
+      insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+      values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'month',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+      on conflict (household_id,period_year,period_month) where scope='month' and deleted_at is null
+      do nothing returning * into rec;
+    elsif sc = 'annual' then
+      insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+      values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'annual',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+      on conflict (household_id,period_year) where scope='annual' and deleted_at is null
+      do nothing returning * into rec;
+    else
+      insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+      values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,v.scope,v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+      on conflict (id) do nothing returning * into rec;
+    end if;
+
+    if rec.id is null then
+      raise exception 'BUDGET_EXISTS'
+        using errcode = '23505',
+              detail = concat('scope=', coalesce(sc,''), ' year=', v.period_year, ' month=', coalesce(v.period_month::text,''));
+    end if;
+    return next rec; return;
+  end if;
+
+  -- p_mode = 'replace'
+  if sc = 'month' then
+    insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+    values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'month',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+    on conflict (household_id,period_year,period_month) where scope='month' and deleted_at is null
+    do update set category=excluded.category, monthly_limit=excluded.monthly_limit, currency=excluded.currency, color=excluded.color, period=excluded.period, period_start=excluded.period_start, period_end=excluded.period_end, custom_name=excluded.custom_name, confidence=excluded.confidence, source=excluded.source, updated_at=now(), deleted_at=null
+    returning * into rec;
+  elsif sc = 'annual' then
+    insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+    values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'annual',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+    on conflict (household_id,period_year) where scope='annual' and deleted_at is null
+    do update set category=excluded.category, monthly_limit=excluded.monthly_limit, currency=excluded.currency, color=excluded.color, period=excluded.period, period_start=excluded.period_start, period_end=excluded.period_end, custom_name=excluded.custom_name, confidence=excluded.confidence, source=excluded.source, updated_at=now(), deleted_at=null
+    returning * into rec;
+  else
+    insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+    values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,v.scope,v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+    on conflict (id) do update set category=excluded.category, monthly_limit=excluded.monthly_limit, currency=excluded.currency, color=excluded.color, period=excluded.period, period_start=excluded.period_start, period_end=excluded.period_end, custom_name=excluded.custom_name, confidence=excluded.confidence, source=excluded.source, updated_at=now(), deleted_at=null
+    returning * into rec;
+  end if;
+  return next rec; return;
+end;
+$function$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120100_q3a_production_only_objects.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit DB-OPS-03, DB-OPS-16; owner decision D4, 20 Oct 2026: "codify + drop the backups").
+--
+-- Objects that exist only in production (the 28 May baseline recorded them, or the dashboard made them) are
+-- brought under the migrations:
+--
+-- 1. migration_issues: the v9 migration's issue log. It had no row-level security, and Supabase's default grants
+--    left it readable and writable through the API by anyone, signed out included (the Q2 access matrix pinned
+--    it). Only the server reads it now.
+-- 2. _backup_v9_*: the v9 redesign's in-database restore point (June 2026). The redesign shipped four months ago
+--    and every later migration builds on it; the copies hold old transactions, accounts and budgets that no
+--    erase, export or purge reaches. Dropped (irreversible).
+-- 3. pg_trgm: installed in public by the baseline, used by nothing in the repo. Dropped when nothing in this
+--    database uses it either; otherwise left as it is, with a notice, so a production-only dependent never breaks.
+
+-- ── 1. migration_issues: server only ────────────────────────────────────────────────────────────────────────────
+do $$
+begin
+  if to_regclass('public.migration_issues') is not null then
+    alter table public.migration_issues enable row level security;
+    revoke all on table public.migration_issues from public, anon, authenticated;
+    grant select, insert, update, delete on table public.migration_issues to service_role;
+  end if;
+end $$;
+
+-- ── 2. the v9 backups ───────────────────────────────────────────────────────────────────────────────────────────
+do $$
+declare t record;
+begin
+  for t in select c.relname from pg_class c
+            where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname like '\_backup\_v9\_%'
+  loop
+    begin
+      execute format('drop table public.%I', t.relname);
+      raise notice 'Q3a: dropped the v9 backup table %', t.relname;
+    exception when insufficient_privilege then
+      -- Owned by a platform role: say so in the Deploy log rather than fail every later migration.
+      raise notice 'Q3a: could not drop % (not its owner); drop it in the SQL editor', t.relname;
+    end;
+  end loop;
+end $$;
+
+-- ── 3. pg_trgm, only if nothing uses it ─────────────────────────────────────────────────────────────────────────
+do $$
+declare
+  v_indexes   int;
+  v_functions int;
+begin
+  if not exists (select 1 from pg_extension where extname = 'pg_trgm') then return; end if;
+
+  -- An index built on one of its operator classes.
+  select count(*) into v_indexes
+    from pg_index i
+    join pg_opclass o on o.oid = any (i.indclass::oid[])
+    join pg_depend d on d.classid = 'pg_opclass'::regclass and d.objid = o.oid and d.deptype = 'e'
+    join pg_extension e on e.oid = d.refobjid and e.extname = 'pg_trgm';
+
+  -- A function body that calls it (pg_depend does not see inside a body).
+  select count(*) into v_functions
+    from pg_proc p
+   where p.pronamespace not in ('pg_catalog'::regnamespace, 'information_schema'::regnamespace)
+     and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
+     and p.prosrc ~* '(similarity|show_trgm|show_limit|set_limit|_trgm)';
+
+  if v_indexes = 0 and v_functions = 0 then
+    begin
+      drop extension pg_trgm;
+      raise notice 'Q3a: pg_trgm dropped (nothing used it)';
+    exception when insufficient_privilege then
+      raise notice 'Q3a: pg_trgm is unused but owned by a platform role; drop it from the dashboard';
+    end;
+  else
+    raise notice 'Q3a: pg_trgm kept: % index(es) and % function(s) use it', v_indexes, v_functions;
+  end if;
+end $$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120200_q3a_staff_tiers.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit ADM-05, ADM-06, ADM-14; owner decisions 20 Oct 2026). Staff see what their tier is for.
+--
+-- ADM-05: the needs/wants table (category_classifications) overrides the app's NEEDS_WANTS_MAP for every
+--   household (the emergency floor, Pip's essentials, the runway). A content-tier admin could rewrite it. Only
+--   super admins write it now, and a category must at least look like one of the app's ids (a lowercase id;
+--   the list itself lives in constants.ts and the two Deno allowlists, never a fourth copy here).
+-- ADM-06: content-tier admins saw every Pip user's email and per-person sentiment (the AI usage summary's
+--   segments) and could read the whole ai_usage table. Segments are for super admins; ai_usage is read by its
+--   own household's members, and staff read the summaries.
+-- ADM-14: the dashboard's MRR summed every active row across currencies (INR 999 + USD 12 = "USD 1,011").
+--   It is now per currency, counting active and trialing subscriptions; the summed figure is gone.
+
+-- ── ADM-05 ─────────────────────────────────────────────────────────────────────────────────────────────────────
+drop policy if exists cc_admin_write on public.category_classifications;
+create policy cc_admin_write on public.category_classifications for all to authenticated
+  using (public.is_admin('super')) with check (public.is_admin('super'));
+alter table public.category_classifications drop constraint if exists ck_cc_category_id;
+alter table public.category_classifications
+  add constraint ck_cc_category_id check (category ~ '^[a-z][a-z0-9_]{0,39}$') not valid;
+
+-- ── ADM-06 ─────────────────────────────────────────────────────────────────────────────────────────────────────
+drop policy if exists ai_usage_select on public.ai_usage;
+create policy ai_usage_select on public.ai_usage for select to authenticated using (public.is_member(household_id));
+
+CREATE OR REPLACE FUNCTION public.admin_ai_usage_summary()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare result jsonb;
+begin
+  if not public.is_admin('content') then
+    raise exception 'forbidden: admin role required';
+  end if;
+
+  with calls as (select * from ai_usage where source = 'gateway'),
+       turns as (select * from ai_usage where source = 'client')
+  select jsonb_build_object(
+    -- ── Model calls (the gateway's rows) ─────────────────────────────────────
+    'total',     (select count(*) from calls),
+    'users',     (select count(distinct user_id) from calls),
+    'last7',     (select count(*) from calls where ts > now() - interval '7 days'),
+    'last30',    (select count(*) from calls where ts > now() - interval '30 days'),
+
+    -- ── Turns (the app's rows: what was asked, how it felt) ─────────────────
+    'byIntent',  (select coalesce(jsonb_object_agg(intent, c), '{}'::jsonb)
+                    from (select coalesce(intent,'other') as intent, count(*) c
+                            from turns group by 1) t),
+    'bySentiment', (select coalesce(jsonb_object_agg(sentiment, c), '{}'::jsonb)
+                    from (select coalesce(sentiment,'neutral') as sentiment, count(*) c
+                            from turns group by 1) t),
+    -- Q3a (ADM-06): who asked what, by email, is for super admins only.
+    'segments', case when not public.is_admin('super') then '[]'::jsonb else (
+      select coalesce(jsonb_agg(seg order by (seg->>'interactions')::int desc), '[]'::jsonb)
+      from (
+        select jsonb_build_object(
+          'userId',       u.user_id,
+          'email',        au.email,
+          'interactions', u.interactions,
+          'topIntent',    u.top_intent,
+          'avgSentiment', u.avg_sentiment,
+          'lastSeen',     u.last_seen
+        ) as seg
+        from (
+          select user_id,
+                 count(*)                                   as interactions,
+                 mode() within group (order by intent)      as top_intent,
+                 round(avg(sentiment_score)::numeric, 2)    as avg_sentiment,
+                 max(ts)                                    as last_seen
+          from turns
+          where user_id is not null
+          group by user_id
+          order by count(*) desc
+          limit 200
+        ) u
+        left join auth.users au on au.id = u.user_id
+      ) s
+    ) end,
+
+    -- ── The spend gate (model calls) ─────────────────────────────────────────
+    'byModel', (
+      select coalesce(jsonb_object_agg(model, n), '{}'::jsonb)
+      from (select coalesce(model,'n/a') as model, count(*) n
+              from calls where ts > now() - interval '30 days'
+             group by 1 order by 2 desc limit 25) t),
+    'byProvider', (
+      select coalesce(jsonb_object_agg(provider, n), '{}'::jsonb)
+      from (select coalesce(provider,'n/a') as provider, count(*) n
+              from calls where ts > now() - interval '30 days' group by 1) t),
+    'byBackend', (
+      select coalesce(jsonb_object_agg(backend, n), '{}'::jsonb)
+      from (select coalesce(backend,'unknown') as backend, count(*) n
+              from turns where ts > now() - interval '30 days' group by 1) t),
+    'tokens30', jsonb_build_object(
+      'prompt',     coalesce((select sum(prompt_tokens)     from calls where ts > now() - interval '30 days'), 0),
+      'completion', coalesce((select sum(completion_tokens) from calls where ts > now() - interval '30 days'), 0)),
+    'cost30Usd',  coalesce((select round(sum(cost_usd), 4) from calls where ts > now() - interval '30 days'), 0),
+    'cost7Usd',   coalesce((select round(sum(cost_usd), 4) from calls where ts > now() - interval '7 days'), 0),
+    'latencyMsP50', (
+      select coalesce(percentile_disc(0.5) within group (order by latency_ms), 0)
+        from calls where latency_ms is not null and ts > now() - interval '30 days'),
+    'latencyMsP95', (
+      select coalesce(percentile_disc(0.95) within group (order by latency_ms), 0)
+        from calls where latency_ms is not null and ts > now() - interval '30 days'),
+    -- §10 targets: fallback rate < 15% (a turn's), thumbs-up >= 75% (a turn's), errors (a call's).
+    'fallbackRate30', (
+      select case when count(*) = 0 then 0
+             else round(count(*) filter (where outcome = 'fallback')::numeric / count(*), 4) end
+        from turns where ts > now() - interval '30 days'),
+    'errorRate30', (
+      select case when count(*) = 0 then 0
+             else round(count(*) filter (where outcome = 'error')::numeric / count(*), 4) end
+        from calls where ts > now() - interval '30 days'),
+    'deterministicRate30', (
+      select case when count(*) filter (where backend is not null) = 0 then 0
+             else round(count(*) filter (where backend = 'rules')::numeric
+                        / count(*) filter (where backend is not null), 4) end
+        from turns where ts > now() - interval '30 days'),
+    'helpfulRate30', (
+      select case when count(*) filter (where helpful is not null) = 0 then 0
+             else round(count(*) filter (where helpful)::numeric
+                        / count(*) filter (where helpful is not null), 4) end
+        from turns where ts > now() - interval '30 days'),
+    'ratedCount30', (
+      select count(*) from turns where helpful is not null and ts > now() - interval '30 days')
+  ) into result;
+
+  return result;
+end;
+$function$;
+
+-- ── ADM-14 ─────────────────────────────────────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.admin_dashboard_kpis()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'auth'
+AS $function$
+declare
+  total_users int; total_households int; multi_member_pct numeric;
+  active_7d int; active_households_7d int; signups_7d int; signups_30d int;
+  total_txns int; txns_7d int; published_articles int; total_favorites int;
+  paid_subscriptions int; mrr_by_currency jsonb;
+begin
+  if not public.is_admin('roles') then raise exception 'forbidden'; end if;
+  select count(*) into total_users      from auth.users;
+  select count(*) into total_households from households;
+  select count(*) into total_txns       from transactions;
+  select count(*) into signups_7d  from auth.users where created_at > now() - interval '7 days';
+  select count(*) into signups_30d from auth.users where created_at > now() - interval '30 days';
+  select count(distinct m.user_id) into active_7d from memberships m
+    join auth.users u on u.id = m.user_id where u.last_sign_in_at > now() - interval '7 days';
+  select count(distinct t.household_id) into active_households_7d from transactions t
+    where t.created_at > now() - interval '7 days';
+  select case when total_households > 0
+    then round(100.0 * count(*) filter (where member_count >= 2) / total_households, 1) else 0 end
+    into multi_member_pct
+    from (select household_id, count(*) as member_count from memberships group by household_id) t;
+  select count(*) into txns_7d from transactions where created_at > now() - interval '7 days';
+  select count(*) into published_articles from content_items where status = 'published';
+  select count(*) into total_favorites    from content_favorites;
+  -- Q3a (ADM-14): paying = active or trialing; revenue per currency, never summed across currencies.
+  select count(*) into paid_subscriptions from subscriptions
+   where tier <> 'free' and status in ('active', 'trialing');
+  select coalesce(jsonb_object_agg(cur, amount), '{}'::jsonb) into mrr_by_currency
+    from (select upper(coalesce(nullif(btrim(currency), ''), '?')) as cur, sum(monthly_amount) as amount
+            from subscriptions where tier <> 'free' and status in ('active', 'trialing') group by 1) m;
+  return jsonb_build_object(
+    'totalUsers', total_users, 'totalHouseholds', total_households,
+    'multiMemberPct', multi_member_pct, 'activeUsers7d', active_7d,
+    'activeHouseholds7d', active_households_7d, 'signups7d', signups_7d,
+    'signups30d', signups_30d, 'totalTransactions', total_txns,
+    'transactions7d', txns_7d, 'publishedArticles', published_articles,
+    'contentFavorites', total_favorites, 'paidSubscriptions', paid_subscriptions,
+    'mrrByCurrency', mrr_by_currency, 'computedAt', now());
+end; $function$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120300_q3a_public_content.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit FE-PUB-08, ADM-10, ADM-11; owner, 20 Oct 2026).
+--
+-- FE-PUB-08: a signed-out visitor could read every column of a published Learn item through the API, the
+--   author's user id among them. They may now read only the columns the public pages and the app's video
+--   and infographic lookup use (react/api/learn.js LESSON_COLS and LIST_COLS, sitemap.js, llms.js, v.js,
+--   react/src/lib/insightVideos.ts), plus the ones those queries filter on. The "public reads published"
+--   policy still decides WHICH rows. migrationReplay/authz tests check that every column react/api asks for
+--   stays in this list.
+-- ADM-10: the infographics bucket takes images only (PNG, JPEG, WebP), at most 5 MB each.
+-- ADM-11: until admin v1.4.x an edit wrote the editor's email as the author. Those bylines become "Vyact"
+--   (CONTENT_BYLINE). Publish dates that edits reset are not recoverable and stay as they are.
+
+-- ── FE-PUB-08 ──────────────────────────────────────────────────────────────────────────────────────────────────
+revoke select on table public.content_items from anon;
+grant select (slug, title, category, format, status, tags, body_md, reading_seconds, why_it_matters,
+              video_url, video_updated_at, infographic_url, source_name, source_url, published_at, updated_at)
+  on table public.content_items to anon;
+
+-- ── ADM-10 ─────────────────────────────────────────────────────────────────────────────────────────────────────
+update storage.buckets
+   set allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp'],
+       file_size_limit    = 5242880
+ where id = 'insight-infographics';
+
+-- ── ADM-11 ─────────────────────────────────────────────────────────────────────────────────────────────────────
+update public.content_items set author_name = 'Vyact' where author_name like '%@%';
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120400_q3a_staff_audit.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit ADM-04; owner brought it in from the backlog, 20 Oct 2026).
+--
+-- What Vyact staff change, and who changed it, is recorded and cannot be edited:
+--   - admin_roles: a role granted, changed or revoked;
+--   - content_items: a Learn item created, edited (which fields; never the text), published or deleted;
+--   - category_classifications: a category's need/want changed (old → new);
+--   - ai_model_configs: Pip's model settings changed (which fields; seam, provider, model and the enabled flag
+--     by value; params are never copied, though a CHECK keeps secrets out of them).
+-- A change made in the Supabase dashboard or by a migration has no signed-in user: it is recorded with no actor
+-- ("dashboard"). Rows are never updated or deleted (a trigger refuses it, for every role). There is no
+-- household data here, so it is not part of a household erase.
+--
+-- Roles are granted and revoked through grant_admin_role / revoke_admin_role (super admins only); the last
+-- super admin can neither be demoted nor removed. Super admins read the trail through admin_staff_audit.
+
+create table if not exists public.admin_audit (
+  id           bigint generated always as identity primary key,
+  at           timestamptz not null default now(),
+  -- auth.users id, intentionally not a foreign key: the trail outlives an account (it holds no other data).
+  actor_id     uuid,
+  action       text not null check (action in ('insert', 'update', 'delete')),
+  target_table text not null check (target_table in ('admin_roles', 'content_items', 'category_classifications', 'ai_model_configs')),
+  target_id    text,
+  changed      text[] not null default '{}',
+  detail       jsonb not null default '{}'::jsonb
+);
+create index if not exists ix_admin_audit_at on public.admin_audit (at desc);
+
+alter table public.admin_audit enable row level security;
+revoke all on table public.admin_audit from public, anon, authenticated;
+grant select on table public.admin_audit to service_role;
+
+-- Append-only, for everyone (service role and dashboard included).
+create or replace function public.admin_audit_append_only()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+begin
+  raise exception 'admin_audit_append_only: the staff audit trail is never changed' using errcode = '42501';
+end $$;
+drop trigger if exists trg_admin_audit_append_only on public.admin_audit;
+create trigger trg_admin_audit_append_only before update or delete on public.admin_audit
+  for each row execute function public.admin_audit_append_only();
+revoke all on function public.admin_audit_append_only() from public, anon, authenticated;
+
+-- One row per staff-managed change.
+create or replace function public.log_staff_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  o jsonb := case when tg_op in ('UPDATE', 'DELETE') then to_jsonb(old) end;
+  n jsonb := case when tg_op in ('INSERT', 'UPDATE') then to_jsonb(new) end;
+  r jsonb := coalesce(n, o);
+  v_changed text[] := '{}';
+  v_detail  jsonb;
+  v_target  text;
+begin
+  if tg_op = 'UPDATE' then
+    select coalesce(array_agg(k order by k), '{}') into v_changed
+      from jsonb_object_keys(n) k
+     where k not in ('updated_at', 'created_at') and (o -> k) is distinct from (n -> k);
+    if cardinality(v_changed) = 0 then return null; end if;   -- a no-op update records nothing
+  end if;
+
+  if tg_table_name = 'admin_roles' then
+    v_target := r ->> 'user_id';
+    v_detail := jsonb_build_object('role_before', o ->> 'role', 'role_after', n ->> 'role');
+  elsif tg_table_name = 'content_items' then
+    v_target := r ->> 'id';
+    v_detail := jsonb_build_object('slug', r ->> 'slug', 'status_before', o ->> 'status', 'status_after', n ->> 'status');
+  elsif tg_table_name = 'category_classifications' then
+    v_target := r ->> 'category';
+    v_detail := jsonb_build_object('before', o ->> 'classification', 'after', n ->> 'classification');
+  elsif tg_table_name = 'ai_model_configs' then
+    v_target := r ->> 'id';
+    v_detail := jsonb_build_object('seam', r ->> 'seam', 'provider', r ->> 'provider', 'model', r ->> 'model',
+                                   'enabled_before', o -> 'enabled', 'enabled_after', n -> 'enabled');
+  else
+    return null;
+  end if;
+
+  insert into public.admin_audit (actor_id, action, target_table, target_id, changed, detail)
+  values (auth.uid(), lower(tg_op), tg_table_name, v_target, v_changed, jsonb_strip_nulls(v_detail));
+  return null;
+end $$;
+revoke all on function public.log_staff_change() from public, anon, authenticated;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['admin_roles', 'content_items', 'category_classifications', 'ai_model_configs'] loop
+    execute format('drop trigger if exists trg_%1$s_staff_audit on public.%1$I', t);
+    execute format('create trigger trg_%1$s_staff_audit after insert or update or delete on public.%1$I
+                      for each row execute function public.log_staff_change()', t);
+  end loop;
+end $$;
+
+-- ── Granting and revoking staff roles ────────────────────────────────────────────────────────────────────────────
+create or replace function public.grant_admin_role(p_user uuid, p_role text)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin('super') then
+    raise exception 'only_super_admins_grant_roles' using errcode = '42501';
+  end if;
+  if p_role is null or p_role not in ('super', 'roles', 'content') then
+    raise exception 'invalid_admin_role' using errcode = '22023';
+  end if;
+  if not exists (select 1 from auth.users where id = p_user) then
+    raise exception 'user_not_found' using errcode = 'P0002';
+  end if;
+  -- Serialise role changes, so two demotions cannot leave no super admin.
+  lock table public.admin_roles in share row exclusive mode;
+  if p_role <> 'super'
+     and exists (select 1 from public.admin_roles where user_id = p_user and role = 'super')
+     and (select count(*) from public.admin_roles where role = 'super') <= 1 then
+    raise exception 'last_super_admin: grant another super admin first' using errcode = '42501';
+  end if;
+  insert into public.admin_roles (user_id, role, granted_by, granted_at)
+  values (p_user, p_role, auth.uid(), now())
+  on conflict (user_id) do update set role = excluded.role, granted_by = excluded.granted_by, granted_at = excluded.granted_at;
+end $$;
+
+create or replace function public.revoke_admin_role(p_user uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin('super') then
+    raise exception 'only_super_admins_revoke_roles' using errcode = '42501';
+  end if;
+  lock table public.admin_roles in share row exclusive mode;
+  if exists (select 1 from public.admin_roles where user_id = p_user and role = 'super')
+     and (select count(*) from public.admin_roles where role = 'super') <= 1 then
+    raise exception 'last_super_admin: grant another super admin first' using errcode = '42501';
+  end if;
+  delete from public.admin_roles where user_id = p_user;
+  return found;
+end $$;
+
+-- ── Reading the trail ────────────────────────────────────────────────────────────────────────────────────────────
+create or replace function public.admin_staff_audit(p_limit int default 100, p_before timestamptz default null)
+returns table (id bigint, at timestamptz, actor_id uuid, actor_email text, action text, target_table text,
+               target_id text, changed text[], detail jsonb)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin('super') then
+    raise exception 'forbidden: super admin required' using errcode = '42501';
+  end if;
+  return query
+    select a.id, a.at, a.actor_id, u.email::text, a.action, a.target_table, a.target_id, a.changed, a.detail
+      from public.admin_audit a
+      left join auth.users u on u.id = a.actor_id
+     where p_before is null or a.at < p_before
+     order by a.at desc, a.id desc
+     limit greatest(1, least(coalesce(p_limit, 100), 500));
+end $$;
+
+revoke all on function public.grant_admin_role(uuid, text) from public, anon;
+revoke all on function public.revoke_admin_role(uuid) from public, anon;
+revoke all on function public.admin_staff_audit(int, timestamptz) from public, anon;
+grant execute on function public.grant_admin_role(uuid, text) to authenticated;
+grant execute on function public.revoke_admin_role(uuid) to authenticated;
+grant execute on function public.admin_staff_audit(int, timestamptz) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120500_q3a_admin_lists.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit ADM-08, INT-HH-14; owner brought them in from the backlog, 20 Oct 2026).
+--
+-- The admin Users and Households pages read whole tables, and the API returns at most 1,000 rows a request, so
+-- past 1,000 people or memberships the lists and the member counts were cut short without a word. These read
+-- one page at a time (newest first), search on the server, count members with a GROUP BY, and return the total
+-- that matched with every row. Roles-tier staff only (super included), as admin_list_users.
+-- admin_list_users stays for the admin app until v1.5.0 reads these; it is retired after that.
+
+create or replace function public.admin_list_users_page(p_limit int default 100, p_offset int default 0, p_query text default null)
+returns table (id uuid, email text, display_name text, email_confirmed boolean, created_at timestamptz,
+               last_sign_in_at timestamptz, household_count int, is_admin boolean, admin_role text, total bigint)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_q text := nullif(btrim(coalesce(p_query, '')), '');
+begin
+  if not public.is_admin('roles') then
+    raise exception 'forbidden: admin role required' using errcode = '42501';
+  end if;
+  return query
+    with matched as (
+      select u.id, u.email::text as email, p.display_name, (u.email_confirmed_at is not null) as email_confirmed,
+             u.created_at, u.last_sign_in_at
+        from auth.users u
+        left join public.profiles p on p.id = u.id
+       where v_q is null
+          or u.email ilike '%' || v_q || '%'
+          or p.display_name ilike '%' || v_q || '%'
+    )
+    select m.id, m.email, m.display_name, m.email_confirmed, m.created_at, m.last_sign_in_at,
+           (select count(*)::int from public.memberships ms where ms.user_id = m.id) as household_count,
+           (a.user_id is not null) as is_admin, a.role as admin_role,
+           count(*) over () as total
+      from matched m
+      left join public.admin_roles a on a.user_id = m.id
+     order by m.created_at desc, m.id
+     limit greatest(1, least(coalesce(p_limit, 100), 500))
+    offset greatest(0, coalesce(p_offset, 0));
+end $$;
+
+create or replace function public.admin_list_households(p_limit int default 100, p_offset int default 0, p_query text default null)
+returns table (id uuid, name text, type text, base_currency text, created_by uuid, created_at timestamptz,
+               member_count int, total bigint)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_q text := nullif(btrim(coalesce(p_query, '')), '');
+begin
+  if not public.is_admin('roles') then
+    raise exception 'forbidden: admin role required' using errcode = '42501';
+  end if;
+  return query
+    select h.id, h.name, h.type, h.base_currency, h.created_by, h.created_at,
+           coalesce(c.n, 0)::int as member_count,
+           count(*) over () as total
+      from public.households h
+      left join (select household_id, count(*) as n from public.memberships group by household_id) c
+             on c.household_id = h.id
+     where v_q is null or h.name ilike '%' || v_q || '%'
+     order by h.created_at desc, h.id
+     limit greatest(1, least(coalesce(p_limit, 100), 500))
+    offset greatest(0, coalesce(p_offset, 0));
+end $$;
+
+-- The pages' headline counts, which they used to work out from the whole (truncated) list.
+create or replace function public.admin_people_summary()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin('roles') then
+    raise exception 'forbidden: admin role required' using errcode = '42501';
+  end if;
+  return jsonb_build_object(
+    'users', jsonb_build_object(
+      'total',          (select count(*) from auth.users),
+      'confirmed',      (select count(*) from auth.users where email_confirmed_at is not null),
+      'admins',         (select count(*) from public.admin_roles),
+      'multiHousehold', (select count(*) from (select user_id from public.memberships
+                                                group by user_id having count(*) > 1) m)),
+    'households', jsonb_build_object(
+      'total',       (select count(*) from public.households),
+      'multiMember', (select count(*) from (select household_id from public.memberships
+                                             group by household_id having count(*) >= 2) m),
+      'byType',      (select coalesce(jsonb_object_agg(type, n), '{}'::jsonb)
+                        from (select type, count(*) as n from public.households group by type) t)));
+end $$;
+
+revoke all on function public.admin_people_summary() from public, anon;
+grant execute on function public.admin_people_summary() to authenticated;
+revoke all on function public.admin_list_users_page(int, int, text) from public, anon;
+revoke all on function public.admin_list_households(int, int, text) from public, anon;
+grant execute on function public.admin_list_users_page(int, int, text) to authenticated;
+grant execute on function public.admin_list_households(int, int, text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120600_q3a_activity_actor.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit INT-TXN-14, DB-INT-13, DB-INT-14; owner decisions 20 Oct 2026).
+--
+-- The household activity log (log_domain_activity) named its actor from auth.uid(), so every entry the server
+-- wrote (WhatsApp, the bill and EMI jobs) had no actor, and a soft delete (deleted_at set) read as "updated".
+--   - Owner: "the person, else Vyact". Each WhatsApp writer below sets the transaction-local `vyact.actor` to
+--     the person the message came from, and the trigger reads it when there is no signed-in user. Scheduled
+--     jobs set nothing: no actor, which the apps show as "Vyact (automatic)". A signed-in request always wins,
+--     and only these SECURITY DEFINER functions set it (the API cannot set a setting).
+--   - Setting deleted_at is logged as "deleted".
+-- Each WhatsApp function is its current definition with that one line added at the top; whatsapp_log_transaction
+-- also picks an account deterministically (DB-INT-13) and refuses a Loan / EMI expense (DB-INT-14; the webhook
+-- already sends those to the loan).
+
+create or replace function public.log_domain_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  h       uuid;
+  act     text;
+  ent     text := tg_table_name;
+  ent_id  uuid;
+  ch      jsonb;
+  actor   uuid := coalesce(auth.uid(), nullif(current_setting('vyact.actor', true), '')::uuid);
+begin
+  if tg_op = 'INSERT' then
+    act    := 'created';
+    h      := new.household_id;
+    ent_id := new.id;
+    ch     := to_jsonb(new);
+  elsif tg_op = 'UPDATE' then
+    -- A soft delete is a delete (the row stays for sync; the person deleted it).
+    act    := case when (to_jsonb(old) ->> 'deleted_at') is null and (to_jsonb(new) ->> 'deleted_at') is not null
+                   then 'deleted' else 'updated' end;
+    h      := new.household_id;
+    ent_id := new.id;
+    ch     := jsonb_build_object('old', to_jsonb(old), 'new', to_jsonb(new));
+  elsif tg_op = 'DELETE' then
+    act    := 'deleted';
+    h      := old.household_id;
+    ent_id := old.id;
+    ch     := to_jsonb(old);
+  else
+    return null;
+  end if;
+
+  begin
+    insert into activity_log (household_id, actor_id, action, entity_type, entity_id, changes)
+    values (h, actor, act, ent, ent_id, ch);
+  exception when foreign_key_violation then
+    -- The household (or the actor's account) is being deleted in this same transaction.
+    null;
+  end;
+
+  return null;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_log_transaction(p_profile_id uuid, p_household_id uuid, p_amount numeric, p_currency text, p_txn_type text, p_category_id text, p_account_alias text, p_to_account_alias text, p_wa_message_id text, p_description text, p_date date DEFAULT NULL::date, p_payment_mode text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_member_id     uuid;
+  v_member_role   text;
+  v_account_id    uuid;
+  v_to_account_id uuid;
+  v_asset_id      uuid;
+  v_cash_id       uuid;
+  v_txn_id        uuid;
+  v_claimed       int;
+  v_date          date;
+  v_mode          text;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  v_date := coalesce(p_date, current_date);
+  if v_date > current_date + interval '2 days' or v_date < current_date - interval '5 years' then
+    v_date := current_date;
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('status','error','reason','invalid_amount');
+  end if;
+  if p_txn_type not in ('expense','income','investment','transfer') then
+    return jsonb_build_object('status','error','reason','invalid_type');
+  end if;
+
+  insert into public.whatsapp_inbound_messages (wa_message_id, profile_id, household_id, direction)
+    values (p_wa_message_id, p_profile_id, p_household_id, 'inbound')
+    on conflict (wa_message_id) do nothing;
+
+  update public.whatsapp_inbound_messages
+     set processed_at = now(),
+         profile_id   = coalesce(profile_id, p_profile_id),
+         household_id = coalesce(household_id, p_household_id)
+   where wa_message_id = p_wa_message_id and processed_at is null;
+  get diagnostics v_claimed = row_count;
+  if v_claimed = 0 then
+    return jsonb_build_object('status','duplicate');
+  end if;
+
+  select id, role into v_member_id, v_member_role
+    from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id
+   limit 1;
+  if v_member_id is null then
+    return jsonb_build_object('status','error','reason','not_a_member');
+  end if;
+  if v_member_role = 'viewer' then
+    return jsonb_build_object('status','error','reason','read_only_member');
+  end if;
+  -- Q3a (DB-INT-14): a loan payment goes through the loan (whatsapp_pay_loan), never as a plain expense.
+  if p_category_id = 'loan_emi' then
+    return jsonb_build_object('status','error','reason','loan_emi_needs_loan');
+  end if;
+
+  select id into v_cash_id
+    from public.accounts
+   where household_id = p_household_id and lower(kind) = 'cash'
+     and coalesce(is_archived,false) = false and deleted_at is null
+   limit 1;
+
+  if p_account_alias is not null and p_account_alias <> '' then
+    select id into v_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and deleted_at is null
+       and (lower(name) = lower(p_account_alias) or lower(kind) = lower(p_account_alias))
+     -- Q3a (DB-INT-13; owner, 20 Oct 2026: "use the default"): the account named exactly, else the household's
+     -- default when it is of that kind, else the oldest of that kind. The reply names the account.
+     order by (lower(name) = lower(p_account_alias)) desc, coalesce(is_default, false) desc, created_at, id
+     limit 1;
+  end if;
+
+  if p_txn_type = 'investment' then
+    -- R4: the destination is an investment ASSET — by name, or the household's
+    -- only one when the message names none ("invested 5000").
+    if p_to_account_alias is not null and p_to_account_alias <> '' and lower(p_to_account_alias) <> 'investment' then
+      select id into v_asset_id from public.assets
+       where household_id = p_household_id and deleted_at is null and type = 'investment'
+         and lower(name) = lower(p_to_account_alias)
+       limit 1;
+    end if;
+    if v_asset_id is null and (select count(*) from public.assets
+                                where household_id = p_household_id and deleted_at is null and type = 'investment') = 1 then
+      select id into v_asset_id from public.assets
+       where household_id = p_household_id and deleted_at is null and type = 'investment';
+    end if;
+  elsif p_to_account_alias is not null and p_to_account_alias <> '' then
+    select id into v_to_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and deleted_at is null
+       and (lower(name) = lower(p_to_account_alias) or lower(kind) = lower(p_to_account_alias))
+     -- Q3a (DB-INT-13; owner, 20 Oct 2026: "use the default"): the account named exactly, else the household's
+     -- default when it is of that kind, else the oldest of that kind. The reply names the account.
+     order by (lower(name) = lower(p_to_account_alias)) desc, coalesce(is_default, false) desc, created_at, id
+     limit 1;
+  end if;
+
+  if p_txn_type = 'expense' then
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    v_to_account_id := null;
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+  elsif p_txn_type = 'income' then
+    v_to_account_id := coalesce(v_to_account_id, v_account_id, v_cash_id);
+    v_account_id := null;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+  elsif p_txn_type = 'investment' then
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    v_to_account_id := null;
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+    if v_asset_id is null then
+      return jsonb_build_object('status','error','reason','no_investment_asset');
+    end if;
+  else
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+    if v_to_account_id = v_account_id then
+      return jsonb_build_object('status','error','reason','same_account');
+    end if;
+  end if;
+
+  if p_payment_mode is not null and p_txn_type <> 'investment' then
+    select p_payment_mode into v_mode
+      from public.accounts
+     where id = case when p_txn_type = 'income' then v_to_account_id else v_account_id end
+       and p_payment_mode = any (payment_modes);
+  end if;
+
+  insert into public.transactions (
+    household_id, created_by, member_id, amount, currency, type, category,
+    account_id, to_account_id, asset_id, date, description, payment_mode
+  ) values (
+    p_household_id,
+    p_profile_id,
+    v_member_id,
+    p_amount,
+    coalesce(nullif(p_currency,''), 'USD'),
+    p_txn_type,
+    case when p_txn_type in ('expense','income')
+         then coalesce(nullif(p_category_id,''), case when p_txn_type='expense' then 'other_expense' else 'other_income' end)
+         else null end,
+    v_account_id,
+    v_to_account_id,
+    v_asset_id,
+    v_date,
+    coalesce(nullif(p_description,''), 'Logged via WhatsApp'),
+    v_mode
+  ) returning id into v_txn_id;
+
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload,'{}'::jsonb) || jsonb_build_object(
+           'parsed', jsonb_build_object(
+             'transaction_id', v_txn_id, 'amount', p_amount, 'currency', p_currency,
+             'type', p_txn_type, 'category_id', p_category_id,
+             'account_id', v_account_id, 'to_account_id', v_to_account_id, 'asset_id', v_asset_id,
+             'payment_mode', p_payment_mode, 'payment_mode_stored', v_mode))
+   where wa_message_id = p_wa_message_id;
+
+  return jsonb_build_object(
+    'status','success',
+    'transaction_id', v_txn_id,
+    'amount', p_amount,
+    'currency', coalesce(nullif(p_currency,''),'USD'),
+    'type', p_txn_type,
+    'category_id', p_category_id,
+    'payment_mode', v_mode,
+    'account_name',    (select name from public.accounts where id = v_account_id),
+    -- the confirmation reads "from → to"; for an investment "to" is the asset
+    'to_account_name', coalesce((select name from public.accounts where id = v_to_account_id),
+                                (select name from public.assets   where id = v_asset_id))
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_approve_recurring(p_profile_id uuid, p_household_id uuid, p_schedule_id uuid, p_occurrence date, p_today date, p_next_due date, p_row jsonb, p_wa_message_id text, p_exhausted boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_member_id  uuid;
+  v_role       text;
+  v_s          public.recurring_schedules%rowtype;
+  v_t          jsonb;
+  v_claimed    int;
+  v_inserted   int;
+  v_type       text;
+  v_mode       text;
+  v_paying     uuid;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  -- 1. Claim the message, exactly as whatsapp_log_transaction does.
+  insert into public.whatsapp_inbound_messages (wa_message_id, profile_id, household_id, direction)
+    values (p_wa_message_id, p_profile_id, p_household_id, 'inbound')
+    on conflict (wa_message_id) do nothing;
+  update public.whatsapp_inbound_messages
+     set processed_at = now(),
+         profile_id   = coalesce(profile_id, p_profile_id),
+         household_id = coalesce(household_id, p_household_id)
+   where wa_message_id = p_wa_message_id and processed_at is null;
+  get diagnostics v_claimed = row_count;
+  if v_claimed = 0 then
+    return jsonb_build_object('status', 'duplicate');
+  end if;
+
+  -- 2. A write role in this household.
+  select id, role into v_member_id, v_role
+    from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id
+   limit 1;
+  if v_member_id is null then
+    return jsonb_build_object('status', 'error', 'reason', 'not_a_member');
+  end if;
+  if v_role = 'viewer' then
+    return jsonb_build_object('status', 'error', 'reason', 'read_only_member');
+  end if;
+
+  -- 3. The schedule, locked, and this occurrence the one due.
+  select * into v_s
+    from public.recurring_schedules
+   where id = p_schedule_id and household_id = p_household_id and deleted_at is null
+   for update;
+  if not found or not v_s.active then
+    return jsonb_build_object('status', 'error', 'reason', 'schedule_unavailable');
+  end if;
+  v_t := v_s.txn_template;
+  if v_s.next_due_date > p_occurrence then
+    return jsonb_build_object('status', 'already_done', 'next_due_date', v_s.next_due_date);
+  end if;
+  if v_s.next_due_date < p_occurrence then
+    return jsonb_build_object('status', 'error', 'reason', 'not_the_due_occurrence');
+  end if;
+  if p_occurrence > p_today then
+    return jsonb_build_object('status', 'error', 'reason', 'not_due_yet');
+  end if;
+  if not coalesce(p_exhausted, false) and (p_next_due is null or p_next_due <= p_occurrence) then
+    return jsonb_build_object('status', 'error', 'reason', 'bad_next_due');
+  end if;
+
+  v_type := v_t->>'type';
+  if v_type not in ('expense', 'income') or coalesce(v_t->>'category', '') = 'loan_emi'
+     or nullif(v_t->>'debtId', '') is not null then
+    return jsonb_build_object('status', 'error', 'reason', 'approve_in_app');
+  end if;
+
+  -- 4. The row must be this occurrence of this template.
+  if (p_row->>'recurring_schedule_id')::uuid is distinct from p_schedule_id
+     or (p_row->>'household_id')::uuid is distinct from p_household_id
+     or (p_row->>'date')::date is distinct from p_occurrence
+     or p_row->>'type' is distinct from v_type
+     or (p_row->>'amount')::numeric is distinct from (v_t->>'amount')::numeric
+     or coalesce(p_row->>'currency', 'USD') is distinct from coalesce(nullif(v_t->>'currency', ''), 'USD') then
+    return jsonb_build_object('status', 'error', 'reason', 'row_mismatch');
+  end if;
+
+  -- A mode the paying account does not use is dropped, never an error (the
+  -- store's rule, and whatsapp_log_transaction's).
+  v_mode := nullif(p_row->>'payment_mode', '');
+  if v_mode is not null then
+    v_paying := case when v_type = 'income' then nullif(p_row->>'to_account_id', '')::uuid
+                     else nullif(p_row->>'account_id', '')::uuid end;
+    if exists (select 1 from public.accounts a where a.id = v_paying
+                 and coalesce(array_length(a.payment_modes, 1), 0) > 0
+                 and not (v_mode = any (a.payment_modes))) then
+      v_mode := null;
+    end if;
+  end if;
+
+  -- 5. The app's own row, under the deterministic id.
+  insert into public.transactions (
+    id, household_id, created_by, member_id, type, amount, currency, date, description,
+    category, note, recurring, account_id, to_account_id, initiated_by,
+    recurring_schedule_id, debt_id, payment_mode, extras, confidence, source, estimated_at, confirmed_at
+  ) values (
+    (p_row->>'id')::uuid,
+    p_household_id,
+    p_profile_id,
+    nullif(p_row->>'member_id', '')::uuid,
+    v_type,
+    (p_row->>'amount')::numeric,
+    coalesce(nullif(p_row->>'currency', ''), 'USD'),
+    p_occurrence,
+    coalesce(p_row->>'description', ''),
+    nullif(p_row->>'category', ''),
+    nullif(p_row->>'note', ''),
+    nullif(p_row->>'recurring', ''),
+    nullif(p_row->>'account_id', '')::uuid,
+    nullif(p_row->>'to_account_id', '')::uuid,
+    nullif(p_row->>'initiated_by', '')::uuid,
+    p_schedule_id,
+    null,
+    v_mode,
+    coalesce(p_row->'extras', '{}'::jsonb),
+    coalesce(nullif(p_row->>'confidence', ''), 'confirmed'),
+    coalesce(nullif(p_row->>'source', ''), 'user'),
+    nullif(p_row->>'estimated_at', '')::timestamptz,
+    nullif(p_row->>'confirmed_at', '')::timestamptz
+  )
+  on conflict (id) do nothing;
+  get diagnostics v_inserted = row_count;
+
+  -- 6. Move the schedule on.
+  update public.recurring_schedules
+     set last_generated = p_occurrence,
+         next_due_date  = case when coalesce(p_exhausted, false) then next_due_date else p_next_due end,
+         active         = not coalesce(p_exhausted, false)
+   where id = p_schedule_id;
+
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload, '{}'::jsonb) || jsonb_build_object(
+           'approved', jsonb_build_object('schedule_id', p_schedule_id, 'occurrence', p_occurrence,
+                                          'transaction_id', p_row->>'id', 'inserted', v_inserted = 1))
+   where wa_message_id = p_wa_message_id;
+
+  return jsonb_build_object(
+    'status', 'success',
+    'transaction_id', p_row->>'id',
+    'already_posted', v_inserted = 0,
+    'amount', (p_row->>'amount')::numeric,
+    'currency', coalesce(nullif(p_row->>'currency', ''), 'USD'),
+    'description', p_row->>'description',
+    'next_due_date', case when coalesce(p_exhausted, false) then null else p_next_due end,
+    'finished', coalesce(p_exhausted, false)
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_correct_last(p_profile_id uuid, p_household_id uuid, p_category text, p_wa_message_id text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare v_block text; l record; v_type text; t record;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  -- An EMI pays a loan (whatsapp_correct_to_loan); relabelling a plain expense would book it whole as
+  -- spending and leave the loan untouched.
+  if p_category = 'loan_emi' then return jsonb_build_object('status', 'use_loan_payment'); end if;
+  v_block := public.whatsapp_claim_for_write(p_profile_id, p_household_id, p_wa_message_id);
+  if v_block is not null then return jsonb_build_object('status', v_block); end if;
+  select * into l from public.whatsapp_last_logged(p_profile_id, p_household_id, p_wa_message_id);
+  if l.reason is not null then return jsonb_build_object('status', l.reason); end if;
+
+  select type into v_type from public.transactions where id = l.txn_id;
+  -- Only an expense or an income carries a category; the caller checked the id is
+  -- one of that type's categories.
+  if v_type not in ('expense', 'income') then return jsonb_build_object('status', 'no_category'); end if;
+  update public.transactions set category = p_category
+   where id = l.txn_id returning amount, currency, type, category, updated_at into t;
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload, '{}'::jsonb) || jsonb_build_object('corrected_at', t.updated_at)
+   where wa_message_id = l.inbox_id;
+  return jsonb_build_object('status', 'corrected', 'transaction_id', l.txn_id,
+    'amount', t.amount, 'currency', t.currency, 'type', t.type, 'category_id', t.category);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_correct_to_loan(p_profile_id uuid, p_household_id uuid, p_debt_id uuid, p_wa_message_id text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_block  text;
+  l        record;
+  t        public.transactions%rowtype;
+  d        public.debts%rowtype;
+  v_member uuid;
+  v_result jsonb;
+  v_code   text;
+  v_detail text;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  v_block := public.whatsapp_claim_for_write(p_profile_id, p_household_id, p_wa_message_id);
+  if v_block is not null then return jsonb_build_object('status', v_block); end if;
+  select * into l from public.whatsapp_last_logged(p_profile_id, p_household_id, p_wa_message_id);
+  if l.reason is not null then return jsonb_build_object('status', l.reason); end if;
+
+  select * into t from public.transactions where id = l.txn_id;
+  if t.type is distinct from 'expense' then return jsonb_build_object('status', 'not_an_expense'); end if;
+  select * into d from public.debts
+   where id = p_debt_id and household_id = p_household_id and deleted_at is null;
+  if not found then return jsonb_build_object('status', 'error', 'reason', 'debt_unavailable'); end if;
+  select id into v_member from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id limit 1;
+
+  -- The server's split, for the entry's own amount, date and paying account. A refusal is an answer:
+  -- the payment's savepoint rolls back and the entry stays as it was.
+  begin
+    v_result := public.loan_payment_core(p_profile_id, md5('wa-correct-emi:' || t.id::text)::uuid, d.id, 'emi',
+      t.amount, t.date, t.account_id, v_member, null, null, null, null);
+  exception when sqlstate '22023' or sqlstate '42501' then
+    get stacked diagnostics v_code = message_text, v_detail = pg_exception_detail;
+    return jsonb_build_object('status', 'refused', 'reason', v_code, 'figure', nullif(v_detail, ''),
+      'loan', d.name, 'amount', t.amount, 'currency', t.currency);
+  end;
+
+  -- The plain expense goes: the payment above replaces it (one entry, never both).
+  update public.transactions set deleted_at = now() where id = t.id;
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload, '{}'::jsonb) || jsonb_build_object('undone', now(),
+           'converted_to_loan', jsonb_build_object('debt_id', d.id, 'operation_id', v_result->>'operation_id'))
+   where wa_message_id = l.inbox_id;
+  return v_result || jsonb_build_object('loan', d.name, 'amount', t.amount, 'currency', t.currency);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_name_entries(p_profile_id uuid, p_household_id uuid, p_wa_message_id text, p_items jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_block text; v_item jsonb; t record; v_out jsonb := '[]'::jsonb; v_status text;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  v_block := public.whatsapp_claim_for_write(p_profile_id, p_household_id, p_wa_message_id);
+  if v_block is not null then return jsonb_build_object('status', v_block); end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 or jsonb_array_length(p_items) > 10 then
+    return jsonb_build_object('status', 'bad_request');
+  end if;
+
+  for v_item in select * from jsonb_array_elements(p_items) loop
+    select x.id, x.type, x.category, x.deleted_at, x.created_by,
+           coalesce((x.extras->>'excluded')::boolean, false) as excluded
+      into t
+      from public.transactions x
+     where x.id = (v_item->>'id')::uuid and x.household_id = p_household_id
+     for update;
+    if not found or t.deleted_at is not null then v_status := 'gone';
+    elsif t.type <> 'expense' then v_status := 'not_expense';
+    elsif t.excluded and t.created_by is distinct from p_profile_id then v_status := 'private';
+    elsif t.category not in ('other_expense', 'other') then v_status := 'already_named';
+    else
+      update public.transactions set category = v_item->>'category' where id = t.id;
+      v_status := 'named';
+    end if;
+    v_out := v_out || jsonb_build_object('id', v_item->>'id', 'status', v_status, 'category', v_item->>'category');
+  end loop;
+  return jsonb_build_object('status', 'done', 'results', v_out);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_pay_loan(p_profile_id uuid, p_household_id uuid, p_debt_id uuid, p_amount numeric, p_date date, p_wa_message_id text, p_account_alias text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_member  uuid;
+  v_role    text;
+  v_claimed int;
+  d         public.debts%rowtype;
+  v_funding uuid;
+  v_result  jsonb;
+  v_code    text;
+  v_detail  text;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  -- 1. Claim the message, exactly as whatsapp_log_transaction does.
+  insert into public.whatsapp_inbound_messages (wa_message_id, profile_id, household_id, direction)
+    values (p_wa_message_id, p_profile_id, p_household_id, 'inbound')
+    on conflict (wa_message_id) do nothing;
+  update public.whatsapp_inbound_messages
+     set processed_at = now(),
+         profile_id   = coalesce(profile_id, p_profile_id),
+         household_id = coalesce(household_id, p_household_id)
+   where wa_message_id = p_wa_message_id and processed_at is null;
+  get diagnostics v_claimed = row_count;
+  if v_claimed = 0 then return jsonb_build_object('status', 'duplicate'); end if;
+
+  -- 2. A write role in this household.
+  select id, role into v_member, v_role from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id limit 1;
+  if v_member is null then return jsonb_build_object('status', 'error', 'reason', 'not_a_member'); end if;
+  if v_role = 'viewer' then return jsonb_build_object('status', 'error', 'reason', 'read_only_member'); end if;
+
+  select * into d from public.debts where id = p_debt_id and household_id = p_household_id and deleted_at is null;
+  if not found then return jsonb_build_object('status', 'error', 'reason', 'debt_unavailable'); end if;
+
+  -- 3. The account it was paid from: the one named, else the loan's own, else the household default.
+  if nullif(btrim(p_account_alias), '') is not null then
+    select id into v_funding from public.accounts
+     where household_id = p_household_id and kind in ('bank', 'cash') and deleted_at is null and not is_archived
+       and lower(name) like '%' || lower(btrim(p_account_alias)) || '%'
+     order by is_default desc, created_at limit 1;
+  end if;
+  v_funding := coalesce(v_funding,
+    (select id from public.accounts where id = d.funding_account_id and kind in ('bank', 'cash') and deleted_at is null and not is_archived),
+    (select id from public.accounts where household_id = p_household_id and kind in ('bank', 'cash') and deleted_at is null
+        and not is_archived order by is_default desc, (kind = 'bank') desc, created_at limit 1));
+
+  -- 4. The server's split. A refusal is an answer, not a failure: the message stays claimed.
+  begin
+    v_result := public.loan_payment_core(p_profile_id, md5('wa-loan:' || p_wa_message_id)::uuid, d.id, 'emi',
+      p_amount, coalesce(p_date, (now() at time zone 'Asia/Kolkata')::date), v_funding, v_member, null, null, null, null);
+  exception when sqlstate '22023' or sqlstate '42501' then
+    get stacked diagnostics v_code = message_text, v_detail = pg_exception_detail;
+    return jsonb_build_object('status', 'refused', 'reason', v_code, 'figure', nullif(v_detail, ''),
+      'loan', d.name);
+  end;
+
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload, '{}'::jsonb) || jsonb_build_object('loan_payment',
+           jsonb_build_object('debt_id', d.id, 'operation_id', v_result->>'operation_id'))
+   where wa_message_id = p_wa_message_id;
+  return v_result || jsonb_build_object('loan', d.name);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_reconcile_account(p_profile_id uuid, p_household_id uuid, p_wa_message_id text, p_account_id uuid, p_expected_offset numeric, p_offset numeric, p_log jsonb, p_at timestamp with time zone, p_bridge jsonb DEFAULT NULL::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare v_block text; a record;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  v_block := public.whatsapp_claim_for_write(p_profile_id, p_household_id, p_wa_message_id);
+  if v_block is not null then return jsonb_build_object('status', v_block); end if;
+
+  select x.id, x.kind, x.is_archived, x.deleted_at, coalesce(x.reconciliation_offset, 0) as off
+    into a
+    from public.accounts x
+   where x.id = p_account_id and x.household_id = p_household_id
+   for update;
+  if not found or a.deleted_at is not null or a.is_archived then return jsonb_build_object('status', 'gone'); end if;
+  if a.kind not in ('bank', 'credit_card', 'cash') then return jsonb_build_object('status', 'not_supported'); end if;
+  -- The plan was computed from this offset; if it moved, the plan is stale.
+  if round(a.off, 2) <> round(coalesce(p_expected_offset, 0), 2) then
+    return jsonb_build_object('status', 'changed');
+  end if;
+  if jsonb_typeof(p_log) <> 'array' then return jsonb_build_object('status', 'bad_request'); end if;
+
+  update public.accounts set
+    reconciliation_offset = round(p_offset, 2),
+    reconciliation_log    = p_log,
+    last_reconciled_at    = p_at,
+    confidence = 'confirmed', source = 'user', confirmed_at = p_at
+   where id = p_account_id;
+
+  -- §6 R-AGG-5 / D2 — the stated value flows to the linked entity (reconcileSlice).
+  if p_bridge is not null and p_bridge->>'debt_id' is not null then
+    update public.debts set current_balance = greatest(0, (p_bridge->>'current_balance')::numeric),
+           confidence = 'confirmed', source = 'user', confirmed_at = p_at
+     where id = (p_bridge->>'debt_id')::uuid and household_id = p_household_id and deleted_at is null;
+  elsif p_bridge is not null and p_bridge->>'asset_id' is not null then
+    update public.assets set value = (p_bridge->>'value')::numeric, last_updated = (p_at at time zone 'UTC')::date,
+           confidence = 'confirmed', source = 'user', confirmed_at = p_at
+     where id = (p_bridge->>'asset_id')::uuid and household_id = p_household_id and deleted_at is null;
+  end if;
+  return jsonb_build_object('status', 'reconciled', 'offset', round(p_offset, 2));
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_split_even(p_profile_id uuid, p_household_id uuid, p_wa_message_id text, p_txn_id uuid, p_partner_email text, p_split jsonb, p_partner_share numeric)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare v_block text; t record; v_split uuid;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  v_block := public.whatsapp_claim_for_write(p_profile_id, p_household_id, p_wa_message_id);
+  if v_block is not null then return jsonb_build_object('status', v_block); end if;
+
+  select x.id, x.type, x.amount, x.currency, x.date, x.description, x.created_by, x.deleted_at, x.extras
+    into t from public.transactions x
+   where x.id = p_txn_id and x.household_id = p_household_id for update;
+  if not found or t.deleted_at is not null then return jsonb_build_object('status', 'gone'); end if;
+  if t.type <> 'expense' then return jsonb_build_object('status', 'not_expense'); end if;
+  if t.created_by is distinct from p_profile_id then return jsonb_build_object('status', 'not_yours'); end if;
+  if t.extras ? 'split' or exists (select 1 from public.shared_splits s where s.txn_id = t.id) then
+    return jsonb_build_object('status', 'already_split');
+  end if;
+  -- The caller built the split from this row; refuse a mismatch rather than store it.
+  if round((p_split->>'totalAmount')::numeric, 2) <> round(t.amount, 2)
+     or round((p_split->>'yourShare')::numeric + p_partner_share, 2) <> round(t.amount, 2) then
+    return jsonb_build_object('status', 'bad_request');
+  end if;
+
+  update public.transactions
+     set extras = coalesce(extras, '{}'::jsonb) || jsonb_build_object('split', p_split)
+   where id = t.id;
+  insert into public.shared_splits (owner_user_id, owner_household_id, txn_id, description, currency, total_amount, txn_type, date)
+    values (p_profile_id, p_household_id, t.id, t.description, t.currency, t.amount, 'expense', t.date)
+    returning id into v_split;
+  insert into public.shared_split_shares (split_id, email, share)
+    values (v_split, lower(trim(p_partner_email)), p_partner_share);
+  return jsonb_build_object('status', 'split', 'split_id', v_split, 'description', t.description,
+    'currency', t.currency, 'your_share', (p_split->>'yourShare')::numeric, 'partner_share', p_partner_share);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_undo_last(p_profile_id uuid, p_household_id uuid, p_wa_message_id text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare v_block text; l record; t record;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  v_block := public.whatsapp_claim_for_write(p_profile_id, p_household_id, p_wa_message_id);
+  if v_block is not null then return jsonb_build_object('status', v_block); end if;
+  select * into l from public.whatsapp_last_logged(p_profile_id, p_household_id, p_wa_message_id);
+  if l.reason is not null then return jsonb_build_object('status', l.reason); end if;
+
+  update public.transactions set deleted_at = now()
+   where id = l.txn_id returning amount, currency, type, category into t;
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload, '{}'::jsonb) || jsonb_build_object('undone', now())
+   where wa_message_id = l.inbox_id;
+  return jsonb_build_object('status', 'undone', 'transaction_id', l.txn_id,
+    'amount', t.amount, 'currency', t.currency, 'type', t.type, 'category_id', t.category);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.whatsapp_undo_recurring_post(p_profile_id uuid, p_household_id uuid, p_wa_message_id text, p_txn_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare v_block text; t record;
+begin
+  -- Q3a (INT-TXN-14): the activity log names the person this message came from.
+  perform set_config('vyact.actor', p_profile_id::text, true);
+  v_block := public.whatsapp_claim_for_write(p_profile_id, p_household_id, p_wa_message_id);
+  if v_block is not null then return jsonb_build_object('status', v_block); end if;
+  select x.id, x.amount, x.currency, x.date, x.description, x.recurring_schedule_id, x.deleted_at, x.created_at, x.updated_at
+    into t from public.transactions x
+   where x.id = p_txn_id and x.household_id = p_household_id for update;
+  if not found or t.deleted_at is not null then return jsonb_build_object('status', 'gone'); end if;
+  if t.recurring_schedule_id is null then return jsonb_build_object('status', 'not_scheduled'); end if;
+  -- Edited in the app since it posted: that edit is the person's; leave it.
+  if t.updated_at > t.created_at + interval '5 seconds' then return jsonb_build_object('status', 'edited'); end if;
+  update public.transactions set deleted_at = now() where id = t.id;
+  return jsonb_build_object('status', 'undone', 'description', t.description, 'amount', t.amount,
+    'currency', t.currency, 'date', t.date);
+end;
+$function$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120700_q3a_integrity_checks.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit DB-INT-14, INT-HH-08; owner decisions 20 Oct 2026).
+--
+-- DB-INT-14: two money rules the app keeps but the database did not.
+--   - A transfer moves money between two DIFFERENT accounts (one to itself changes nothing and reads as
+--     activity). The WhatsApp writer already refused it; now every writer is held to it.
+--   - A budget line's amount is never below zero.
+--   Both are NOT VALID: they hold every new or changed row from now on, and a row that already breaks one
+--   cannot fail this deploy. (Loan / EMI through WhatsApp is refused in 20261109120600; budget scope stays
+--   optional, because the older category budgets have none.)
+-- INT-HH-08 (database half): language becomes per person. profiles.language unset means "follow the
+--   household" (households.language); the stored default 'en' is cleared to unset, so nobody's language changes
+--   today. The app reads and writes the person's own language in Track Q5.
+
+alter table public.transactions drop constraint if exists ck_txn_transfer_accounts_differ;
+alter table public.transactions
+  add constraint ck_txn_transfer_accounts_differ
+  check (type <> 'transfer' or account_id is distinct from to_account_id) not valid;
+
+alter table public.budget_allocations drop constraint if exists ck_balloc_amount_not_negative;
+alter table public.budget_allocations
+  add constraint ck_balloc_amount_not_negative check (amount >= 0) not valid;
+
+alter table public.profiles alter column language drop default;
+alter table public.profiles alter column language drop not null;
+update public.profiles set language = null where language = 'en';
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261109120800_q3a_indexes.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Q3a (v10.130.0; audit DB-OPS-09; owner, 20 Oct 2026: "indexes only").
+--
+-- Foreign keys that the app, the RLS policies or a delete look up by, with no index leading on them; and three
+-- indexes created twice under different names (v9.1 and its feedback batch). The policy rewrite the audit also
+-- suggested is not done: it pays off at a scale Vyact is far from, and the Q2 access matrix will guard it then.
+
+-- Balances, ledgers, account_dependencies and delete/move read transactions by account.
+create index if not exists ix_txn_account    on public.transactions (account_id)    where account_id is not null;
+create index if not exists ix_txn_to_account on public.transactions (to_account_id) where to_account_id is not null;
+-- account_dependencies, delete_account and the funding-account guard.
+create index if not exists ix_debts_funding_account on public.debts (funding_account_id) where funding_account_id is not null;
+-- loan_account_for and the loan functions find a loan's account by debt.
+create index if not exists ix_accounts_debt on public.accounts (debt_id) where debt_id is not null;
+-- Policies and the household views read these by household.
+create index if not exists ix_invitations_household        on public.invitations (household_id);
+create index if not exists ix_loan_events_household        on public.loan_payment_events (household_id);
+create index if not exists ix_ai_feedback_household        on public.ai_feedback (household_id);
+-- The household erase, a member's unlink and the account purge.
+create index if not exists ix_wa_inbound_household on public.whatsapp_inbound_messages (household_id);
+create index if not exists ix_wa_inbound_profile   on public.whatsapp_inbound_messages (profile_id);
+create index if not exists ix_wa_pending_household on public.whatsapp_pending_turns (household_id);
+create index if not exists ix_wa_identities_household on public.whatsapp_identities (household_id);
+-- A shared split's transaction, and the loan events that point at a deleted transaction.
+create index if not exists ix_shared_splits_txn on public.shared_splits (txn_id) where txn_id is not null;
+create index if not exists ix_loan_events_expense_txn  on public.loan_payment_events (expense_txn_id)  where expense_txn_id is not null;
+create index if not exists ix_loan_events_transfer_txn on public.loan_payment_events (transfer_txn_id) where transfer_txn_id is not null;
+
+-- The same index twice: keep the v9.1 names.
+drop index if exists public.ix_balloc_budget;    -- = idx_balloc_budget
+drop index if exists public.ix_txn_schedule;     -- = idx_txn_recurring
+drop index if exists public.ix_txn_debt;         -- = idx_txn_debt
