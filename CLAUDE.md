@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.133.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.134.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -64,7 +64,18 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   ledger row stays a transfer, and balances, the loan's outstanding and net worth never read
   reportableTxns. A loan payment is ONE entry (`spendEntryKey` / `countSpendEntries`). Every spending
   reader (the app, Pip, WhatsApp through the bundled engine's `spendRows`) gets this from that one
-  place; never filter `type === 'expense'` for a spending total. Categories are **type-scoped**
+  place; never filter `type === 'expense'` for a spending total.
+  **Splits (v10.134.0, Track Q6; audit FE-MNY-08; owner decision 20 Oct 2026: "full debit + Owed to you").** A NEW
+  split you pay (`split.fullDebit`, set by the Split form on create) takes the WHOLE bill from the paying account;
+  your spending is still your share (`effectiveAmount` / `reportableTxns`, unchanged). The others' unpaid shares are
+  "Owed to you" (`lib/splitMoney.ts`): an asset row in Net Worth (`source: 'split'`, short-term), never liquid, never
+  free to spend. A repayment records the account it came into on the share (`paidInto`, `paidOn`; a paid share
+  naming none came into the paying account): that account rises, Owed to you falls, and NO income row is written (a
+  repayment is not income). Splits made before keep their share-only debit. The server folds the same
+  (`split_full_debit`, `account_ledger_balance`), and a `paidInto` is an account link like any other
+  (`assert_txn_tenant_consistency`, `account_dependencies`, `move_account_and_delete`). §Q6 INV-12 holds it; every
+  balance reads `computeAccountBalance` / `ledgerDebit` / `splitReceipts`, never a split's amount by hand.
+  Categories are **type-scoped**
   (`CATEGORIES_BY_TYPE`). **The gate is the test suite:**
   `lib/__tests__/moneyModel.{invariants,regression,engines}.test.ts` + the golden
   file — keep green, update the snapshot deliberately. **It is not "INV-1..9".**
@@ -1092,8 +1103,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   (`splitEmailNotice(result, event)`): 'shared' by the sync listener, and 'settled' / 'closed' after the action's
   own message (v10.121.0, BE-FN-09).
   (v10.16: splits are authored in a **standalone `SplitFormModal`** — removed
-  from the txn form — but stay **transaction-backed** (only `yourShare` counts,
-  money model unchanged); editable until a member pays/settles; emails use the
+  from the txn form — but stay **transaction-backed** (only `yourShare` counts as spending; since v10.134.0 the
+  paying account carries the whole bill, see "Splits" in the money model); editable until a member pays/settles; emails use the
   reusable `supabase/functions/_shared/emailTemplates.ts` with a "sign up"
   variant for non-account recipients.)
 - **Onboarding renders outside `<Layout>`** (v10.16) — the `/onboarding` early

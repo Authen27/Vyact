@@ -6,9 +6,11 @@
 import type { Account, Transaction } from '../types';
 import { accountValueOf, computeAccountBalance, creditAccountOf, debitAccountOf } from './accountBalance';
 import { effectiveAmount } from './calculations';
+import { ledgerDebit, splitReceipts } from './splitMoney';
 import { dateKeyIn } from './format';
 
-export interface LedgerRow { t: Transaction; impact: number; runningAfter: number }
+/** v10.134.0 (Q6): a row is an entry, or a repayment of a full-debit split (`receipt`: who paid, on `date`). */
+export interface LedgerRow { t: Transaction; impact: number; runningAfter: number; date: string; key: string; receipt?: string }
 
 export function accountLedgerRows(
   account: Account, txns: Transaction[], baseCur: string, rates: Record<string, number>,
@@ -18,18 +20,21 @@ export function accountLedgerRows(
   // transfer/investment touch both legs (R-AGG-4).
   const hits = (v: string | undefined) => v === account.id || v === accountValue;
   const mine = txns
-    .map(t => {
+    .flatMap(t => {
       const amt = effectiveAmount(t, baseCur, rates);
       let impact = 0;
       if (t.type === 'income' && hits(creditAccountOf(t))) impact = amt;
-      else if (t.type === 'expense' && hits(debitAccountOf(t))) impact = -amt;
+      else if (t.type === 'expense' && hits(debitAccountOf(t))) impact = -(ledgerDebit(t) ?? amt);
       else if (t.type === 'transfer' || t.type === 'investment') {
         impact = (hits(creditAccountOf(t)) ? amt : 0) - (hits(debitAccountOf(t)) ? amt : 0);
       }
-      return { t, impact };
+      // A full-debit split's repayments into this account, each on the day it was paid (Q6).
+      const receipts = splitReceipts(t).filter(r => hits(r.accountId))
+        .map(r => ({ t, impact: r.amount, date: r.date, key: `${t.id}:${r.name}`, receipt: r.name }));
+      return [{ t, impact, date: t.date, key: t.id, receipt: undefined as string | undefined }, ...receipts];
     })
     .filter(r => r.impact !== 0)
-    .sort((a, b) => (a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0));
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   // Reconcile adjustments, newest first, by the day they were applied.
   const adjustments = (account.reconciliationLog ?? [])
     .map(e => ({ day: e.at.length > 10 ? dateKeyIn(new Date(e.at)) : e.at, delta: e.delta }))
@@ -37,7 +42,7 @@ export function accountLedgerRows(
   let next = 0;
   let running = computeAccountBalance(account, txns, baseCur, rates);
   return mine.map(r => {
-    while (next < adjustments.length && adjustments[next].day >= r.t.date) running -= adjustments[next++].delta;
+    while (next < adjustments.length && adjustments[next].day >= r.date) running -= adjustments[next++].delta;
     const at = Math.round(running * 100) / 100;
     running -= r.impact;
     return { ...r, runningAfter: at };

@@ -1773,7 +1773,7 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 41,
+      "count": 42,
       "tests": [
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be archived either — it would vanish from every picker",
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be deleted, and the refusal changes nothing",
@@ -1801,6 +1801,7 @@
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account does not use is dropped, and the money still posts",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account uses is kept, and the balance moves exactly as without one",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number an investment never carries a mode",
+        "a split you pay in full (v10.134.0, Q6; FE-MNY-08) Q6-007 · saved through the store, the bank drops by the whole bill and a repayment named by its picker value lands in that account",
         "an account is archived at zero (v10.133.0, Q5; FE-MNY-12) Q5-012 · the store refuses to archive an account that holds money, says why, and archives it once it is at zero",
         "base currency change (v10.54.0) relabels the open session's accounts, as the DB trigger does, so a balance is never converted twice",
         "ledger persisted happy paths 'expense' create, edit and delete persist correct account effects and reporting",
@@ -2030,7 +2031,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "calculations / money / netWorth",
-      "count": 19,
+      "count": 23,
       "tests": [
         "§7 INV-1 — transfers are spend/income neutral INV-1 · a transfer changes no spend or income total",
         "§7 INV-10 — a liability account is never liquid INV-10 · a card that owes money is a liability, and contributes nothing to liquid assets",
@@ -2050,7 +2051,11 @@
         "§7 INV-7 — net worth = assets − liabilities (liability kinds negative) INV-7 · credit-card/loan balances subtract; receivables do not",
         "§7 INV-7b — Net Worth asset side reads live account balances, de-duped against linked legacy assets INV-7b · a linked account replaces its asset (no double-count) and folds live transactions",
         "§7 INV-7b — Net Worth asset side reads live account balances, de-duped against linked legacy assets INV-7c · an investment asset contributes its LIVE folded value; every other asset its stated value",
-        "§7 INV-9 — categories are type-scoped; transfers/investments carry none INV-9 · transfer and investment category pools are empty"
+        "§7 INV-9 — categories are type-scoped; transfers/investments carry none INV-9 · transfer and investment category pools are empty",
+        "§Q6 INV-12 — a split you pay in full INV-12 · the paying account drops by the full bill; spending is your share; net worth is what the share-only model gave",
+        "§Q6 INV-12 — a split you pay in full INV-12b · the others' unpaid shares are Owed to you: in net worth, short-term, never liquid",
+        "§Q6 INV-12 — a split you pay in full INV-12c · a repayment into an account: that account rises, Owed to you falls; net worth, spending and income stay",
+        "§Q6 INV-12 — a split you pay in full INV-12d · a split made before keeps its share-only debit and owes nothing; a paid share naming no account came back into the paying account"
       ]
     },
     {
@@ -2738,6 +2743,38 @@
         "from the app, a bank account or card is archived at zero (FE-MNY-12) Q5-SQL-003 · at zero it archives, including a reconcile to zero and the archive in one write",
         "from the app, a bank account or card is archived at zero (FE-MNY-12) Q5-SQL-004 · loans are archived by the loan functions, and jobs and migrations are not held to it",
         "the server folds an account as the app does (FE-MNY-12) Q5-SQL-001 · opening + offset + what arrived − what left; a split at your share; deleted entries out"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/q6SplitMoney.test.ts",
+      "feature": "Split full debit and Owed to you (Q6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "FE-MNY-08: only a new split you paid carries the full bill; repayments into their account (else the paying one); Owed to you; the account ledger shows repayments; the Split form and Splits page; local dependencies and move; Net Worth and Pip show Owed to you as a short-term asset",
+      "count": 6,
+      "tests": [
+        "what a split does to the accounts (FE-MNY-08) Q6-001 · only a new split you paid carries the full bill; its paid shares come back into their account; the rest is owed",
+        "what a split does to the accounts (FE-MNY-08) Q6-002 · an account's ledger shows each repayment on its own day, by name, and ends at the account's balance",
+        "what a split does to the accounts (FE-MNY-08) Q6-003 · the Split form makes a new expense split full debit, keeps an older one as it was, and records where a share ticked paid came in",
+        "what a split does to the accounts (FE-MNY-08) Q6-004 · on a full-debit split, marking someone paid asks which bank or cash account the money came back into",
+        "what a split does to the accounts (FE-MNY-08) Q6-005 · an account a repayment came into is in use here too, and a move carries its repayments",
+        "what a split does to the accounts (FE-MNY-08) Q6-006 · Net Worth and Pip show Owed to you as an asset, never as money to spend"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/q6SplitSql.test.ts",
+      "feature": "Split receipts on the server (Q6)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "FE-MNY-08: account_ledger_balance folds full debits and repayments as the app does (parity on the same rows); a repayment link is the household's own and live when made; account_dependencies counts it; move_account_and_delete carries it",
+      "count": 4,
+      "tests": [
+        "a repayment link is an account link (FE-MNY-08) Q6-SQL-002 · it names this household's account, and a new one a live account; an old one on a deleted account still edits",
+        "a repayment link is an account link (FE-MNY-08) Q6-SQL-003 · an account a repayment came into is in use: delete_account refuses it",
+        "a repayment link is an account link (FE-MNY-08) Q6-SQL-004 · moving an account carries its repayments, and no balance or total moves",
+        "the server folds a split as the app does (FE-MNY-08) Q6-SQL-001 · full debit, repayments into the named account (else the paying one), an older split at your share"
       ]
     },
     {

@@ -296,7 +296,8 @@ export function buildSafeSummary(
     // the total it decomposes (asserted by askVyactFacts).
     holdings: nwProjection.assetRows.map(r => ({
       name: r.name,
-      source: r.source === 'asset' ? 'asset' as const : 'account' as const,
+      // Owed to you (Q6) is an asset the household holds, not an account.
+      source: r.source === 'account' ? 'account' as const : 'asset' as const,
       liquidity: (r.liquidity ?? 'liquid') as 'liquid' | 'short' | 'long',
       value: round2(r.value),
     })),

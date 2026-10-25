@@ -333,3 +333,68 @@ describe('§7 INV-11 — reconciling a card states an outstanding, not a balance
     expect(reconcileAccount(bank, 0, 34000, 'bank').delta).toBe(34000);
   });
 });
+
+// v10.134.0 (Track Q6; audit FE-MNY-08; owner decision 20 Oct 2026: "full debit + Owed to you; settling records the
+// money into a chosen account"). THE MONEY MODEL IS REVISED HERE, DELIBERATELY: a split you pay in full now takes the
+// whole bill from the paying account (it used to take only your share, so the account drifted from the bank by the
+// others' shares). These pin what must stay true: spending is your share; net worth at creation is what the
+// share-only model gave; the others' shares are Owed to you, never liquid; settling moves money and nothing else; a
+// split made before is unchanged.
+describe('§Q6 INV-12 — a split you pay in full', () => {
+  const MAIN: Account = { id: 'acc-main', kind: 'bank', name: 'HDFC', currency: 'USD', openingBalance: 5000 };
+  const SAVE: Account = { id: 'acc-save', kind: 'bank', name: 'Savings', currency: 'USD', openingBalance: 0 };
+  const dinner = (fullDebit: boolean, paid: { ann?: string | true; bo?: string | true } = {}): Transaction => ({
+    id: 'split-1', type: 'expense', amount: 900, currency: 'USD', date: d('05'), description: 'Dinner', category: 'food_dining',
+    accountId: 'acc-main',
+    split: { isSplit: true, totalAmount: 900, yourShare: 300, paidBy: 'me', ...(fullDebit ? { fullDebit: true } : {}),
+      participants: [
+        { name: 'You', isYou: true, share: 300, paid: true },
+        { name: 'Ann', share: 300, paid: !!paid.ann, ...(typeof paid.ann === 'string' ? { paidInto: paid.ann, paidOn: d('09') } : {}) },
+        { name: 'Bo', share: 300, paid: !!paid.bo, ...(typeof paid.bo === 'string' ? { paidInto: paid.bo, paidOn: d('10') } : {}) },
+      ] },
+  });
+  const nw = (txns: Transaction[]) => computeNetWorth({ assets: [], accounts: [MAIN, SAVE], debts: [], transactions: txns }, 'USD', R);
+
+  it('INV-12 · the paying account drops by the full bill; spending is your share; net worth is what the share-only model gave', () => {
+    const full = [dinner(true)];
+    const before = [dinner(false)];
+    expect(computeAccountBalance(MAIN, full, 'USD', R)).toBe(5000 - 900);
+    expect(computeAccountBalance(MAIN, before, 'USD', R)).toBe(5000 - 300);
+    expect(monthlyData(full, MK, 'USD', R).expense).toBe(300);
+    expect(spendByCategory(full, MK, 'USD', R).food_dining).toBe(300);
+    expect(nw(full).netWorth).toBe(nw(before).netWorth);
+    expect(nw(full).netWorth).toBe(5000 - 300);
+  });
+
+  it('INV-12b · the others\' unpaid shares are Owed to you: in net worth, short-term, never liquid', () => {
+    const p = nw([dinner(true)]);
+    const owed = p.assetRows.find(r => r.source === 'split');
+    expect(owed).toMatchObject({ name: 'Owed to you', value: 600, liquidity: 'short' });
+    // Liquid is what the account really holds now: the whole bill left it.
+    expect(p.liquidAssets).toBe(5000 - 900);
+  });
+
+  it('INV-12c · a repayment into an account: that account rises, Owed to you falls; net worth, spending and income stay', () => {
+    const open = [dinner(true)];
+    const settled = [dinner(true, { ann: 'acc-save' })];
+    expect(computeAccountBalance(SAVE, settled, 'USD', R)).toBe(300);
+    expect(computeAccountBalance(MAIN, settled, 'USD', R)).toBe(5000 - 900);
+    expect(nw(settled).assetRows.find(r => r.source === 'split')?.value).toBe(300);
+    expect(nw(settled).netWorth).toBe(nw(open).netWorth);
+    expect(monthlyData(settled, MK, 'USD', R)).toEqual(monthlyData(open, MK, 'USD', R));
+    // Everyone paid back into the paying account: it is down by your share only, and nothing is owed.
+    const done = [dinner(true, { ann: 'acc-main', bo: 'acc-main' })];
+    expect(computeAccountBalance(MAIN, done, 'USD', R)).toBe(5000 - 300);
+    expect(nw(done).assetRows.some(r => r.source === 'split')).toBe(false);
+    expect(nw(done).netWorth).toBe(nw(open).netWorth);
+  });
+
+  it('INV-12d · a split made before keeps its share-only debit and owes nothing; a paid share naming no account came back into the paying account', () => {
+    const legacy = [dinner(false, { ann: true })];
+    expect(computeAccountBalance(MAIN, legacy, 'USD', R)).toBe(5000 - 300);
+    expect(nw(legacy).assetRows.some(r => r.source === 'split')).toBe(false);
+    const unnamed = [dinner(true, { ann: true })];
+    expect(computeAccountBalance(MAIN, unnamed, 'USD', R)).toBe(5000 - 900 + 300);
+    expect(nw(unnamed).netWorth).toBe(nw([dinner(true)]).netWorth);
+  });
+});

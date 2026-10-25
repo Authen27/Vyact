@@ -498,3 +498,18 @@ describe('an account is archived at zero (v10.133.0, Q5; FE-MNY-12)', () => {
     expect(zeroed.isArchived).toBe(true);
   });
 });
+
+describe('a split you pay in full (v10.134.0, Q6; FE-MNY-08)', () => {
+  it('Q6-007 · saved through the store, the bank drops by the whole bill and a repayment named by its picker value lands in that account', async () => {
+    await useStore.getState().upsertTransaction({ id: 'sp', type: 'expense', amount: 300, currency: 'USD', date: '2026-09-09',
+      description: 'Dinner', category: 'food_dining', accountId: 'bank',
+      split: { isSplit: true, totalAmount: 300, yourShare: 100, paidBy: 'me', fullDebit: true,
+        participants: [{ name: 'You', isYou: true, share: 100, paid: true }, { name: 'Ann', share: 120, paid: true, paidInto: 'asset:bank' },
+          { name: 'Bo', share: 80, paid: false }] } } as Transaction);
+    const saved = useStore.getState().transactions.find(x => x.id === 'sp')!;
+    expect(saved.split!.participants[1].paidInto).toBe('bank');          // the picker value became the account's id
+    const bank = useStore.getState().accounts.find(a => a.id === 'bank')!;
+    expect(computeAccountBalance(bank, useStore.getState().transactions, 'USD', {})).toBe(1000 - 300 + 120);
+    expect(monthlyData(useStore.getState().transactions, '2026-09', 'USD', {}).expense).toBe(100);
+  });
+});

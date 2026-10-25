@@ -41,6 +41,7 @@
 //   react/src/lib/rrule.ts
 //   react/src/lib/serverEngine.ts
 //   react/src/lib/spendBaseline.ts
+//   react/src/lib/splitMoney.ts
 //   react/src/lib/supabaseAdapter.ts
 // @ts-nocheck
 //#region react/src/constants.ts
@@ -1527,6 +1528,51 @@ function spendByCategoryInRange(transactions, start, end, baseCurrency, rates) {
 	return out;
 }
 //#endregion
+//#region react/src/lib/splitMoney.ts
+/** A split you paid whose paying account carries the whole bill (new since v10.134.0). */
+function isFullDebitSplit(t) {
+	return t.type === "expense" && t.split?.isSplit === true && t.split.fullDebit === true && t.split.paidBy === "me";
+}
+/** What a transaction takes from the account it is paid from, or null to use the usual (effective) amount. */
+function ledgerDebit(t) {
+	return isFullDebitSplit(t) ? Math.round(t.amount * 100) / 100 : null;
+}
+/** The repayments recorded on a full-debit split: each paid share with the account it came back into. A paid share
+*  that names no account came back into the account the bill was paid from, so a paid share never leaves net worth. */
+function splitReceipts(t) {
+	if (!isFullDebitSplit(t)) return [];
+	const paidFrom = t.accountId ?? t.paymentMethod;
+	return (t.split.participants ?? []).filter((p) => !p.isYou && p.paid && Number.isFinite(p.share) && !!(p.paidInto ?? paidFrom)).map((p) => ({
+		txnId: t.id,
+		name: p.name,
+		accountId: p.paidInto ?? paidFrom,
+		amount: Math.round(p.share * 100) / 100,
+		date: p.paidOn ?? t.date
+	}));
+}
+/** The others' unpaid shares of full-debit splits: money that left your account and is owed back. */
+function owedToYouShares(txns) {
+	const out = [];
+	for (const t of txns) {
+		if (!isFullDebitSplit(t)) continue;
+		for (const p of t.split.participants ?? []) {
+			if (p.isYou || p.paid || !Number.isFinite(p.share) || p.share <= 0) continue;
+			out.push({
+				txnId: t.id,
+				name: p.name,
+				amount: Math.round(p.share * 100) / 100,
+				description: t.description,
+				date: t.date
+			});
+		}
+	}
+	return out;
+}
+/** Owed to you, in total. */
+function owedToYou(txns) {
+	return Math.round(owedToYouShares(txns).reduce((s, x) => s + x.amount, 0) * 100) / 100;
+}
+//#endregion
 //#region react/src/lib/accountBalance.ts
 /** The encoded legacy account key for an Account (paymentMethod scheme).
 *  Audit F2: liability accounts prefer the explicit debtId link (the old
@@ -1552,7 +1598,9 @@ function creditAccountOf(t) {
 	return t.toAccountId ?? t.linkedToAssetId ?? void 0;
 }
 /** R-AGG-4 — an account's current balance. Pure fold over real transactions plus
-*  the D2 reconciliation offset. Excluded-from-reports txns still count (money moved). */
+*  the D2 reconciliation offset. Excluded-from-reports txns still count (money moved).
+*  v10.134.0 (Q6): a full-debit split takes the whole bill from the account that paid it, and each repayment comes back
+*  into the account it was paid into (lib/splitMoney.ts); the server folds the same (account_ledger_balance). */
 function computeAccountBalance(account, txns, baseCurrency, rates) {
 	let bal = (account.openingBalance ?? 0) + (account.reconciliationOffset ?? 0);
 	for (const t of txns) {
@@ -1560,7 +1608,8 @@ function computeAccountBalance(account, txns, baseCurrency, rates) {
 		if (t.type === "income") {
 			if (matches(account, creditAccountOf(t))) bal += amt;
 		} else if (t.type === "expense") {
-			if (matches(account, debitAccountOf(t))) bal -= amt;
+			if (matches(account, debitAccountOf(t))) bal -= ledgerDebit(t) ?? amt;
+			for (const r of splitReceipts(t)) if (matches(account, r.accountId)) bal += r.amount;
 		} else if (t.type === "transfer" || t.type === "investment") {
 			if (matches(account, debitAccountOf(t))) bal -= amt;
 			if (matches(account, creditAccountOf(t))) bal += amt;
@@ -2136,6 +2185,15 @@ function computeNetWorth(state, baseCurrency, rates) {
 			account
 		});
 	}
+	const owed = owedToYou(transactions);
+	if (owed > 0) assetRows.push({
+		id: "owed-to-you",
+		name: "Owed to you",
+		value: owed,
+		currency: baseCurrency,
+		liquidity: "short",
+		source: "split"
+	});
 	const liabilityRows = liveLiabilityRows(debts, accounts, transactions, baseCurrency, rates);
 	const totalAssets = liveTotalAssets(assetRows);
 	const totalLiabilities = round2$2(liabilityRows.reduce((s, r) => s + r.value, 0));
@@ -2322,7 +2380,7 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 		spendBasis: basis,
 		holdings: nwProjection.assetRows.map((r) => ({
 			name: r.name,
-			source: r.source === "asset" ? "asset" : "account",
+			source: r.source === "account" ? "account" : "asset",
 			liquidity: r.liquidity ?? "liquid",
 			value: round2(r.value)
 		})),

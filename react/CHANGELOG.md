@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.133.0`** (consumer)
+> **Current production version: `v10.134.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,22 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.134.0 — A split takes the whole bill from your account; what others owe is "Owed to you" *(2026-10-25)*
+
+Track Q, part 6 (audit FE-MNY-08; owner decision 20 Oct 2026). **The money model changes here, deliberately.** The
+migration (`20261112120000_q6_split_full_debit.sql`) must be live before this app.
+
+- **A new split you pay takes the whole bill from the account you paid with.** It used to take only your share, so
+  that account drifted from your bank by everyone else's share and never reconciled. Your spending is still your
+  share: budgets, Reports and Pip are unchanged.
+- **What the others owe is "Owed to you"** in Net Worth: part of what you own, never counted as money you can spend
+  or as savings. Net worth is the same as before the moment you make the split.
+- **When someone pays you back,** Mark paid asks which account the money came into. That account goes up by their
+  share and Owed to you goes down; it is not income. The account's ledger shows "Ann paid you back".
+- Splits made before this keep working exactly as they did.
+- An account a repayment came into counts as in use (it can't be deleted outright), and moving its history moves the
+  repayments too.
 
 ## v10.133.0 — Amounts read as typed, one "free to spend", and dialogs that keep focus *(2026-10-25)*
 

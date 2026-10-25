@@ -310,6 +310,21 @@ export default function NetWorth() {
                           </div>
                         );
                       }
+                      // v10.134.0 (Q6): Owed to you — the others' unpaid shares of splits you paid in full.
+                      if (row.source === 'split') {
+                        return (
+                          <div key={row.id} className="tile px-4 py-3 flex items-center justify-between gap-2" data-testid="owed-to-you">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span aria-hidden>⇄</span>
+                              <div className="min-w-0">
+                                <div className="text-[0.84rem] font-semibold text-ink truncate">{row.name}</div>
+                                <div className="text-[12px] text-ink-dim">Shares of splits you paid; not money you can spend yet</div>
+                              </div>
+                            </div>
+                            <Money amount={row.value} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem] flex-shrink-0" />
+                          </div>
+                        );
+                      }
                       const a = row.asset!;
                       const meta = ASSET_TYPES[a.type] || ASSET_TYPES.cash;
                       return (

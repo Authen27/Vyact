@@ -28,6 +28,7 @@
 import type { Account, Asset, Debt, Transaction, ExchangeRates, Liquidity } from '../types';
 import { computeAccountBalance, liveAssetRows, liveTotalAssets } from './accountBalance';
 import { convert } from './format';
+import { owedToYou } from './splitMoney';
 
 export interface LiabilityRow {
   id: string;
@@ -151,6 +152,12 @@ export function computeNetWorth(
         assetRows.push({ id: account.id, name: account.name, value,
           currency: baseCurrency, liquidity: 'short', source: 'account', account });
       }
+    }
+    // v10.134.0 (Track Q6; FE-MNY-08): the others' unpaid shares of full-debit splits left the paying account and are
+    // owed back. They are the household's (net worth), but never liquid and never free to spend.
+    const owed = owedToYou(transactions);
+    if (owed > 0) {
+      assetRows.push({ id: 'owed-to-you', name: 'Owed to you', value: owed, currency: baseCurrency, liquidity: 'short', source: 'split' });
     }
   const liabilityRows = liveLiabilityRows(debts, accounts, transactions, baseCurrency, rates);
   const totalAssets = liveTotalAssets(assetRows);

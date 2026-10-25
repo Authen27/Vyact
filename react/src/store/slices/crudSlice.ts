@@ -368,12 +368,16 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
                             || (t.accountId === toId && t.toAccountId === fromId))) {
       throw new Error('Transfers run between these two accounts — moving would turn them into transfers to itself.');
     }
+    // v10.134.0 (Q6): a split's repayments into it now came into the destination, as the RPC does.
+    const receivedInto = (t: Transaction) => (t.split?.participants ?? []).some(p => p.paidInto === fromId);
     const movedTxns: Transaction[] = transactions
-      .filter(t => t.accountId === fromId || t.toAccountId === fromId)
+      .filter(t => t.accountId === fromId || t.toAccountId === fromId || receivedInto(t))
       .map(t => ({
         ...t,
         accountId: t.accountId === fromId ? toId : t.accountId,
         toAccountId: t.toAccountId === fromId ? toId : t.toAccountId,
+        ...(receivedInto(t) ? { split: { ...t.split!, participants: t.split!.participants
+          .map(p => (p.paidInto === fromId ? { ...p, paidInto: toId } : p)) } } : {}),
       }));
     const movedSchedules: RecurringSchedule[] = recurringSchedules
       .filter(s => s.transactionTemplate.accountId === fromId || s.transactionTemplate.toAccountId === fromId)
