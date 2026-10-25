@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.129.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.130.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -162,7 +162,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   both ids collides and aborts the migration. Sum them; keep `category_prev`.
 - **Budget identity lives in the DB** — one per `(household, scope, period)`,
   enforced by `uq_budget_month/annual` + `upsert_budget(_with_allocations)` RPC
-  (the single writer). Never put budget identity on the client. Create is online
+  (the single writer; since v10.130.0 (Q3a, DB-SEC-03) owners and admins only, and an id naming another
+  household's budget is refused, `budget_not_found`). Never put budget identity on the client. Create is online
   and raises `BUDGET_EXISTS`. A NOT-NULL column with a DB default is written as
   its default or **omitted**, never explicit `null` (`?? undefined`).
 - **Cash in Hand identity lives in the DB too (v10.23.0)** — exactly one live
@@ -813,6 +814,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     - Never add a client path that inserts a membership for another user id.
   - A WhatsApp link ends with the membership (trigger), and the webhook / `guardedSend` re-check membership (`isLiveMember`).
   - Platform admins read household ledgers only through SECURITY DEFINER aggregate RPCs, never row by row.
+  - **Staff changes are audited (v10.130.0, Q3a; ADM-04).** `admin_audit` is append-only (a trigger refuses
+    every update and delete) and records admin roles, Learn content (which fields, never the text), needs/wants and
+    AI model settings, with the actor (none = the dashboard or a migration). Roles change only through
+    `grant_admin_role` / `revoke_admin_role` (super only; the last super admin is kept); super admins read it with
+    `admin_staff_audit`. Only super admins write `category_classifications` (ADM-05). Content-tier staff read AI
+    usage as totals: per-person segments are super-only, and `ai_usage` rows are their household's only (ADM-06).
   - Admins see who did what and when in a household's activity log, never the values (owner decision
     13 Oct 2026; ADM-03). `admin_activity_feed` (v10.92.0) returns the time, household, actor, action and
     entity, never `activity_log.changes`. Never add `changes`, or a `select *`, to it. The admin Audit
@@ -1144,6 +1151,15 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
     months or recurrence joins `SUITES` in `react/scripts/test-timezones.mjs`.
   - Never fix one of these by loosening the config. WebCrypto and `fetch` take ArrayBuffer-backed bytes
     (`ab()` in `_shared/web-push.ts`, or `new Uint8Array(x)`).
+- **The household activity log names its actor (v10.130.0, Q3a; INT-TXN-14; owner: "the person, else Vyact").**
+  `log_domain_activity` reads `auth.uid()`, else the transaction-local `vyact.actor` that each WhatsApp writer sets
+  to the sender (`p_profile_id`); a scheduled job sets nothing (no actor = "Vyact (automatic)"). A new server writer
+  of household rows sets `vyact.actor` the same way, first thing. Setting `deleted_at` is logged as `deleted`.
+- **Signed out, Learn content is the public columns only (v10.130.0, Q3a; FE-PUB-08).** `anon` has column-level
+  SELECT on `content_items` (the list in `20261109120300_q3a_public_content.sql`). A public page that needs another
+  column grants it there first; Q3A-013 fails when a `react/api` query asks for one that is not granted.
+- **A person's language is theirs (v10.130.0 database half; INT-HH-08).** `profiles.language` is null until the
+  person picks one; null follows `households.language`.
 - **Every migration replays, and who can do what is a test (v10.129.0, Q2; audit OPS-02, DB-SEC-10, OPS-08; owner
   decision D10).**
   - `migrationReplaySql.test.ts` applies every file in `supabase/migrations`, as written, to an empty PGlite set up

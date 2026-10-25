@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1627 passing deterministic cases in 184 files. Zero failed, skipped or TODO cases at generation.**
+**1643 passing deterministic cases in 185 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 131 |
 | react | contract-unit | conditional | 132 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 154 |
+| react | sql-integration | conditional | 170 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
@@ -176,6 +176,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
 | [react/src/lib/__tests__/pulseContentSql.test.ts](../react/src/lib/__tests__/pulseContentSql.test.ts) | Pulse content unpublished SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/pushPrivacy.test.tsx](../react/src/lib/__tests__/pushPrivacy.test.tsx) | Lock-screen details and the Android app (T4c) | contract-unit | available | 4 |
+| [react/src/lib/__tests__/q3aDatabaseSql.test.ts](../react/src/lib/__tests__/q3aDatabaseSql.test.ts) | Database fixes from Track Q3a | sql-integration | conditional | 16 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |

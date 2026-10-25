@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.129.0`** (consumer)
+> **Current production version: `v10.130.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,52 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.130.0 — Budgets stay in their household, staff changes are recorded, and the activity log names who did it *(2026-10-20)*
+
+Database only (nine migrations); the admin app follows in admin v1.5.0, and the app halves of INT-HH-08 and
+FE-MNY-12 in Track Q5. Track Q, part 3a. Owner decisions 20 Oct 2026 (D4 and the Q3 answers).
+
+- **Budgets (DB-SEC-03, DB-OPS-03).**
+  - Only an owner or admin can write a budget, as the app and the budgets policies already said.
+  - An id that names another household's budget is refused. Before, replace mode rewrote that other budget.
+- **Production-only objects are under the migrations (DB-OPS-03, DB-OPS-16).**
+  - `migration_issues` is server-only. Until now anyone could read and write it through the API, signed-out
+    visitors included.
+  - The June v9 backup tables are dropped.
+  - `pg_trgm` is dropped when nothing in the database uses it.
+- **Staff (ADM-04, ADM-05, ADM-06, ADM-08, ADM-14).**
+  - **Audit trail:** an append-only record of staff changes (roles, Learn content, needs/wants, Pip's model
+    settings), with who made each.
+  - **Roles:** granted and revoked by super admins through functions that keep the last super admin.
+  - **Needs/wants:** only super admins can change it, since it moves every household's emergency floor.
+  - **AI usage:** content-tier staff see totals only, never who asked what.
+  - **Admin lists:** one page at a time, with totals, member counts and the pages' headline figures from the
+    server, so nothing stops at 1,000 rows.
+  - **MRR:** per currency.
+- **Learn content (FE-PUB-08, ADM-10, ADM-11).**
+  - Signed out, only the columns the public pages use are readable; the author's user id is no longer one.
+  - The image bucket takes PNG, JPEG and WebP up to 5 MB.
+  - Old email bylines read "Vyact".
+- **WhatsApp (DB-INT-13, DB-INT-14).**
+  - "From bank" with two bank accounts uses the default one (else the oldest); the reply names it.
+  - A Loan / EMI expense must pay its loan.
+- **The household activity log (INT-TXN-14).**
+  - It names the person a WhatsApp entry came from; scheduled jobs have no actor ("Vyact (automatic)").
+  - A deleted entry reads "deleted".
+- **Money checks and language (DB-INT-14, INT-HH-08).**
+  - New rows: a transfer can't go to the same account, and a budget line can't be negative.
+  - A person's language is unset until they choose one.
+- **Indexes (DB-OPS-09).**
+  - Fourteen added on lookups that had none.
+  - Three duplicates dropped.
+- **Tests.**
+  - The Q2 access matrix's two recorded gaps are closed, so it records none.
+  - `q3aDatabaseSql.test.ts` covers the rest (Q3A-001..016).
+  - The three suites that replay every migration now share one replay. It is saved to the temp folder under a hash
+    of the migrations, the stand-ins and PGlite, and the others load it (under a second instead of 3–4 s each).
+    Three replays at once had slowed the rest of a local run past its 5-second timeouts.
+  - The two tests that read every source file or every migration from disk have a 20-second timeout.
 
 ## v10.129.0 — Every migration is tried before production, and who can do what is tested *(2026-10-20)*
 

@@ -3,7 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { replayMigrations } from './helpers/replayMigrations';
 
 // Q2-AZ-001..010 — v10.129.0 (Q2; audit DB-SEC-10, OPS-08, ADM-07 server half, XC-ARC-13; owner decision D10,
-// 20 Oct 2026: "an authz matrix"). Who can read and change what, run against the schema every migration builds
+// 20 Oct 2026: "an authz matrix"). v10.130.0 (Q3a) closed both recorded gaps (DB-SEC-03, migration_issues), took
+// ai_usage rows and the needs/wants table from the content tier (ADM-06, ADM-05) and added the staff audit and
+// the paged admin lists. Who can read and change what, run against the schema every migration builds
 // (helpers/replayMigrations.ts), as each kind of person:
 //
 //   anon         · not signed in
@@ -52,19 +54,20 @@ const hh = (h: 1 | 2) => (h === 1 ? H1 : H2);
 type Outcome = { ok: true; rows: number; data: Record<string, unknown>[] } | { ok: false; code: string; message: string };
 
 /** Run one statement as `p`, in a transaction that is always rolled back. */
+/** The statements that make a transaction run as `p` (one call: the matrix runs well over a thousand of them). */
+function asPersona(p: Persona): string {
+  if (p === 'anon') return `begin; set constraints all immediate;
+    select set_config('request.jwt.claims', '{"role":"anon"}', true); set local role anon;`;
+  // A sign-in a minute ago (amr), so actions that need a recent sign-in can be reached.
+  const claims = JSON.stringify({ sub: UID[p], role: 'authenticated', email: EMAIL(p),
+    amr: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) - 60 }] }).replace(/'/g, "''");
+  return `begin; set constraints all immediate;
+    select set_config('request.jwt.claims', '${claims}', true); set local role authenticated;`;
+}
+
 async function as(p: Persona, sql: string, params: unknown[] = []): Promise<Outcome> {
-  await db.exec('begin');
+  await db.exec(asPersona(p));
   try {
-    await db.exec('set constraints all immediate');
-    if (p === 'anon') {
-      await db.exec(`set local role anon; select set_config('request.jwt.claims', '{"role":"anon"}', true)`);
-    } else {
-      // A sign-in a minute ago (amr), so actions that need a recent sign-in can be reached.
-      const claims = { sub: UID[p], role: 'authenticated', email: EMAIL(p),
-        amr: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) - 60 }] };
-      await db.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify(claims)]);
-      await db.exec('set local role authenticated');
-    }
     const r = await db.query<Record<string, unknown>>(sql, params);
     return { ok: true, rows: r.rows.length, data: r.rows };
   } catch (e) {
@@ -167,8 +170,9 @@ const TABLES: TableCase[] = [
     expect: { owner: 'SIUD', admin: '-I--', member: '-I--', viewer: '-I--' } },
   { table: 'ai_usage', householdScoped: true, target: h => `id = '${id('usage', h)}'`, touch: 'intent = intent',
     insert: (p, h) => `insert into ai_usage (household_id, user_id, source) values ('${hh(h)}', ${uid(p)}, 'client')`,
-    // Members read their household's usage (no content in it); content admins read it all; the server meters.
-    expect: { owner: 'SI--', admin: 'SI--', member: 'SI--', viewer: 'SI--', superAdmin: 'S---', contentAdmin: 'S---' } },
+    // Members read their household's usage (no content in it); staff read the summaries, never the rows
+    // (v10.130.0, ADM-06); the server meters.
+    expect: { owner: 'SI--', admin: 'SI--', member: 'SI--', viewer: 'SI--' } },
   { table: 'saved_views', householdScoped: true, target: h => `id = '${id('view', h)}'`, touch: 'name = name',
     insert: (p, h) => `insert into saved_views (user_id, household_id, page, name, is_shared) values (${uid(p)}, '${hh(h)}', 'transactions', 'New', false)`,
     // The target is the owner's own (not shared) view.
@@ -208,7 +212,8 @@ const TABLES: TableCase[] = [
     expect: { superAdmin: 'SIUD', contentAdmin: 'SIUD' } },
   { table: 'category_classifications', target: () => `category = 'seed_cat'`, touch: 'label = label',
     insert: () => `insert into category_classifications (category, classification) values ('new_cat', 'want')`,
-    expect: { ...everyoneSignedIn('S---'), superAdmin: 'SIUD', contentAdmin: 'SIUD' } },
+    // Every household's needs/wants: written by super admins only (v10.130.0, ADM-05).
+    expect: { ...everyoneSignedIn('S---'), superAdmin: 'SIUD' } },
   { table: 'ai_model_configs', target: () => `id = '${id('model')}'`, touch: 'priority = priority',
     insert: () => `insert into ai_model_configs (seam, provider, model, base_url, enabled) values ('assistant', 'p', 'm2', 'https://x.test', false)`,
     expect: { superAdmin: 'SIUD', rolesAdmin: 'S---', contentAdmin: 'S---' } },
@@ -219,11 +224,6 @@ const TABLES: TableCase[] = [
   { table: 'sms_format_recipes', target: () => `signature = 'seed-sig'`, touch: 'status = status',
     insert: () => `insert into sms_format_recipes (signature, locators) values ('new-sig', '{}'::jsonb)`,
     expect: everyoneSignedIn('S---') },
-  { table: 'migration_issues', target: () => `step = 'seed'`, touch: 'step = step',
-    insert: () => `insert into migration_issues (step) values ('x')`,
-    expect: {},
-    gaps: Object.fromEntries(PERSONAS.map(p => [p, { actual: 'SIUD',
-      finding: 'DB-OPS-03 / D4 (Track Q3): production-only table without RLS, open to the API' }])) },
   { table: 'storage.objects', target: () => `id = '${id('object')}'`, touch: 'name = name',
     insert: p => `insert into storage.objects (bucket_id, name) values ('insight-infographics', 'new-${p}.png')`,
     // The Insights infographics bucket: public images, written by content staff.
@@ -231,8 +231,8 @@ const TABLES: TableCase[] = [
 ];
 
 /** Tables that RLS closes to the API completely (no policy for anon, authenticated or public). */
-const SERVER_ONLY = ['ask_vyact_relay', 'invite_email_log', 'push_deliveries', 'push_subscriptions', 'split_email_log',
-  'whatsapp_identities', 'whatsapp_inbound_messages', 'whatsapp_pending_turns', 'whatsapp_preferences',
+const SERVER_ONLY = ['admin_audit', 'ask_vyact_relay', 'invite_email_log', 'migration_issues', 'push_deliveries',
+  'push_subscriptions', 'split_email_log', 'whatsapp_identities', 'whatsapp_inbound_messages', 'whatsapp_pending_turns', 'whatsapp_preferences',
   'whatsapp_rule_state', 'whatsapp_verification_otps'];
 
 // ── Seeding ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -259,7 +259,6 @@ async function seed() {
     insert into category_classifications (category, classification) values ('seed_cat', 'need');
     insert into sms_format_recipes (signature, locators) values ('seed-sig', '{}'::jsonb);
     insert into ai_model_configs (id, seam, provider, model, base_url, enabled) values ('${id('model')}', 'assistant', 'p', 'm', 'https://x.test', false);
-    insert into migration_issues (step) values ('seed');
     insert into storage.objects (id, bucket_id, name) values ('${id('object')}', 'insight-infographics', 'seed.png');
   `);
   for (const h of [1, 2] as const) {
@@ -352,7 +351,7 @@ describe('who can read and change each table (DB-SEC-10, OPS-08)', () => {
     }
     expect(problems, 'a fixture or statement failed for a reason other than authorization').toEqual([]);
     expect(mismatches).toEqual([]);
-    expect(gaps.length).toBe(PERSONAS.length);   // migration_issues only, today
+    expect(gaps).toEqual([]);   // none recorded since v10.130.0
   });
 
   it('Q2-AZ-002 · nobody in H1 reaches H2\'s rows, in any table, by any operation', async () => {
@@ -368,7 +367,7 @@ describe('who can read and change each table (DB-SEC-10, OPS-08)', () => {
 
   it('Q2-AZ-003 · published content is public; a member\'s shared saved view is the household\'s', async () => {
     for (const p of PERSONAS) {
-      const r = await as(p, `select 1 from content_items where id = '${id('published')}'`);
+      const r = await as(p, `select slug from content_items where slug = 'seed-published'`);
       expect(r.ok && r.rows, `${p} reads published content`).toBe(1);
     }
     await db.exec(`update saved_views set is_shared = true where id = '${id('view')}'`);
@@ -440,7 +439,9 @@ const SIGNED_IN_CALLABLE: Record<string, 'household' | 'caller' | 'staff' | 'pol
   'resolve_participant_names(text[])': 'caller', 'recently_reauthenticated(integer)': 'caller',
   'admin_activity_feed(integer,timestamp with time zone)': 'staff', 'admin_ai_feedback_summary()': 'staff',
   'admin_ai_usage_summary()': 'staff', 'admin_dashboard_kpis()': 'staff', 'admin_list_users()': 'staff',
-  'admin_weekly_trend(integer)': 'staff',
+  'admin_weekly_trend(integer)': 'staff', 'admin_list_users_page(integer,integer,text)': 'staff',
+  'admin_list_households(integer,integer,text)': 'staff', 'admin_staff_audit(integer,timestamp with time zone)': 'staff',
+  'grant_admin_role(uuid,text)': 'staff', 'revoke_admin_role(uuid)': 'staff', 'admin_people_summary()': 'staff',
   'is_admin(text)': 'policy helper', 'is_split_participant(uuid)': 'policy helper', 'owns_shared_split(uuid)': 'policy helper',
   'agent_conversation_in_household(uuid,uuid)': 'policy helper',
 };
@@ -469,13 +470,11 @@ const RPCS = (): RpcCase[] => [
   { name: 'record_net_worth_snapshot',
     sql: `select record_net_worth_snapshot('${H1}', date_trunc('month', current_date)::date, 1, 0, 1, 'USD')`, expect: membersOk },
   { name: 'upsert_budget', sql: `select id from upsert_budget('${H1}', '{"scope": "annual", "period": "annual", "period_year": 2028, "monthly_limit": 100}'::jsonb, 'create')`,
-    expect: { owner: 'ok', admin: 'ok' },
-    gaps: { member: { actual: 'ok', finding: 'DB-SEC-03 (Track Q3): upsert_budget checks membership only; production adds the owner/admin guard' },
-      viewer: { actual: 'ok', finding: 'DB-SEC-03 (Track Q3): a viewer can write a budget through upsert_budget' } } },
+    // Owners and admins only (v10.130.0, DB-SEC-03; the budgets policies' rule).
+    expect: { owner: 'ok', admin: 'ok' } },
   { name: 'upsert_budget_with_allocations',
     sql: `select upsert_budget_with_allocations('${H1}', '{"scope": "annual", "period": "annual", "period_year": 2028, "monthly_limit": 100}'::jsonb, '[{"category": "dining", "amount": 10}]'::jsonb, 'create')`,
-    expect: { owner: 'ok', admin: 'ok' },
-    gaps: { member: { actual: 'ok', finding: 'DB-SEC-03 (Track Q3)' }, viewer: { actual: 'ok', finding: 'DB-SEC-03 (Track Q3)' } } },
+    expect: { owner: 'ok', admin: 'ok' } },
   { name: 'register_push_subscription',
     sql: `select register_push_subscription('https://fcm.googleapis.com/fcm/send/abc', '${'B'.repeat(87)}', '${'a'.repeat(22)}', '${H1}', 'ua', 'Asia/Kolkata', '{}'::jsonb)`,
     expect: membersOk },
@@ -491,6 +490,13 @@ const RPCS = (): RpcCase[] => [
     expect: { superAdmin: 'ok', rolesAdmin: 'ok', owner: 'empty', admin: 'empty', member: 'empty', viewer: 'empty', outsider: 'empty', contentAdmin: 'empty' } },
   { name: 'admin_ai_usage_summary', sql: `select admin_ai_usage_summary()`, expect: { superAdmin: 'ok', contentAdmin: 'ok' } },
   { name: 'admin_ai_feedback_summary', sql: `select admin_ai_feedback_summary()`, expect: { superAdmin: 'ok', contentAdmin: 'ok' } },
+  // v10.130.0 (Q3a): paged lists for the roles tier (ADM-08); the staff audit trail and role changes for super.
+  { name: 'admin_list_users_page', sql: `select * from admin_list_users_page(10, 0, null)`, expect: { superAdmin: 'ok', rolesAdmin: 'ok' } },
+  { name: 'admin_list_households', sql: `select * from admin_list_households(10, 0, null)`, expect: { superAdmin: 'ok', rolesAdmin: 'ok' } },
+  { name: 'admin_people_summary', sql: `select admin_people_summary()`, expect: { superAdmin: 'ok', rolesAdmin: 'ok' } },
+  { name: 'admin_staff_audit', sql: `select * from admin_staff_audit(10, null)`, expect: { superAdmin: 'ok' } },
+  { name: 'grant_admin_role', sql: `select grant_admin_role('${UID.outsider}', 'content')`, expect: { superAdmin: 'ok' } },
+  { name: 'revoke_admin_role', sql: `select revoke_admin_role('${UID.contentAdmin}')`, expect: { superAdmin: 'ok' } },
 ];
 
 describe('who can call each function (DB-SEC-10, ADM-07)', () => {
@@ -537,12 +543,15 @@ describe('who can call each function (DB-SEC-10, ADM-07)', () => {
     expect((await as('anon', `select prepare_ai_call('${H1}', 'assistant', 'chat', 10, true)`)).ok).toBe(false);
   });
 
-  it('Q2-AZ-009 · upsert_budget cannot touch another household\'s budget (DB-SEC-03, a recorded gap)', async () => {
-    // H1's owner names H2's budget id in replace mode. Intended: refused, H2 untouched.
-    const o = await as('owner', `select household_id, monthly_limit from upsert_budget('${H1}',
-      '{"id": "${id('budget', 2)}", "monthly_limit": 999}'::jsonb, 'replace')`);
-    // KNOWN GAP (Track Q3): `on conflict (id) do update` rewrites H2's budget. When Q3 fixes it, this becomes
-    // `expect(o.ok).toBe(false)` (or no row of H2's), and the gap entry goes.
-    expect(o.ok && o.data[0]).toEqual({ household_id: H2, monthly_limit: '999' });
+  it('Q2-AZ-009 · upsert_budget cannot touch another household\'s budget (DB-SEC-03)', async () => {
+    // H1's owner names H2's budget id, in replace and in create mode: refused, H2's budget untouched. Until
+    // v10.130.0 replace mode's `on conflict (id) do update` rewrote it.
+    for (const mode of ['replace', 'create']) {
+      const o = await as('owner', `select household_id, monthly_limit from upsert_budget('${H1}',
+        '{"id": "${id('budget', 2)}", "monthly_limit": 999}'::jsonb, '${mode}')`);
+      expect(o.ok ? o.data : o.message, mode).toMatch(/budget_not_found/);
+    }
+    const h2 = await db.query<{ monthly_limit: string }>(`select monthly_limit from budgets where id = '${id('budget', 2)}'`);
+    expect(Number(h2.rows[0].monthly_limit)).toBe(100);
   });
 });

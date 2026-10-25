@@ -32,7 +32,8 @@ describe('every migration replays, in order, on an empty database (OPS-02)', () 
 
   it('Q2-RP-002 · the migrations create pg_cron and pg_net themselves; the rest are the baseline\'s', async () => {
     const ext = await q<{ extname: string }>(`select extname from pg_extension order by 1`);
-    expect(ext.map(e => e.extname)).toEqual(['pg_cron', 'pg_net', 'pg_trgm', 'pgcrypto', 'plpgsql', 'uuid-ossp']);
+    // pg_trgm, unused, was dropped in v10.130.0 (Q3a, DB-OPS-16).
+    expect(ext.map(e => e.extname)).toEqual(['pg_cron', 'pg_net', 'pgcrypto', 'plpgsql', 'uuid-ossp']);
   });
 
   it('Q2-RP-003 · a new project gets these scheduled jobs, at these times', async () => {
@@ -69,12 +70,12 @@ describe('every migration replays, in order, on an empty database (OPS-02)', () 
     expect(await q(`select 1 from net.http_request_queue`)).toEqual([]);
   });
 
-  it('Q2-RP-005 · row-level security is on for every table in public, but one (DB-OPS-03, Track Q3)', async () => {
+  it('Q2-RP-005 · row-level security is on for every table in public', async () => {
     const off = await q<{ relname: string }>(`select relname from pg_class
       where relnamespace = 'public'::regnamespace and relkind in ('r', 'p') and not relrowsecurity order by 1`);
-    // migration_issues is a production-only table the baseline recorded without RLS; Q3 (owner decision D4)
-    // turns it on. When it does, this list becomes empty: keep it that way.
-    expect(off.map(r => r.relname)).toEqual(['migration_issues']);
+    // The last one, migration_issues (production-only, recorded by the baseline), was closed in v10.130.0
+    // (Q3a, DB-OPS-03). Keep this list empty.
+    expect(off.map(r => r.relname)).toEqual([]);
   });
 
   it('Q2-RP-006 · every SECURITY DEFINER function in public pins its search_path', async () => {

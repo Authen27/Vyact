@@ -1051,7 +1051,7 @@
         "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-006 · anon can call only pure helpers; every signed-in function is placed; the rest are the server's",
         "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-007 · each household, staff and split function, as each person",
         "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-008 · prepare_ai_call answers member: false for someone not in the household, and reserves nothing",
-        "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-009 · upsert_budget cannot touch another household's budget (DB-SEC-03, a recorded gap)",
+        "who can call each function (DB-SEC-10, ADM-07) Q2-AZ-009 · upsert_budget cannot touch another household's budget (DB-SEC-03)",
         "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-001 · every person, every table, H1's row: as intended, or a recorded gap",
         "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-002 · nobody in H1 reaches H2's rows, in any table, by any operation",
         "who can read and change each table (DB-SEC-10, OPS-08) Q2-AZ-003 · published content is public; a member's shared saved view is the household's",
@@ -1944,7 +1944,7 @@
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-002 · the migrations create pg_cron and pg_net themselves; the rest are the baseline's",
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-003 · a new project gets these scheduled jobs, at these times",
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-004 · every job's command runs against the schema the migrations built",
-        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-005 · row-level security is on for every table in public, but one (DB-OPS-03, Track Q3)",
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-005 · row-level security is on for every table in public",
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-006 · every SECURITY DEFINER function in public pins its search_path"
       ]
     },
@@ -2582,6 +2582,33 @@
         "the open app's own popup (local mode) T4C-003 · with details off the popup says only \"A bill is due\"; on, or never set, it names the bill",
         "the private line (BE-FN-12) T4C-001 · every notification type has a private title and body with no amount, number or name, and the server reads the same table",
         "the private line (BE-FN-12) T4C-002 · details on (the default, and prefs saved before the switch) show the notification; off shows the private line, link and tag kept"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/q3aDatabaseSql.test.ts",
+      "feature": "Database fixes from Track Q3a",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "Q3a (audit ADM-04, ADM-05, ADM-06, ADM-08, ADM-10, ADM-11, ADM-14, FE-PUB-08, DB-INT-13, DB-INT-14, INT-TXN-14, INT-HH-08, DB-OPS-03, DB-OPS-09, DB-OPS-16): the staff audit trail (grants and revokes, the last super admin kept, content and needs/wants changes without their text, append-only, super-only reading); paged admin lists with totals and member counts; WhatsApp picks the named, then default, then oldest account, refuses a Loan / EMI expense and names its sender in the activity log; soft deletes logged as deletes; transfer and budget-line checks; per-person language; segments for super admins and MRR per currency; signed-out content columns cover every react/api query; bucket limits and bylines; v9 backups and an unused pg_trgm dropped; indexes",
+      "count": 16,
+      "tests": [
+        "WhatsApp picks the account it names (DB-INT-13), refuses a loan payment as an expense, and is named in the log (INT-TXN-14) Q3A-006 · \"bank\" with two bank accounts: the default; with none default, the oldest; a name match first",
+        "WhatsApp picks the account it names (DB-INT-13), refuses a loan payment as an expense, and is named in the log (INT-TXN-14) Q3A-007 · a Loan / EMI expense is refused (it must pay the loan)",
+        "WhatsApp picks the account it names (DB-INT-13), refuses a loan payment as an expense, and is named in the log (INT-TXN-14) Q3A-008 · the log names the person a WhatsApp entry came from; a job has no actor; a signed-in user wins",
+        "WhatsApp picks the account it names (DB-INT-13), refuses a loan payment as an expense, and is named in the log (INT-TXN-14) Q3A-009 · a soft delete is logged as deleted",
+        "admin lists page on the server (ADM-08, INT-HH-14) Q3A-005 · users and households come a page at a time, with the total, a search and real member counts",
+        "money rules and per-person language (DB-INT-14, INT-HH-08) Q3A-010 · a transfer to the same account and a negative budget line are refused, for new rows",
+        "money rules and per-person language (DB-INT-14, INT-HH-08) Q3A-011 · a person's language is unset until they choose one (then the household's applies)",
+        "production-only objects and indexes (DB-OPS-03, DB-OPS-16, DB-OPS-09) Q3A-015 · the v9 backups go; pg_trgm goes only when nothing uses it",
+        "production-only objects and indexes (DB-OPS-03, DB-OPS-16, DB-OPS-09) Q3A-016 · the hot lookups are indexed, and no index exists twice",
+        "staff tiers and public content (ADM-05, ADM-06, ADM-10, ADM-11, ADM-14, FE-PUB-08) Q3A-012 · per-person AI usage is for super admins; MRR comes per currency",
+        "staff tiers and public content (ADM-05, ADM-06, ADM-10, ADM-11, ADM-14, FE-PUB-08) Q3A-013 · signed out, only the public columns of content; every column react/api asks for is one of them",
+        "staff tiers and public content (ADM-05, ADM-06, ADM-10, ADM-11, ADM-14, FE-PUB-08) Q3A-014 · the image bucket takes images up to 5 MB; an email byline becomes \"Vyact\"; needs/wants ids look like ids",
+        "the staff audit trail (ADM-04) Q3A-001 · a super admin grants and revokes roles; each change is recorded with who made it",
+        "the staff audit trail (ADM-04) Q3A-002 · the last super admin can be neither demoted nor removed",
+        "the staff audit trail (ADM-04) Q3A-003 · content, needs/wants and model changes are recorded without their text; nobody can edit the trail",
+        "the staff audit trail (ADM-04) Q3A-004 · super admins read the trail newest first, with the actor's email; nobody else reads it"
       ]
     },
     {
