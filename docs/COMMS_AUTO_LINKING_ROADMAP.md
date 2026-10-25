@@ -55,7 +55,7 @@ Silence past the window = lazy consensus; staffing of Phase A begins.
   **A:** The scaffolding PR is already in. The junior implementer proceeds against today's manual defaults; as each roadmap phase ships, ~25 test IDs get their Expected Results updated in-place (test IDs never change — only behaviour). Net new test cases per phase: ~3–5 each. We absorb that in the existing QA budget.
 
 - **Q:** What's the rollback story if a phase has a bad migration?
-  **A:** Each phase ships its localStorage migration in `lib/migration.ts` with an inverse path; cloud uses forward-only Supabase migrations but adds derived columns rather than rewriting existing ones, so a rollback is a flag flip, not a data restore.
+  **A:** Each phase ships its localStorage migration in `lib/migration.ts` with an inverse path *(v10.133.0: that file is deleted; the device store is a cache of the cloud, and a format change bumps `CACHE_EPOCH` in `lib/cacheInvalidation.ts`, never a row-rewriting migration)*; cloud uses forward-only Supabase migrations but adds derived columns rather than rewriting existing ones, so a rollback is a flag flip, not a data restore.
 
 - **Q:** Where do the 4 open product questions live?
   **A:** Bottom of the roadmap doc — `docs/ROADMAP_AUTO_LINKING.md`. Reply in this thread or comment inline; both work.

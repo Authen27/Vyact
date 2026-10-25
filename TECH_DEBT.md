@@ -1170,7 +1170,7 @@ replay job for failed inbox rows; a surfaced recovery flow for quarantined outbo
 between an account and a Net Worth asset (`transactions.asset_id`). The live write paths — the app
 form, recurring schedules, the store, and `whatsapp_log_transaction` — all follow the new model, and
 production was converted. Three surfaces were deliberately left:
-- **Agent resolver** (`supabase/functions/_shared/agent/resolver.ts`) resolves an investment's
+- **Agent resolver** (`experimental/agent-ingestion/src/resolver.ts`, parked in v10.136.0) resolves an investment's
   destination against ACCOUNTS. The agent pipeline is not connected to a live write entrypoint, so
   nothing writes through it today; when it is connected it must resolve against investment assets,
   or every proposed investment fails `ck_txn_accounts_by_type`.

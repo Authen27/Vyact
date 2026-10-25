@@ -1,15 +1,18 @@
 # Vyact Agent Service — Architecture & Implementation Plan
 
-**Status:** DESIGN APPROVED · awaiting implementation sign-off · **P0 partially shipped** (metering, v10.19.0)
+**Status (25 Oct 2026, v10.136.0):** Pip is live and model-backed (v10.20) through the `ask-vyact` gateway, with
+Pip's limits in the database (v10.135.0); WhatsApp answers run the app's bundled engine (v10.45.0). The ingestion
+pipeline (§3) was never connected and is parked in `experimental/agent-ingestion/` (v10.136.0).
 **Audience:** the implementing engineer. **This document is self-contained** — it is the only file you
 need to load to build the agent. Do not re-derive context from the wider app.
 **Companions (read only if a section points you there):**
 [`vyact-ask-vyact-engineering-spec.md`](vyact-ask-vyact-engineering-spec.md) (the 5-stage pipeline this
 extends) · [`whatsapp-vyact-solutioning.md`](whatsapp-vyact-solutioning.md) (channel 2).
 
-> ⚠️ **The agent is NOT live.** Ask Vyact today is 100% rules-based and on-device. Every "no AI /
-> nothing leaves this device" string in the product is currently **true** and must stay true until the
-> release that changes it. See §12.
+> ⚠️ **Out of date, kept for history:** this said the agent was not live and Ask Vyact was rules-based and
+> on-device. Since v10.20 Pip is model-backed: a question and the computed facts go to the model through the
+> server (the provider key never reaches a device), and the "nothing leaves this device" copy was corrected in
+> v10.20.1. Only `SafeSummary`-shaped facts egress (binding rule 7).
 
 ---
 

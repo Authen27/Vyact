@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.135.0`** (consumer)
+> **Current production version: `v10.136.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.136.0 — Housekeeping: the unused ingestion pipeline parked, an unrun test now runs, stale docs corrected *(2026-10-25)*
+
+Track Q, part 8 (audit XC-ARC-07, BE-PIP-04, XC-ARC-05; owner decisions 20 Oct 2026). No change anyone sees in the app.
+
+- **The learned-ingestion pipeline is parked** in `experimental/agent-ingestion/` (11 modules, about 3,900 lines, its
+  tests and its eval corpus). Nothing ever called it; it was type-checked, linted and tested on every commit and kept
+  a third copy of the category and payment-mode lists. Its tests still pass and run on demand
+  (`npm --prefix react run test:parked`); its README says what to fix before it can go live (BE-PIP-04, TD-36).
+  Categories and payment modes now live in two places, the app and the WhatsApp parser.
+- **The model router's own test now runs.** `router.test.ts` was a Deno test no CI job ran; its 22 cases run in the
+  normal suite as `agentRouterContract.test.ts` (all passed on their first run).
+- **The v7 `track_picker` flag module is deleted** (nothing read it).
+- **The repository keeps code, not business and design files** (audit XC-ARC-15; owner decision 25 Oct 2026). The
+  older design handoff (`Vyact-handoff/`, superseded by `Vyact Redesign/design_handoff_vyact_aurora`) and the five
+  business files in `Vyact App/` are removed and kept privately by the owner; a check (`scripts/__tests__/repo-files.test.mjs`)
+  refuses documents, archives, media and design files, and images outside the folders an app serves.
+- **Stale lines corrected:** CLAUDE.md's opening now says what it is and where the current state lives;
+  CLAUDE-1.md, docs/HANDOFF.md and ARCHITECTURE.md say they are out of date; vyact-agent-architecture.md and
+  docs/ASK_VYACT_STATUS.md state Pip's current status; the WhatsApp template notes say the buttons are answered;
+  the roadmaps no longer point at the deleted `lib/migration.ts`.
 
 ## v10.135.0 — Pip's limits, nudges while the app is closed, and answers the way you like them *(2026-10-25)*
 

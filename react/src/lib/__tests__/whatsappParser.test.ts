@@ -201,7 +201,6 @@ describe('category id sets stay valid', () => {
 
 // v10.25.0 (R3) — the payment mode a message names.
 import { detectPaymentMode, PAYMENT_MODE_IDS, PAYMENT_MODE_LABEL as WA_MODE_LABEL } from '../../../../supabase/functions/_shared/whatsapp-parser';
-import { PAYMENT_MODE_IDS as AGENT_MODE_IDS } from '../../../../supabase/functions/_shared/agent/types';
 import { PAYMENT_MODE_LABEL } from '../accountsView';
 
 describe('payment mode from a WhatsApp line', () => {
@@ -239,13 +238,11 @@ describe('payment mode from a WhatsApp line', () => {
   });
 });
 
-describe('payment mode sets — the client, WhatsApp and agent copies must not drift', () => {
+// v10.136.0 (Track Q8, XC-ARC-07): the agent's copy was parked with the ingestion pipeline (its parity case runs there).
+describe('payment mode sets — the client and WhatsApp copies must not drift', () => {
   const client = Object.keys(PAYMENT_MODE_LABEL).sort();
   it('the WhatsApp parser accepts exactly the modes the app offers, with the same labels', () => {
     expect([...PAYMENT_MODE_IDS].sort()).toEqual(client);
     expect(WA_MODE_LABEL).toEqual(PAYMENT_MODE_LABEL);
-  });
-  it('the agent accepts exactly the modes the app offers', () => {
-    expect([...AGENT_MODE_IDS].sort()).toEqual(client);
   });
 });

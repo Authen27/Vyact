@@ -285,11 +285,7 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
       },
     });
 
-    test.beforeEach(async ({ page }) => {
-      await page.addInitScript(() => {
-        window.localStorage.setItem('vt_feature_track_picker', '1');
-      });
-    });
+    // v10.136.0 (Q8, XC-ARC-07): the track-picker flag (vt_feature_track_picker) is deleted; the picker is the only UI.
 
     // ──────────────────────────────────────────────────────────────────────
     // RETIRED 2026-09-10 — four tests removed, not rewritten.

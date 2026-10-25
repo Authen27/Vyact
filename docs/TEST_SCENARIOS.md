@@ -25,23 +25,23 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1724 passing deterministic cases in 195 files. Zero failed, skipped or TODO cases at generation.**
+**1515 passing deterministic cases in 187 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 22 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 132 |
+| react | contract-unit | available | 131 |
 | react | contract-unit | conditional | 131 |
 | react | handler-integration | conditional | 110 |
 | react | sql-integration | conditional | 196 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 77 |
 | react | store-integration | conditional | 44 |
-| react | unit | available | 505 |
-| react | unit | conditional | 230 |
-| react | unit | infrastructure | 229 |
+| react | unit | available | 503 |
+| react | unit | conditional | 251 |
+| react | unit | infrastructure | 2 |
 
 ### Executed Files
 
@@ -70,17 +70,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/accountsView.test.ts](../react/src/lib/__tests__/accountsView.test.ts) | Accounts | unit | available | 21 |
 | [react/src/lib/__tests__/adminActivityFeedSql.test.ts](../react/src/lib/__tests__/adminActivityFeedSql.test.ts) | Admin activity feed SQL | sql-integration | conditional | 7 |
 | [react/src/lib/__tests__/affordabilityBudgetFirst.test.ts](../react/src/lib/__tests__/affordabilityBudgetFirst.test.ts) | Ask Vyact | unit | conditional | 9 |
-| [react/src/lib/__tests__/agentAmbiguity.test.ts](../react/src/lib/__tests__/agentAmbiguity.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 31 |
 | [react/src/lib/__tests__/agentBedrock.test.ts](../react/src/lib/__tests__/agentBedrock.test.ts) | Ask Vyact | unit | conditional | 10 |
-| [react/src/lib/__tests__/agentClassify.test.ts](../react/src/lib/__tests__/agentClassify.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |
-| [react/src/lib/__tests__/agentDedupe.test.ts](../react/src/lib/__tests__/agentDedupe.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 36 |
-| [react/src/lib/__tests__/agentGrammar.test.ts](../react/src/lib/__tests__/agentGrammar.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 24 |
-| [react/src/lib/__tests__/agentPipeline.test.ts](../react/src/lib/__tests__/agentPipeline.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 18 |
-| [react/src/lib/__tests__/agentRecipe.test.ts](../react/src/lib/__tests__/agentRecipe.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 34 |
-| [react/src/lib/__tests__/agentRecipeStore.test.ts](../react/src/lib/__tests__/agentRecipeStore.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |
-| [react/src/lib/__tests__/agentResolver.test.ts](../react/src/lib/__tests__/agentResolver.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 36 |
 | [react/src/lib/__tests__/agentRouter.test.ts](../react/src/lib/__tests__/agentRouter.test.ts) | Ask Vyact | unit | conditional | 15 |
-| [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |
+| [react/src/lib/__tests__/agentRouterContract.test.ts](../react/src/lib/__tests__/agentRouterContract.test.ts) | Ask Vyact | unit | conditional | 22 |
 | [react/src/lib/__tests__/aiFeedback.test.ts](../react/src/lib/__tests__/aiFeedback.test.ts) | Pip answer feedback | unit | available | 3 |
 | [react/src/lib/__tests__/aiUsageSourceSql.test.ts](../react/src/lib/__tests__/aiUsageSourceSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/aiUsageSummarySql.test.ts](../react/src/lib/__tests__/aiUsageSummarySql.test.ts) | AI usage metering SQL | sql-integration | conditional | 2 |
@@ -102,7 +94,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/cacheBoundary.test.ts](../react/src/lib/__tests__/cacheBoundary.test.ts) | Storage and synchronization | storage-integration | available | 2 |
 | [react/src/lib/__tests__/cacheInvalidation.test.ts](../react/src/lib/__tests__/cacheInvalidation.test.ts) | Storage and synchronization | storage-integration | available | 9 |
 | [react/src/lib/__tests__/calculations.test.ts](../react/src/lib/__tests__/calculations.test.ts) | Money model | unit | available | 16 |
-| [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 10 |
+| [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 8 |
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/chunkRecovery.test.ts](../react/src/lib/__tests__/chunkRecovery.test.ts) | Frontend guards (W6) | unit | available | 3 |
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 8 |
@@ -229,7 +221,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/w7aAppFixes.test.ts](../react/src/lib/__tests__/w7aAppFixes.test.ts) | Small app fixes (W7a) | unit | available | 13 |
 | [react/src/lib/__tests__/w7bPublicBuild.test.ts](../react/src/lib/__tests__/w7bPublicBuild.test.ts) | Public site and build config (W7b) | contract-unit | available | 7 |
 | [react/src/lib/__tests__/w8aAppFixes.test.ts](../react/src/lib/__tests__/w8aAppFixes.test.ts) | App fixes (W8a) | unit | available | 12 |
-| [react/src/lib/__tests__/w8bEdgeFixes.test.ts](../react/src/lib/__tests__/w8bEdgeFixes.test.ts) | Edge robustness (W8b) | contract-unit | available | 6 |
+| [react/src/lib/__tests__/w8bEdgeFixes.test.ts](../react/src/lib/__tests__/w8bEdgeFixes.test.ts) | Edge robustness (W8b) | contract-unit | available | 5 |
 | [react/src/lib/__tests__/w8dSiteFixes.test.ts](../react/src/lib/__tests__/w8dSiteFixes.test.ts) | Site, platform and docs (W8d) | contract-unit | available | 11 |
 | [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 15 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 9 |
@@ -237,7 +229,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts](../react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts) | WhatsApp EMI correction SQL | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/whatsappDispatch.test.ts](../react/src/lib/__tests__/whatsappDispatch.test.ts) | WhatsApp dispatch | contract-unit | conditional | 17 |
 | [react/src/lib/__tests__/whatsappFollowups.test.ts](../react/src/lib/__tests__/whatsappFollowups.test.ts) | WhatsApp dispatch | contract-unit | conditional | 8 |
-| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 35 |
+| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 34 |
 | [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateSenders.test.ts](../react/src/lib/__tests__/whatsappTemplateSenders.test.ts) | WhatsApp dispatch | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateValidation.test.ts](../react/src/lib/__tests__/whatsappTemplateValidation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 5 |

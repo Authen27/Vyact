@@ -1,17 +1,19 @@
-# Vyact — Family Finance OS (lean guide)
+# Vyact — Family Finance OS (the binding rules)
 
-> Lightweight index. **Full detail lives in [`CLAUDE-1.md`](CLAUDE-1.md)** — read it
-> for the complete architecture narrative, feature list, file tree, and history.
-> New session? Start with [`docs/HANDOFF.md`](docs/HANDOFF.md).
+> This file holds the rules that bind every change; each says where it is enforced. The current state is
+> [`VERSIONS.md`](VERSIONS.md) and the newest entries of [`react/CHANGELOG.md`](react/CHANGELOG.md); what is
+> still open is Appendix C of [`VYACT_ARCHITECTURE_AUDIT_2026-10-04.md`](VYACT_ARCHITECTURE_AUDIT_2026-10-04.md)
+> and [`TECH_DEBT.md`](TECH_DEBT.md).
 >
-> (Renamed 2026-07-24: the former monolithic CLAUDE.md is now CLAUDE-1.md; this
-> file holds only the load-bearing, binding bits.)
+> [`CLAUDE-1.md`](CLAUDE-1.md) (the architecture narrative, frozen at v10.13.0) and
+> [`docs/HANDOFF.md`](docs/HANDOFF.md) (a May 2026 brief) are kept for background: their versions, URLs and
+> status are out of date, and where they disagree with this file, this file holds.
 
 ## What this repo is
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.135.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.136.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -152,11 +154,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     outstanding or an EMI split elsewhere (`computeEmi`/`splitEmiPortions` are retired; `amortization.ts`
     is legacy). A new `loan_emi` row from any path is paid through `payLoan`; an EMI schedule never posts
     (`isLoanEmiSchedule`); Recurring never offers Loan / EMI. The Debts summary is loans + card dues.
-- **Categories are type-scoped, and the set exists in THREE places (v10.21).**
-  `constants.ts` is the source, but `_shared/whatsapp-parser.ts` and
-  `_shared/agent/types.ts` each hold their own allowlist because they are Deno
-  modules that cannot import it. **Adding or removing a category means editing
-  all three** — CON-UNIT-161/162 fail if they drift. Drift is silent: a category
+- **Categories are type-scoped, and the set exists in TWO places (v10.21; v10.136.0).**
+  `constants.ts` is the source, but `_shared/whatsapp-parser.ts` holds its own
+  allowlist because it is a Deno module that cannot import it. **Adding or removing
+  a category means editing both** — CON-UNIT-161 and W7a-CON05-001 fail if they drift.
+  (The parked ingestion pipeline keeps a third copy, `experimental/agent-ingestion/src/types.ts`,
+  checked by its own suite, `npm --prefix react run test:parked`; update it too.) Drift is silent: a category
   the app offers is rejected as unknown and the expense lands in other.
   A retired id (`transport`, merged into `travel`) is **never deleted from**
   `NEEDS_WANTS_MAP` **or** `LEGACY_CATEGORY_ALIASES` — stored rows and lagging
@@ -244,10 +247,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - From the app, archiving an account such a loan pays from is refused (`account_pays_a_loan`, in
     `accounts_guard_lifecycle`; the store says which loan first).
   - Never let a loan record automatically from an account the payment would refuse.
-- **Payment modes, like categories, exist in THREE places (v10.25.0)** —
-  `PAYMENT_MODE_LABEL` in `lib/accountsView.ts` (the client source), and the
-  Deno allowlists `PAYMENT_MODE_IDS` in `_shared/whatsapp-parser.ts` and
-  `_shared/agent/types.ts`, plus the `ck_account_payment_modes` /
+- **Payment modes, like categories, exist in TWO places (v10.25.0; v10.136.0)** —
+  `PAYMENT_MODE_LABEL` in `lib/accountsView.ts` (the client source) and the
+  Deno allowlist `PAYMENT_MODE_IDS` in `_shared/whatsapp-parser.ts` (and the parked
+  pipeline's copy, as for categories), plus the `ck_account_payment_modes` /
   `ck_txn_payment_mode` CHECKs. The parity tests in `whatsappParser.test.ts`
   fail on drift. `transactions.payment_mode` is **descriptive only** — no balance,
   total or net-worth figure reads it — and is NULL for legacy rows, imports and
@@ -528,14 +531,14 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   architectural one.
   One Supabase Edge gateway serves every client (PWA · Android · iOS · WhatsApp)
   through **channel adapters**; only presentation and policy differ per channel.
-  **SMS/receipt parsing is LLM-first with LEARNED recipes** — formats vary too
-  much across banks/issuers/locales to hand-maintain templates; an extraction is
-  cached by digit-masked signature so repeat formats become free and
-  deterministic, and every extraction passes deterministic validator guards (the
-  "available balance is not the amount" class of bug). Binding rules:
+  **SMS/receipt parsing (the learned-ingestion pipeline) is PARKED (v10.136.0, Track Q8; XC-ARC-07; owner):** it was
+  never connected to an entrypoint, so it lives in `experimental/agent-ingestion/` (its README says what to fix
+  before it goes live: BE-PIP-04, TD-36). Its design: LLM-first with LEARNED recipes, an extraction cached by
+  digit-masked signature, every extraction through deterministic validator guards. Binding rules:
   **(1) the LLM never computes money** — it selects tools and phrases their
   returns, so stage 4 stays the sole source of figures; **(2) hybrid, not
-  replacement** — rules answer first, the model runs only on a miss;
+  replacement, for INGESTION** — rules answer first, the model runs only on a miss (Pip's questions are
+  model-classified since v10.20: there is no rules fallback there);
   **(3) reads/writes are separated** — the planner role holds read tools only,
   writes are **propose → user confirms**; **(4) all stored text is untrusted**
   (`transactions.description` now carries WhatsApp-ingested external text — treat
@@ -1213,8 +1216,9 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   as executable cases, not independent product workflows.
 - `unit`/`contract-unit`, store/IndexedDB, SQL and Edge-handler integration are
   reported separately. Infrastructure tests do not prove a feature is live.
-  Goals/Tax pages are removed; Saved Views is hidden; learned ingestion is not
-  connected to current entrypoints. Retired recurring backfill/re-key tests
+  Goals/Tax pages are removed; Saved Views is hidden; learned ingestion is parked
+  outside the default run (`experimental/agent-ingestion/`, `npm --prefix react run
+  test:parked`; v10.136.0). Retired recurring backfill/re-key tests
   were removed; stored-row compatibility and money invariants remain required.
 - 🔴 **The e2e specs ARE type-checked now (v10.22.3) — keep them that way.**
   `react/tsconfig.json` excludes `e2e` and `src/**/*.test.ts`, so for months
@@ -1283,6 +1287,10 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   `lighthouse.yml` (v10.53.0) runs a landing-page performance budget (median
   mobile ≥ 90; since v10.54.0 the app bundle boots on "/" only on interaction) only on PRs that touch the landing page or its loading. Vercel
   skips docs-only commits via `ignoreCommand` in both `vercel.json` files.
+- **The repository keeps code, not business or design files (v10.136.0, Q8; XC-ARC-15; owner, 25 Oct 2026).**
+  `scripts/__tests__/repo-files.test.mjs` (in `test:ci`) refuses documents, archives, media and design files anywhere,
+  and images outside `react/public` / `admin/public`. Whatever is committed is readable by everyone who can read the
+  repository, and stays in its history. Keep decks, plans and handoffs somewhere private.
 - **Brand entity (v10.56.0, owner 2 Oct 2026).**
   - Vyact is "the family budget app"; the logo tagline is "Family budget app".
   - The only alias is "Vyact app"; no other alias, ever.

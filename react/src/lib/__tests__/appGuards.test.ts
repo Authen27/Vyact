@@ -7,7 +7,7 @@
 // - the account pickers read the household's accounts in every build (the Money Map flag is retired);
 // - a 'settled' or 'closed' split email that didn't go out is said, as 'shared' already was.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import ts from 'typescript';
 
@@ -29,7 +29,6 @@ import { splitEmailNotice } from '../splitEmail';
 import { wireOnboardingToMoney } from '../onboardingWiring';
 import { buildAccountsFromStore, notInvestment } from '../accounts';
 import * as accountsLib from '../accounts';
-import * as featureFlags from '../featureFlags';
 import { importLegacyRecurring, LEGACY_RECURRING_HID } from '../../store/legacyRecurring';
 import { readLocalJson, readLocalString, setLocalJson } from '../../store/localJson';
 import { landIn } from '../../store/landIn';
@@ -219,7 +218,8 @@ describe('a store write after an await lands only in its own household (XC-ARC-1
 
 describe('the account pickers read the household\'s accounts in every build (XC-ARC-08)', () => {
   it('T5B-008 · the Money Map flag and the assets + debts derivation are gone; the list is the accounts', () => {
-    expect('getMoneyMapMode' in featureFlags).toBe(false);
+    // v10.136.0 (Q8, XC-ARC-07): the whole flag module went with its last flag (track_picker).
+    expect(existsSync(new URL('../featureFlags.ts', import.meta.url))).toBe(false);
     expect('buildAccounts' in accountsLib).toBe(false);
     for (const form of ['react/src/components/transactions/TransactionFormModal.tsx', 'react/src/components/splits/SplitFormModal.tsx']) {
       expect(read(form)).not.toMatch(/getMoneyMapMode|featureFlags|buildAccounts\(/);

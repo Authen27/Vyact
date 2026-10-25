@@ -1,15 +1,13 @@
 // Vyact Agent — model router: THE OFF-STATE GATE (architecture §11, rule 6).
 //
-// WHY THIS FILE EXISTS SEPARATELY FROM router.test.ts
-// The router ships its own Deno test, but vitest's include glob is
+// WHY THIS FILE EXISTS BESIDE agentRouterContract.test.ts
+// The router shipped its own Deno test, but vitest's include glob is
 // `src/**/*.test.ts` under `react/` and there is no `deno test` CI job — so that
 // proof was written, correct, and NEVER RUN by CI. The binding rule it guards
 // ("the feature's off state must be provably byte-identical to today") was
-// therefore unenforced.
-//
-// This mirrors the load-bearing assertions into the suite that actually runs on
-// every commit, importing the real module by relative path — the same technique
-// `moneyPortParity.test.ts` uses to reach the Deno money port.
+// therefore unenforced. This file mirrored its load-bearing assertions, importing
+// the real module by relative path; since v10.136.0 (Track Q8, XC-ARC-07) the Deno
+// test itself runs here too, as agentRouterContract.test.ts.
 //
 // The assertions here are deliberately NEGATIVE. "It returned not_configured" is
 // weak; "it opened no socket, read no secret, and wrote no metering row" is the
