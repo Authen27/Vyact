@@ -1,5 +1,9 @@
 # Vyact — Cloud, Auth & Multi-Household Architecture
 
+> ⚠️ **Last revised June 2026.** It covers the app and its data layer, not the server half that came after:
+> the Edge Functions, the scheduled jobs and Pip. For those read [`CLAUDE.md`](CLAUDE.md) and
+> [`vyact-agent-architecture.md`](vyact-agent-architecture.md).
+
 > Updated for the Vyact rename and current product state (2026-06-01).
 
 > This document now serves two purposes: it captures the architecture Vyact uses today, and it preserves the original reasoning behind the move from a single-tenant local app to a multi-tenant cloud platform.

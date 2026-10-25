@@ -1,14 +1,14 @@
 # Vyact Agent — ingestion eval corpus
 
-The golden corpus and harness for `runIngestion` (`supabase/functions/_shared/agent/pipeline.ts`),
+The golden corpus and harness for `runIngestion` (`experimental/agent-ingestion/src/pipeline.ts`; parked in v10.136.0),
 i.e. **layer 6** of `vyact-agent-architecture.md` §7.
 
 ```bash
-node evals/runner.mjs                    # score the corpus, gate on it
-node evals/runner.mjs --verbose          # every case + every known gap
-node evals/runner.mjs --bucket=free_text # one bucket
-node evals/runner.mjs --record           # observed outcomes as JSON (authoring aid)
-node evals/runner.mjs --json             # machine-readable report
+node experimental/agent-ingestion/evals/runner.mjs                    # score the corpus, gate on it
+node experimental/agent-ingestion/evals/runner.mjs --verbose          # every case + every known gap
+node experimental/agent-ingestion/evals/runner.mjs --bucket=free_text # one bucket
+node experimental/agent-ingestion/evals/runner.mjs --record           # observed outcomes as JSON (authoring aid)
+node experimental/agent-ingestion/evals/runner.mjs --json             # machine-readable report
 ```
 
 Exit codes: `0` green · `1` gate failed · `2` harness error.

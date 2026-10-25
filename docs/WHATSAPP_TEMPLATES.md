@@ -362,6 +362,7 @@ After Meta approves it: add its name to the `WHATSAPP_APPROVED_TEMPLATES` secret
 
 - **The other design variants B** (first month, one budget off, "you paid them", barely logged, one
   stale account, "it'd be tight", quiet digest day). Each is its own template under Meta's rules.
-- **Quick-reply buttons need handlers:** "Stop these" / "STOP …" (W2 mutes) and "What moved?" /
-  "Show the working" / "Split it into budgets" / "Show me the suggestions" (W3 turns). Until those
-  exist, a tap is recorded but not acted on.
+- **Quick-reply buttons are answered** (W2–W6, v10.42.0–v10.47.0; `_shared/whatsapp-prefs.ts`): "Stop these"
+  mutes the template's topic; "What moved?", "Split it into budgets" and "Show me the suggestions" reply in the
+  chat (`buttonReply`); a button that asks something, such as "Show the working", is answered by Pip
+  (`buttonQuestion`). A tap on any other button (Undo, Pause, Split 50/50) is recorded and not acted on.

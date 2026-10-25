@@ -17,8 +17,8 @@ import {
   type AmbiguityContext,
   type ResolutionConflict,
   type ValidationLike,
-} from '../../../../supabase/functions/_shared/agent/ambiguity';
-import type { ExtractionCandidate } from '../../../../supabase/functions/_shared/agent/types';
+} from '../src/ambiguity';
+import type { ExtractionCandidate } from '../src/types';
 
 const NO_ISSUES: ValidationLike = { issues: [] };
 

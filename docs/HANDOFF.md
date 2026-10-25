@@ -1,5 +1,8 @@
 # FinFlow — Session Handoff / Continuity Brief
 
+> ⚠️ **Written 30 May 2026 (FinFlow v6.4.27); kept for its gotchas.** Its versions, URLs and open work are out
+> of date. For the current state read [`VERSIONS.md`](../VERSIONS.md) and [`CLAUDE.md`](../CLAUDE.md).
+
 > **Read this first in a new session.** It captures the live state, the
 > non-obvious gotchas that otherwise take a lot of context to rediscover, how
 > deployment actually works, what's still open, and a command cheatsheet.

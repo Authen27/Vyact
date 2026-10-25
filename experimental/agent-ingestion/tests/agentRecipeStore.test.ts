@@ -7,10 +7,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   InMemoryRecipeStore, prepareRecipe, learnRecipe,
-} from '../../../../supabase/functions/_shared/agent/recipeStore';
-import { deriveRecipe } from '../../../../supabase/functions/_shared/agent/recipe';
-import { smsSignature } from '../../../../supabase/functions/_shared/agent/signature';
-import { runIngestion } from '../../../../supabase/functions/_shared/agent/pipeline';
+} from '../src/recipeStore';
+import { deriveRecipe } from '../src/recipe';
+import { smsSignature } from '../src/signature';
+import { runIngestion } from '../src/pipeline';
 
 const SMS_1 =
   'Rs.850.00 debited from A/c XX4471 on 14-08 to VPA swiggy@ybl. Ref 4429911. Avl Bal Rs.12,340.00';

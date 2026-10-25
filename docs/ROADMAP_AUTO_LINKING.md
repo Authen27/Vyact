@@ -355,7 +355,8 @@ interface Transaction {
 
 ### Schema migrations
 Each phase that adds columns ships a forward-only Supabase migration
-script + a localStorage migration in `lib/migration.ts`. Backups
+script + a localStorage migration in `lib/migration.ts` *(v10.133.0: deleted; the device store is a cache
+of the cloud, so a format change bumps `CACHE_EPOCH` in `lib/cacheInvalidation.ts`)*. Backups
 exported on the older schema must remain importable for at least one
 major version after the phase lands (current backwards-compatibility
 window).

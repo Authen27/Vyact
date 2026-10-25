@@ -17,9 +17,9 @@ import {
   toMinorUnits,
   deterministicUuid as portedUuid,
   type DupeCandidate,
-} from '../../../../supabase/functions/_shared/agent/dedupe';
-import { deterministicUuid as originalUuid } from '../recurring';
-import type { ExtractionCandidate } from '../../../../supabase/functions/_shared/agent/types';
+} from '../src/dedupe';
+import { deterministicUuid as originalUuid } from '../../../react/src/lib/recurring';
+import type { ExtractionCandidate } from '../src/types';
 
 const HH = 'household-1111-2222-3333';
 const OTHER_HH = 'household-9999-8888-7777';

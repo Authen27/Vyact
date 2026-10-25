@@ -14,11 +14,11 @@ import {
   matchCategoryCandidates,
   householdIdFromOption,
   type ResolveContext,
-} from '../../../../supabase/functions/_shared/agent/resolver';
+} from '../src/resolver';
 import type {
   AccountLite,
   ExtractionCandidate,
-} from '../../../../supabase/functions/_shared/agent/types';
+} from '../src/types';
 
 const ACCOUNTS: AccountLite[] = [
   { name: 'HDFC Savings', kind: 'bank', maskLast4: '4471' },

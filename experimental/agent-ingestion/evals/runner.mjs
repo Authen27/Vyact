@@ -27,11 +27,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '..');
+// v10.136.0 (Track Q8): parked with the pipeline in experimental/agent-ingestion.
 const CASES_DIR = join(HERE, 'cases');
-const PIPELINE = pathToFileURL(
-  join(REPO, 'supabase', 'functions', '_shared', 'agent', 'pipeline.ts'),
-).href;
+const PIPELINE = pathToFileURL(join(HERE, '..', 'src', 'pipeline.ts')).href;
 
 // ── declared gate (also stated in evals/README.md) ───────────────────────────
 /** Minimum share of SCORED cases (i.e. excluding `expectedFailure`) that must match. */

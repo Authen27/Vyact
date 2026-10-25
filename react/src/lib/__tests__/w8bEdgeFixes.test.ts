@@ -5,8 +5,6 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { isAllowedKeyEnv, checkConfig } from '../../../../supabase/functions/_shared/agent/router';
 import { largeSpendAlerts, budgetAlerts, type TxnRow } from '../../../../supabase/functions/_shared/whatsapp-dispatch-rules';
-import { runIngestion } from '../../../../supabase/functions/_shared/agent/pipeline';
-import type { ExtractionResult } from '../../../../supabase/functions/_shared/agent/types';
 
 const fn = (p: string) => readFileSync(resolve(__dirname, '../../../../supabase/functions', p), 'utf8');
 
@@ -38,24 +36,6 @@ describe('W8b · Edge robustness', () => {
       txns: [txn({ amount: spent, created_by: 'me' })], members: [members[0]] });
     expect(at(796)).toEqual([]);
     expect(at(806)[0].values[1]).toBe('81');     // the app says 81% (Math.round); this used to floor to 80
-  });
-
-  it('W8b-PIP04-001 · only a TRUSTED learned recipe may write; an untrusted one is drafted (BE-PIP-04)', async () => {
-    const recipe = (trusted: boolean | undefined): ExtractionResult => ({
-      ok: true, extractor: 'recipe', confidence: 0.95, ...(trusted === undefined ? {} : { trusted }),
-      candidate: { amount: 850, currency: 'INR', direction: 'debit', transaction_type: 'expense', accountMask: '4471', category_id: 'groceries', account_alias: 'hdfc' },
-    });
-    const input = {
-      text: 'Rs.850.00 debited from A/c XX4471 to VPA swiggy@ybl', source: 'sms', householdId: 'h1', userId: 'u1', now: new Date('2026-10-08T10:00:00Z'),
-      ctx: { households: [{ id: 'h1', name: 'Home' }], accounts: [{ id: 'acc', name: 'HDFC 4471', kind: 'bank', householdId: 'h1' }] },
-    } as never;
-    const untrusted = await runIngestion(input, { applyRecipe: () => recipe(false) });
-    const unknown = await runIngestion(input, { applyRecipe: () => recipe(undefined) });
-    expect(untrusted.action.kind).not.toBe('write');
-    expect(unknown.action.kind).not.toBe('write');
-    expect((await runIngestion(input, { applyRecipe: () => recipe(true) })).action.kind).toBe('write');
-    expect(fn('_shared/agent/pipeline.ts')).toMatch(/&& \(extraction\.extractor !== 'recipe' \|\| extraction\.trusted === true\)/);
-    expect(fn('_shared/agent/recipeStore.ts')).toMatch(/\? \{ \.\.\.result, trusted: true \}/);
   });
 
   it('W8b-WA11-001 · a refused send frees its slot; the daily cap counts sends in flight (BE-WA-11)', () => {

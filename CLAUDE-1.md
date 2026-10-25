@@ -1,5 +1,9 @@
 # Vyact — Family Finance OS
 
+> ⚠️ **Frozen at v10.13.0 (August 2026); kept for background.** Its versions, URLs (vyact-twentyx.vercel.app
+> is retired; the app is https://vyact.app) and status are out of date. The binding rules are in
+> [`CLAUDE.md`](CLAUDE.md), and where the two disagree, CLAUDE.md holds.
+
 > Note: This document was updated to reflect the product rename from FinFlow to Vyact (2026-06-01). Older references to "FinFlow" are intentionally preserved for historical context.
 
 ## Versioning at a glance

@@ -7,10 +7,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   runIngestion, enforceMoneyModel,
-} from '../../../../supabase/functions/_shared/agent/pipeline';
+} from '../src/pipeline';
 import type {
   ExtractionResult,
-} from '../../../../supabase/functions/_shared/agent/types';
+} from '../src/types';
 
 const NOW = new Date('2026-08-20T10:00:00Z');
 

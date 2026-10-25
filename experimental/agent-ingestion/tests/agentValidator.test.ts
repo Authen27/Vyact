@@ -8,8 +8,8 @@ import { describe, it, expect } from 'vitest';
 import {
   validateExtraction, amountAppearsInSource, amountLooksLikeBalance,
   sourceDirection, numbersInText,
-} from '../../../../supabase/functions/_shared/agent/validator';
-import { smsSkeleton, smsSignature } from '../../../../supabase/functions/_shared/agent/signature';
+} from '../src/validator';
+import { smsSkeleton, smsSignature } from '../src/signature';
 
 // Real-shaped bank SMS. The balance at the end is the trap the whole validator exists for.
 const HDFC_UPI =

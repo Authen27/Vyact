@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   extractByGrammar, parseGrammarAmount, matchCategoryId, looksLikeBankSms, isQueryText,
-} from '../../../../supabase/functions/_shared/agent/grammar';
+} from '../src/grammar';
 
 const HDFC_UPI =
   'Rs.850.00 debited from A/c XX4471 on 14-08 to VPA swiggy@ybl. Ref 4429911. Avl Bal Rs.12,340.00';

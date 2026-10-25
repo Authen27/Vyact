@@ -19,9 +19,9 @@ import {
   RECIPE_FORMAT_VERSION,
   RECIPE_TRUST,
   type SmsRecipe,
-} from '../../../../supabase/functions/_shared/agent/recipe';
-import { smsSignature } from '../../../../supabase/functions/_shared/agent/signature';
-import type { ExtractionCandidate } from '../../../../supabase/functions/_shared/agent/types';
+} from '../src/recipe';
+import { smsSignature } from '../src/signature';
+import type { ExtractionCandidate } from '../src/types';
 
 // ── Realistic Indian bank traffic ───────────────────────────────────────────
 

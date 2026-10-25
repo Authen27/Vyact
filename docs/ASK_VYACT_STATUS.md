@@ -1,5 +1,10 @@
 # Ask Vyact — implementation status (done vs pending)
 
+> **Since this audit (25 Oct 2026, v10.136.0):** Pip runs on Amazon Bedrock (Nova Lite, v10.106.1) with facts,
+> the figure and scope guards, the planner intents, Pip's limits (v10.135.0) and remembered answer preferences;
+> the relay is gone (TD-44) and the ingestion pipeline is parked (`experimental/agent-ingestion/`). The record
+> below is the 13 Sep audit, unchanged; the changelog has everything since.
+>
 > **Audited against production 2026-09-13** (project `dmxqkvploojokffuhxnz`), not against
 > the repo alone. Every claim below cites either a `file:line` or a live query result.
 > Consumer v10.35.0 · Admin v1.3.2 · `ask-vyact` edge function ACTIVE v32.
