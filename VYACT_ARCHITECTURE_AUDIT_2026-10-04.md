@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 25 Oct 2026):** 205 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 25 Oct 2026):** 208 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -65,17 +65,17 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 31 | 22 | 5 | 4 | 0 | 0 | 0 | 0 |
-| Medium | 102 | 92 | 6 | 3 | 1 | 0 | 0 | 0 |
-| Low | 77 | 68 | 4 | 3 | 2 | 0 | 0 | 0 |
+| Medium | 102 | 93 | 6 | 3 | 0 | 0 | 0 | 0 |
+| Low | 77 | 70 | 4 | 2 | 1 | 0 | 0 | 0 |
 | Info | 5 | 5 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **Total** | **218** | **189** | **16** | **10** | **3** | **0** | **0** | **0** |
+| **Total** | **218** | **192** | **16** | **9** | **1** | **0** | **0** | **0** |
 
-**205 of 218 are resolved (94%): all 3 critical and 27 of 31 high.** The other 13 fall into four groups:
+**208 of 218 are resolved (95%): all 3 critical and 27 of 31 high.** The other 10 fall into four groups:
 
-| What the 13 need | Count |
+| What the 10 need | Count |
 |---|---:|
-| Work planned in a Track Q stage (any owner step is named in Appendix C) | 5 |
-| An owner action or decision (0 waiting only on a decision; 8 partly done, with the rest waiting on an owner action) | 8 |
+| Work planned in a Track Q stage (any owner step is named in Appendix C) | 1 |
+| An owner action or decision (0 waiting only on a decision; 9 partly done, with the rest waiting on an owner action) | 9 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (answered 20 Oct) | 0 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 0 |
 
@@ -114,7 +114,7 @@ Two developers did the work:
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, XC-PRV-08, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05, INT-HH-13 | — |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
 | #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, FE-UIC-10, INT-HH-09, INT-PAR-05, XC-PRV-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | — |
-| #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-06, BE-WA-09, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | BE-PIP-04 |
+| #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-06, BE-WA-09, BE-PIP-04, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | — |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-10, ADM-11, ADM-12, ADM-13, ADM-14, INT-CON-06, INT-HH-14, GATE-03 | FE-PLT-04 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, XC-PRV-14, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07 |
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | FE-UIS-09, FE-UIS-12 | — |
@@ -157,6 +157,7 @@ Two developers did the work:
 | #245 | v10.133.0 | Track Q5: amounts in either separator convention; onboarding re-runs in place; dialogs keep focus; household exit purge; per-person language; one free-to-spend; archive at zero; card in credit; dead import gone (owner, 20 Oct) | FE-UIC-10, FE-UIC-12, FE-UIS-03, FE-UIS-07, INT-HH-08, FE-MNY-12, FE-MNY-13, FE-SYN-13, INT-HH-13 | — |
 | #246 | v10.134.0 | Track Q6: a split takes the whole bill from the paying account; Owed to you in Net Worth; repayments into a chosen account (money model revised, owner, 20 Oct) | FE-MNY-08 | — |
 | #247 | v10.135.0 | Track Q7: Pip's limits (per person, per minute, off-topic cool-down, a global ceiling, closed without its row), nudges raised on the server and pushed on opt-in, remembered answer length and language, the test relay retired | OPS-11, BE-PIP-06 | — |
+| #248 | v10.136.0 | Track Q8: the dormant ingestion pipeline parked outside the deploy and the default tests, the Deno router test run in CI, the retired flag module deleted, stale doc lines corrected | XC-ARC-05, BE-PIP-04, XC-ARC-07 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -223,13 +224,12 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (4)**
-- *Ready to do (no decision):* FE-PLT-04, XC-ARC-05.
+**Medium (3)**
+- *Ready to do (no decision):* FE-PLT-04.
 - *Owner decision:* OPS-05, XC-PRV-11.
 
-**Low and info (5)**
-- *Ready to do (no decision):* BE-PIP-04, XC-ARC-07, XC-ARC-15.
-- *Owner decision:* BE-FN-11, OPS-07.
+**Low and info (3)**
+- *Owner decision:* BE-FN-11, OPS-07, XC-ARC-15.
 
 ### 0.6 Action plan
 
@@ -887,7 +887,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | OPS-05 | MEDIUM | Platform & Ops | Preview guard is skipped when VITE_SUPABASE_URL is 'All Environments'; admin previews use prod | confirmed-with-caveats (adversarial: partial) |  | Partly | #189, v10.131.0 |
 | OPS-08 | MEDIUM | Platform & Ops | RLS isolation covers 3 of ~40 tables, PR-only, against a hand-synced schema; INV-7 still untested | confirmed-with-caveats (adversarial: partial) | TD-19 (Lane B partially delivered); TD-31 (open); 2026-09 audit 10.2 | Closed | #178, v10.102.0, v10.129.0 |
 | OPS-11 | MEDIUM | Platform & Ops | LLM spend guard is per-user only and fails open if the cap env is unset or invalid | confirmed-with-caveats (adversarial: partial) | 2026-09 audit A2 (atomicity fixed; global ceiling and fail-closed config not addressed) | Closed | #168, v10.135.0 |
-| XC-ARC-05 | MEDIUM | Cross-cutting | Binding docs contradict themselves and send AI sessions to stale documents | confirmed (adversarial: confirmed) | TD-28 (marked resolved 2026-06-17; regressed), TD-41 (open) | Open | — |
+| XC-ARC-05 | MEDIUM | Cross-cutting | Binding docs contradict themselves and send AI sessions to stale documents | confirmed (adversarial: confirmed) | TD-28 (marked resolved 2026-06-17; regressed), TD-41 (open) | Closed | v10.136.0 |
 | XC-ARC-06 | MEDIUM | Cross-cutting | Bundled engine left hand ports live: server money, recurring and budget alerts are duplicated | confirmed-with-caveats (adversarial: partial) |  | Closed | #173, v10.96.0, v10.122.0 |
 | XC-ARC-08 | MEDIUM | Cross-cutting | 'Retired' Money Map flag still picks the transaction account picker; e2e tests the legacy path | confirmed-with-caveats (adversarial: partial) |  | Closed | v10.121.0 |
 | XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) | Closed | v10.120.0 |
@@ -943,7 +943,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | ADM-13 | LOW | Admin | Admin host has no CSP and publishes full source maps while holding god-mode JWT | not independently verified (low/info) |  | Closed | #188, #189 |
 | ADM-14 | LOW | Admin | Revenue KPIs mix currencies and statuses: MRR summed across currencies, labelled USD | not independently verified (low/info) |  | Closed | #188, v10.130.0, v10.131.0 |
 | BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. | Partly | #165, v10.123.0, v10.126.0, v10.128.0 |
-| BE-PIP-04 | LOW | Backend | Untrusted learned recipes are written without confirmation, and one user can promote a global recipe | confirmed-with-caveats (adversarial: partial) |  | Partly | #187 |
+| BE-PIP-04 | LOW | Backend | Untrusted learned recipes are written without confirmation, and one user can promote a global recipe | confirmed-with-caveats (adversarial: partial) |  | Closed | #187, v10.136.0 |
 | BE-PIP-05 | LOW | Backend | key_env_var denylist misses MAILERSEND_API_KEY; base_url host checks are bypassable | not independently verified (low/info) |  | Closed | #187 |
 | BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 | Closed | v10.135.0 |
 | BE-PIP-07 | LOW | Backend | Gateway failures are silent in logs but over-share config details with end users | not independently verified (low/info) | TD-43 | Closed | #187 |
@@ -970,7 +970,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | OPS-07 | LOW | Platform & Ops | Prod Supabase token reachable from non-main branches; no permissions block; actions pinned by tag | confirmed-with-caveats (adversarial: partial) |  | Partly | #189 |
 | OPS-09 | LOW | Platform & Ops | DEPLOY.md and OPERATIONS.md misdescribe the live pipeline and verify against an orphaned host | confirmed-with-caveats (adversarial: partial) | TD-41 (same class; these two docs not listed) | Closed | #189 |
 | OPS-13 | LOW | Platform & Ops | Build and CI hygiene: npm install on Vercel, unpinned Node, cancelled main runs, HEAD^-only skip | not independently verified (low/info) |  | Closed | #185, #189 |
-| XC-ARC-07 | LOW | Cross-cutting | About 4,000 lines of dormant agent pipeline and retired feature paths still shipped and tested | confirmed-with-caveats (adversarial: partial) | TD-36 (partial; still open) | Open | — |
+| XC-ARC-07 | LOW | Cross-cutting | About 4,000 lines of dormant agent pipeline and retired feature paths still shipped and tested | confirmed-with-caveats (adversarial: partial) | TD-36 (partial; still open) | Closed | v10.136.0 |
 | XC-ARC-10 | LOW | Cross-cutting | Store actions write pre-await snapshots back to state, without a household guard | confirmed-with-caveats (adversarial: partial) | 2026-09 audit section 9 (code-style priorities 2 and 3; still open) | Closed | v10.121.0 |
 | XC-ARC-12 | LOW | Cross-cutting | Money model lives in CHECKs and prose; domain types and adapter generics do not encode it | confirmed-with-caveats (adversarial: partial) | 2026-09 audit sections 8.3/8.4 (still open) | Closed (decision) | — |
 | XC-ARC-14 | LOW | Cross-cutting | Release cadence outpaces stabilisation: 40 minor releases in 27 days, AI-heavy, one maintainer | confirmed-with-caveats (adversarial: partial) | TD-25 (resolved; regressed), TD-28 | Closed (decision) | — |
@@ -1276,9 +1276,9 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 25 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.135.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.136.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (13)
+### C.1 Unresolved (10)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1289,12 +1289,9 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.135.
 | FE-PLT-04 | medium | Partly | #188, #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026) ("collect reports, then enforce"): vyact.app's report-only policy now reports to /api/csp-report (report-uri + Reporting-Endpoints), which logs the directive, the blocked host and the page path only. T4B-008. Left: switch to an enforced Content-Security-Policy after about a week of clean reports. | Track Q8: enforce after the report week (from 26 Oct) | XS |
 | OPS-05 | medium | Partly | #189, v10.131.0 | v10.84.0 fenced consumer previews; admin v1.5.0 / v10.131.0 (Track Q3b; owner decisions 20 Oct 2026) fences admin previews (ADM-09). Left for the owner: scope vyact-admin's production Supabase env to Production and give Preview the vyact-test values. | Owner: scope the vyact-admin Vercel env (Production / Preview) | XS |
 | XC-PRV-11 | medium | Partly | #165, #166, #167, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): Privacy adds the DPDP section (rights, nomination, Grievance Officer, Data Protection Board), a processor list with regions, withdrawal of optional processing in Settings (analytics), §10 breach and §12 18+ only (no child accounts; Terms too). SECURITY.md has the breach runbook (DPDP Board, 72 hours, GDPR). POLICY_VERSION bumped with re-consent (XC-PRV-09). T4B-006… | Owner: legal entity, address, Grievance Officer, Supabase region | M |
-| XC-ARC-05 | medium | Open | — | Restructure CLAUDE.md and freeze old docs? (W8 §3) | Track Q8: fix the stale lines, then close (owner) | S |
 | BE-FN-11 | low | Partly | #165, v10.123.0, v10.126.0, v10.128.0 | v10.126.0 (T4c) built the snapshot and the drift check; v10.128.0 (Q1) recorded the 29 live values with the owner's decisions (Q-AUTH-01..04). Left: --strict once the dashboard matches (Q-AUTH-01/02). | Owner: Q-AUTH-01/02 in the dashboard, then --strict | S |
-| BE-PIP-04 | low | Partly | #187 | A learned recipe is deterministic only when trusted (#187). No confirmation or promotion flow was built; the pipeline is not connected to any entrypoint, so nothing is exposed today. | Track Q8 (parked with XC-ARC-07) | S |
 | OPS-07 | low | Partly | #189 | `permissions: contents: read` is on every workflow. Left: a separate Supabase token or environment for vyact-test deploys (owner). | Owner: separate token | XS |
-| XC-ARC-07 | low | Open | — | Park or delete the dormant SMS/agent pipeline? (W8 §3) | Track Q8: park the dormant pipeline (owner) | M |
-| XC-ARC-15 | low | Open | — | Move tracked binaries and duplicate handoffs out of the repo? (W8 §3) | Track Q8: clean up; binaries to release assets (owner) | S |
+| XC-ARC-15 | low | Open | — | Q8 found Authen27/Vyact public, though CLAUDE.md says private: a "repo-assets" release would publish the 43 business and design files (investor decks, business plans, design feedback) in a new public place, and they are already readable in the tree and its history. Archives were built and checked, not uploaded. db/schema.sql stays: three gates read it (db-migrations-check, validate-new-migrations, eraseHouseholdSql). | Owner: the repository is PUBLIC (25 Oct 2026), so a release would publish the files; choose where they go | S |
 
 ### C.2 Resolved, but to be confirmed in production (16)
 
@@ -1317,7 +1314,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.135.
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (120)
+### C.3 Resolved, with a residual note (123)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1391,6 +1388,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.135.
 | OPS-03 | medium | Closed | v10.128.0 | v10.128.0 (Track Q1; owner decision D8, 20 Oct 2026: "Actions deploys the app last"): `supabase db push` runs without --include-all, so an out-of-order migration is refused, never applied; scripts/migration-order-check.mjs (the db-migrations gate) refuses a branch's migration that is not newer than main's latest. Test… |
 | OPS-08 | medium | Closed | #178, v10.102.0, v10.129.0 | v10.129.0 (Track Q2; owner decision D10, 20 Oct 2026: "replay every migration, and an authz matrix"): RLS isolation now covers every table, on every pull request, against the schema the migrations build (not a hand-synced one): authzMatrixSql Q2-AZ-001/002. INV-7 atomicity was covered in v10.102.0. |
 | OPS-11 | medium | Closed | #168, v10.135.0 | v10.135.0 (Track Q7; owner decisions 20 Oct 2026: "a rate limit with an off-topic cool-down", "a global daily ceiling, fail closed"): Pip's limits live in one server-only row, ai_limits (a person's 200 calls a day, which the gateway's cap can only lower; 12 a minute; 3 off-topic questions in 10 minutes pause Pip for 1… |
+| XC-ARC-05 | medium | Closed | v10.136.0 | v10.136.0 (Track Q8; owner: "fix the stale lines only, then close"): CLAUDE.md's opening says what it is and where the current state lives (no more "lightweight index"/"read CLAUDE-1.md"); CLAUDE-1.md, docs/HANDOFF.md and ARCHITECTURE.md carry an out-of-date banner; the ingestion binding rules are marked as the parked… |
 | XC-ARC-06 | medium | Closed | #173, v10.96.0, v10.122.0 | v10.122.0 (Track T5c; owner, 19 Oct 2026: "timed turns only; admin counts read only the server's rows"): the WhatsApp budget alert sends the bell's own lines (lib/notifications.ts budgetThresholdLines, exposed to the bundle as serverEngine.budgetLinesOnServer; the 80% band only, the dedupe key unchanged), so its own 8… |
 | XC-ARC-08 | medium | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): the Money Map flag (getMoneyMapMode, `money_map`) and the assets + debts picker derivation (buildAccounts) are deleted; both forms list the household's accounts in every build. In local-only builds (Lane A, the guest demo) the legacy list of… |
 | XC-ARC-09 | medium | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): every Edge Function is type-checked under strict TypeScript (`typecheck:edge`, scripts/typecheck/edge.tsconfig.json, Deno globals stubbed; 12 errors fixed) in the automation gates, and .github/workflows/edge.yml runs `deno check` (1 more error fixed) and… |
@@ -1415,6 +1413,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.135.
 | ADM-10 | low | Closed | #188, v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): the insight-infographics bucket takes image/png, image/jpeg and image/webp up to 5 MB (Q3A-014). The upload-after-save order was fixed in admin v1.4.x. |
 | ADM-11 | low | Closed | #188, v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): email bylines became "Vyact" (Q3A-014). Publish dates that edits reset are not recoverable. |
 | ADM-14 | low | Closed | #188, v10.130.0, v10.131.0 | v10.130.0 made the RPC per currency; admin v1.5.0 / v10.131.0 (Track Q3b; owner decisions 20 Oct 2026): the Dashboard tile shows each currency (revenueFromMap). Q3B-ADM-005. |
+| BE-PIP-04 | low | Closed | #187, v10.136.0 | v10.136.0 (Track Q8; owner: parked with XC-ARC-07): the pipeline is out of supabase/functions, so no deployment can reach it. The trusted-recipe rule (#187) is tested with it (trustedRecipe.test.ts), and its README makes the per-household confirmation and the no-global-promotion rule the first condition of any revival. |
 | BE-PIP-06 | low | Closed | v10.135.0 | v10.135.0 (Track Q7; owner, 20 Oct 2026: "retire the relay"; TD-44 closed): the claude-code-relay config rows, the ask_vyact_relay queue (message content) and its line in the household erase are removed and ck_ai_model_configs_no_relay refuses the provider; the gateway's relay branch and relayPoll, relay.ts (pilot-row… |
 | BE-WA-12 | low | Closed | #187, v10.118.0 | W8b (#187) counted stale claims as attempts. v10.118.0 (Track T2d; owner: every 5 minutes) adds pg_cron whatsapp-inbox-sweep with a Vault secret (whatsapp_sweep_cron_ok); the sweep also claims messages left pending over 2 minutes (inside 24 h), and a stale claim that runs out of attempts sends one "Sorry, I couldn't p… |
 | DB-INT-14 | low | Closed | v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): a transfer to the same account and a negative budget line are refused for new rows (NOT VALID checks), and WhatsApp refuses a Loan / EMI expense (it must pay the loan). Budget scope stays optional: the older category budgets have none (by design). |
@@ -1429,6 +1428,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.135.
 | GATE-03 | low | Closed | #185, #188 | Live-verified 12 Oct: no .map is served for the vyact.app or admin entry chunks. |
 | GATE-04 | low | Closed | v10.120.0 | v10.120.0 (Track T5a; owner, 19 Oct 2026: TypeScript and Deno): react/tsconfig.tests.json + the `typecheck:tests` gate compile the unit tests and the JS and Edge code they import; 121 errors fixed without changing an assertion (a fixture used a payment mode that never existed; a schedule fixture lacked two fields). |
 | OPS-13 | low | Closed | #185, #189 | The ignoreCommand regression introduced in #185 was fixed in #189. |
+| XC-ARC-07 | low | Closed | v10.136.0 | v10.136.0 (Track Q8; owner decision 20 Oct 2026: "park the dormant pipeline"): the 11 ingestion modules no deployed function reached (about 3,900 lines), their 9 suites and the eval corpus moved to experimental/agent-ingestion/, outside supabase/functions, the default run, the inventory and the type-check gates; they… |
 | XC-ARC-10 | low | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): store/landIn.ts: `commit(householdId, update)` lands a post-await write only if that household is still open, in every household-scoped action of the crud, data, recurring and notify slices (38 writes), plus the role, household invitations a… |
 | XC-ARC-12 | low | Closed (decision) | — | Owner, 20 Oct 2026: not planned. The money model is held by the database CHECKs and the money-model test suite. Closed by decision. |
 | XC-ARC-14 | low | Closed (decision) | — | Owner, 20 Oct 2026: a process observation, not a code defect; the gates added since (T5, Q1) cover the risk. Closed by decision. |
