@@ -13,6 +13,10 @@
 // once that person pays/settles.
 //
 // v10.28.0 — rendered as the /splits/new and /splits/:txnId/edit pages.
+// v10.134.0 (Track Q6; FE-MNY-08, owner 20 Oct 2026) — a NEW expense split takes the whole bill from the account that
+// paid it (`split.fullDebit`); your spending is still your share, and the others' unpaid shares are Owed to you
+// (lib/splitMoney.ts). An edit keeps what the split was. A share ticked paid here came back into the paying account
+// unless it already named one (`paidInto`).
 import { useEffect, useMemo, useState } from 'react';
 import FormPage from '../ui/FormPage';
 import Chip from '../ui/Chip';
@@ -329,16 +333,21 @@ export default function SplitFormModal(props: Props) {
       }
     }
 
+    const fullDebit = form.type === 'expense' && (initial ? initial.split?.fullDebit === true : true);
     const split: Transaction['split'] = {
       isSplit: true,
       totalAmount: amount,
       yourShare: you.shareNum,
       paidBy: 'me',
+      ...(fullDebit ? { fullDebit: true } : {}),
       participants: parts.map(p => {
         const email = (p.email ?? '').trim().toLowerCase();
         const displayName = p.isYou ? 'You'
           : (cloudActive ? (resolvedNames[email] || p.name.trim() || email) : p.name.trim());
+        const before = initial?.split?.participants.find(x => (email && x.email === email) || x.name === displayName);
+        const paidInto = fullDebit && !p.isYou && p.paid ? (before?.paidInto ?? form.paymentMethod) : undefined;
         return {
+          ...(paidInto ? { paidInto } : {}),
           name: displayName,
           isYou: p.isYou || undefined,
           share: p.shareNum,

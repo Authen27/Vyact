@@ -14,6 +14,8 @@ import PageHead from '../components/ui/PageHead';
 import EmptyState from '../components/ui/EmptyState';
 import { askSheet, confirmSheet } from '../lib/confirmSheet';
 import { closeSplitRequest, deleteSplitRequest } from '../lib/confirmCopy';
+import { isFullDebitSplit } from '../lib/splitMoney';
+import SettleShareSheet, { type SettleTarget } from '../components/splits/SettleShareSheet';
 
 // v10.17 (items 7/8/9) — roll the outstanding split details up per person,
 // keyed by email (fallback: display name for local/no-email participants), so
@@ -128,9 +130,33 @@ export default function Splits() {
     if (intent?.participants.length) await updateSharedSplitForTxn(intent);
   }
 
+  // v10.134.0 (Track Q6; FE-MNY-08): on a split you paid in full, a repayment comes back into an account you choose
+  // (SettleShareSheet); that account rises by the share and Owed to you falls by it. Older splits are marked as before.
+  const [settle, setSettle] = useState<SettleTarget | null>(null);
+  function askWhereItCameIn(txn: Transaction, names: string[]) {
+    const owed = txn.split!.participants.filter(p => names.includes(p.name)).reduce((s, p) => s + p.share, 0);
+    setSettle({ txnId: txn.id, names, amount: Math.round(owed * 100) / 100, currency: txn.currency, defaultAccount: txn.paymentMethod ?? undefined });
+  }
+  async function recordRepayment(target: SettleTarget, accountValue: string) {
+    const txn = transactions.find(tx => tx.id === target.txnId);
+    if (!txn?.split) return;
+    const updated: Transaction = {
+      ...txn,
+      split: {
+        ...txn.split,
+        participants: txn.split.participants.map((p: SplitParticipant) =>
+          target.names.includes(p.name) && !p.paid ? { ...p, paid: true, paidOn: today(), paidInto: accountValue } : p),
+      },
+    };
+    await upsertTransaction(updated);
+    await queueCloudSharesPaid(updated);
+    toast(target.names.length === 1 ? `Recorded ${target.names[0]}'s repayment` : 'Repayments recorded', 'success');
+  }
+
   async function markPaid(txnId: string, participantName: string) {
     const txn = transactions.find(tx => tx.id === txnId);
     if (!txn?.split) return;
+    if (isFullDebitSplit(txn)) { askWhereItCameIn(txn, [participantName]); return; }
     const updated: Transaction = {
       ...txn,
       split: {
@@ -148,6 +174,10 @@ export default function Splits() {
   async function markAllPaid(txnId: string) {
     const txn = transactions.find(tx => tx.id === txnId);
     if (!txn?.split) return;
+    if (isFullDebitSplit(txn)) {
+      askWhereItCameIn(txn, txn.split.participants.filter(p => !p.isYou && !p.paid).map(p => p.name));
+      return;
+    }
     const updated: Transaction = {
       ...txn,
       split: {
@@ -471,6 +501,7 @@ export default function Splits() {
           {splitTxns.map(txn => <SplitRow key={txn.id} txn={txn} />)}
         </div>
       )}
+      <SettleShareSheet target={settle} onClose={() => setSettle(null)} onConfirm={recordRepayment} />
     </div>
   );
 }

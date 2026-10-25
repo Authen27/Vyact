@@ -17,6 +17,7 @@
 
 import type { Transaction, Account, ReconciliationEntry, Asset, Liquidity } from '../types';
 import { effectiveAmount } from './calculations';
+import { ledgerDebit, splitReceipts } from './splitMoney';
 import { convert } from './format';
 import type { ExchangeRates } from '../types';
 
@@ -48,7 +49,9 @@ export function creditAccountOf(t: Transaction): string | undefined {
 }
 
 /** R-AGG-4 — an account's current balance. Pure fold over real transactions plus
- *  the D2 reconciliation offset. Excluded-from-reports txns still count (money moved). */
+ *  the D2 reconciliation offset. Excluded-from-reports txns still count (money moved).
+ *  v10.134.0 (Q6): a full-debit split takes the whole bill from the account that paid it, and each repayment comes back
+ *  into the account it was paid into (lib/splitMoney.ts); the server folds the same (account_ledger_balance). */
 export function computeAccountBalance(
   account: Account,
   txns: Transaction[],
@@ -61,7 +64,8 @@ export function computeAccountBalance(
     if (t.type === 'income') {
       if (matches(account, creditAccountOf(t))) bal += amt;
     } else if (t.type === 'expense') {
-      if (matches(account, debitAccountOf(t))) bal -= amt;
+      if (matches(account, debitAccountOf(t))) bal -= ledgerDebit(t) ?? amt;
+      for (const r of splitReceipts(t)) if (matches(account, r.accountId)) bal += r.amount;
     } else if (t.type === 'transfer' || t.type === 'investment') {
       if (matches(account, debitAccountOf(t)))  bal -= amt;
       if (matches(account, creditAccountOf(t))) bal += amt;
@@ -128,7 +132,8 @@ export interface LiveAssetRow {
   value: number;
   currency: string;
   liquidity: Liquidity;
-  source: 'account' | 'asset';
+  /** 'split' (v10.134.0, Q6): Owed to you, the others' unpaid shares of full-debit splits. */
+  source: 'account' | 'asset' | 'split';
   account?: Account;
   asset?: Asset;
 }

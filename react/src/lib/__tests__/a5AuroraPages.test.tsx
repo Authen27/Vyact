@@ -107,7 +107,8 @@ describe('A5 · Plan and Track pages', () => {
     expect(s).toMatch(/className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"/);
     expect(s).toMatch(/text-\[12px\] text-ink-mid sm:whitespace-nowrap/);
     expect(s).not.toMatch(/bg-bg border border-line rounded-lg/);
-    expect(s.match(/className="tile px-4 py-3/g)).toHaveLength(3);
+    // v10.134.0 (Q6): the fourth is Owed to you.
+    expect(s.match(/className="tile px-4 py-3/g)).toHaveLength(4);
     expect(s).toMatch(/<div className="text-\[12px\] leading-snug text-ink-dim">\{r\.sub\}<\/div>/);
     for (const sub of ['Cash and savings you could use today', 'Share of what you own that is borrowed', 'No income recorded this month']) {
       expect(s).toContain(`'${sub}'`);

@@ -275,7 +275,9 @@ export function localAccountDependencies(
   schedules: RecurringSchedule[],
   debts: readonly Debt[] = [],
 ): AccountDependencies {
-  const txns = transactions.filter(t => t.accountId === accountId || t.toAccountId === accountId);
+  // v10.134.0 (Q6): a split's repayment into the account (participants' paidInto) is in use too, as on the server.
+  const txns = transactions.filter(t => t.accountId === accountId || t.toAccountId === accountId
+    || (t.split?.participants ?? []).some(p => p.paidInto === accountId));
   const groups = new Map<string, { label: string; count: number; total: number }>();
   for (const t of txns) {
     const label = (t.description ?? '').trim() || t.category || t.type;

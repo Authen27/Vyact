@@ -544,6 +544,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     };
     const fromUuid = resolveUuid(t.accountId ?? t.paymentMethod);
     const toUuid   = resolveUuid(t.toAccountId ?? t.linkedToAssetId);
+    // v10.134.0 (Q6): a split's repayments name a real account too (the server checks it is the household's).
+    if (t.split?.participants?.some(p => p.paidInto)) {
+      t = { ...t, split: { ...t.split, participants: t.split.participants.map(p =>
+        (p.paidInto ? { ...p, paidInto: resolveUuid(p.paidInto) ?? p.paidInto } : p)) } };
+    }
     if (t.type === 'expense') {
       t = { ...t, accountId: fromUuid ?? t.accountId, toAccountId: undefined };
     } else if (t.type === 'income') {

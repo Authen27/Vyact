@@ -55,6 +55,8 @@ export interface SplitParticipant {
   email?: string;
   /** FK to the created `shared_splits.id`, once synced. */
   sharedSplitId?: string;
+  /** v10.134.0 (Q6): on a full-debit split, the account this person's repayment came back into (lib/splitMoney.ts). */
+  paidInto?: string;
 }
 
 export interface SplitInfo {
@@ -63,6 +65,9 @@ export interface SplitInfo {
   yourShare: number;
   paidBy: 'me' | 'external';
   participants: SplitParticipant[];
+  /** v10.134.0 (Q6; FE-MNY-08): the paying account carries the full bill and the others' unpaid shares are Owed to
+   *  you. Set by the Split form on a NEW split you paid; splits made before keep their share-only debit. */
+  fullDebit?: boolean;
 }
 
 // v10.14 — email-based cross-household split sharing (supabase/migrations/

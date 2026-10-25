@@ -439,10 +439,12 @@ function AccountLedger({ account, txns, baseCur, rates }: {
           </span>
         </div>
       ))}
-      {rows.slice(0, 50).map(({ t, impact, runningAfter }) => (
-        <div key={t.id} className="flex items-center gap-2 text-[0.78rem]">
-          <span className="text-ink-dim num text-[11px] w-[4.5rem] shrink-0">{t.date}</span>
-          <span className="flex-1 truncate text-ink-mid">{t.description || getCat(t.category).label}</span>
+      {rows.slice(0, 50).map(({ t, impact, runningAfter, date, key, receipt }) => (
+        <div key={key} className="flex items-center gap-2 text-[0.78rem]">
+          <span className="text-ink-dim num text-[11px] w-[4.5rem] shrink-0">{date}</span>
+          <span className="flex-1 truncate text-ink-mid">
+            {receipt ? `${receipt} paid you back · ${t.description || 'split'}` : (t.description || getCat(t.category).label)}
+          </span>
           <span className="num" style={{ color: impact < 0 ? 'hsl(var(--terra))' : 'hsl(var(--sage))' }}>
             {fmtSigned(impact, baseCur)}
           </span>
