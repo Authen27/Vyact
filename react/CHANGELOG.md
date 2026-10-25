@@ -34,6 +34,10 @@ Track Q, part 8 (audit XC-ARC-07, BE-PIP-04, XC-ARC-05; owner decisions 20 Oct 2
 - **The model router's own test now runs.** `router.test.ts` was a Deno test no CI job ran; its 22 cases run in the
   normal suite as `agentRouterContract.test.ts` (all passed on their first run).
 - **The v7 `track_picker` flag module is deleted** (nothing read it).
+- **The repository keeps code, not business and design files** (audit XC-ARC-15; owner decision 25 Oct 2026). The
+  older design handoff (`Vyact-handoff/`, superseded by `Vyact Redesign/design_handoff_vyact_aurora`) and the five
+  business files in `Vyact App/` are removed and kept privately by the owner; a check (`scripts/__tests__/repo-files.test.mjs`)
+  refuses documents, archives, media and design files, and images outside the folders an app serves.
 - **Stale lines corrected:** CLAUDE.md's opening now says what it is and where the current state lives;
   CLAUDE-1.md, docs/HANDOFF.md and ARCHITECTURE.md say they are out of date; vyact-agent-architecture.md and
   docs/ASK_VYACT_STATUS.md state Pip's current status; the WhatsApp template notes say the buttons are answered;

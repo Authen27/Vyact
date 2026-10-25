@@ -1287,6 +1287,10 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   `lighthouse.yml` (v10.53.0) runs a landing-page performance budget (median
   mobile ≥ 90; since v10.54.0 the app bundle boots on "/" only on interaction) only on PRs that touch the landing page or its loading. Vercel
   skips docs-only commits via `ignoreCommand` in both `vercel.json` files.
+- **The repository keeps code, not business or design files (v10.136.0, Q8; XC-ARC-15; owner, 25 Oct 2026).**
+  `scripts/__tests__/repo-files.test.mjs` (in `test:ci`) refuses documents, archives, media and design files anywhere,
+  and images outside `react/public` / `admin/public`. Whatever is committed is readable by everyone who can read the
+  repository, and stays in its history. Keep decks, plans and handoffs somewhere private.
 - **Brand entity (v10.56.0, owner 2 Oct 2026).**
   - Vyact is "the family budget app"; the logo tagline is "Family budget app".
   - The only alias is "Vyact app"; no other alias, ever.
