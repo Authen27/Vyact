@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 25 Oct 2026):** 202 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 25 Oct 2026):** 203 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -65,16 +65,16 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 31 | 22 | 5 | 4 | 0 | 0 | 0 | 0 |
-| Medium | 102 | 90 | 6 | 4 | 2 | 0 | 0 | 0 |
+| Medium | 102 | 91 | 6 | 4 | 1 | 0 | 0 | 0 |
 | Low | 77 | 67 | 4 | 3 | 3 | 0 | 0 | 0 |
 | Info | 5 | 5 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **Total** | **218** | **186** | **16** | **11** | **5** | **0** | **0** | **0** |
+| **Total** | **218** | **187** | **16** | **11** | **4** | **0** | **0** | **0** |
 
-**202 of 218 are resolved (93%): all 3 critical and 27 of 31 high.** The other 16 fall into four groups:
+**203 of 218 are resolved (93%): all 3 critical and 27 of 31 high.** The other 15 fall into four groups:
 
-| What the 16 need | Count |
+| What the 15 need | Count |
 |---|---:|
-| Work planned in a Track Q stage (any owner step is named in Appendix C) | 8 |
+| Work planned in a Track Q stage (any owner step is named in Appendix C) | 7 |
 | An owner action or decision (0 waiting only on a decision; 8 partly done, with the rest waiting on an owner action) | 8 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (answered 20 Oct) | 0 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 0 |
@@ -155,6 +155,7 @@ Two developers did the work:
 | #243 | v10.131.0 / admin v1.5.0 | Track Q3b: admin pages on the server tiers; paged lists and server counts; staff roles and Staff actions; MRR per currency; infographic checks; previews never reach production (owner, 20 Oct) | ADM-04, ADM-07, ADM-09, ADM-08, ADM-14, INT-HH-14 | OPS-05 |
 | #244 | v10.132.0 / admin v1.6.0 | Track Q4: job runs recorded, job_health and the hourly owner email, admin Health; Sentry (EU, scrubbed, no SDK); Privacy names Sentry; the weekly WhatsApp summary under insights; Userback off on localhost and the demo (owner, 20 Oct; D9) | OPS-06, FE-UIS-12, DB-OPS-08, Q-WA-01 | XC-PRV-03 |
 | #245 | v10.133.0 | Track Q5: amounts in either separator convention; onboarding re-runs in place; dialogs keep focus; household exit purge; per-person language; one free-to-spend; archive at zero; card in credit; dead import gone (owner, 20 Oct) | FE-UIC-10, FE-UIC-12, FE-UIS-03, FE-UIS-07, INT-HH-08, FE-MNY-12, FE-MNY-13, FE-SYN-13, INT-HH-13 | — |
+| #246 | v10.134.0 | Track Q6: a split takes the whole bill from the paying account; Owed to you in Net Worth; repayments into a chosen account (money model revised, owner, 20 Oct) | FE-MNY-08 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -221,8 +222,8 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (6)**
-- *Ready to do (no decision):* FE-MNY-08, FE-PLT-04, OPS-11, XC-ARC-05.
+**Medium (5)**
+- *Ready to do (no decision):* FE-PLT-04, OPS-11, XC-ARC-05.
 - *Owner decision:* OPS-05, XC-PRV-11.
 
 **Low and info (6)**
@@ -800,7 +801,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | OPS-06 | HIGH | Platform & Ops | No production observability: faults go nowhere, cron/pg_net results unchecked, no alerting | confirmed (adversarial: confirmed) | 2026-09 audit 10.4 (still open, now worse: the in-app transport is gone); TD-43 | Closed | v10.132.0 |
 | XC-PRV-03 | HIGH | Cross-cutting | Session replay (Contentsquare) and Userback screenshots run on every finance screen, undisclosed, no consent | confirmed (adversarial: confirmed) |  | Partly | #165, #189, v10.125.0, v10.132.0 |
 | FE-MNY-06 | MEDIUM | Frontend | Dashboard insight chips use the static asset/debt arrays and raw budgets, contradicting the net-worth card | confirmed (adversarial: confirmed) | 2026-09 audit F3/F5 (partially open: NW card fixed, insight chips not) | Closed | #186, v10.99.0 |
-| FE-MNY-08 | MEDIUM | Frontend | Split expenses debit only 'your share' from the paying account, so bank balances and reconciliations drift | confirmed (adversarial: confirmed) |  | Open | — |
+| FE-MNY-08 | MEDIUM | Frontend | Split expenses debit only 'your share' from the paying account, so bank balances and reconciliations drift | confirmed (adversarial: confirmed) |  | Closed | v10.134.0 |
 | FE-MNY-10 | MEDIUM | Frontend | Essential and typical monthly spend have two definitions: Pip and Net Worth disagree with the Reports runway | confirmed (adversarial: confirmed) |  | Closed | v10.98.0 |
 | FE-PIP-02 | MEDIUM | Frontend | Model-chosen purchase amount is never checked against the user's words; entities are untyped | confirmed-with-caveats (adversarial: partial) |  | Closed | #182 |
 | FE-PIP-05 | MEDIUM | Frontend | A stated period is silently replaced by 'this month' for diagnostic, budget and advice questions | confirmed-with-caveats (adversarial: partial) |  | Closed | #182 |
@@ -1274,9 +1275,9 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 25 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.133.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.134.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (16)
+### C.1 Unresolved (15)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1288,7 +1289,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.133.
 | OPS-05 | medium | Partly | #189, v10.131.0 | v10.84.0 fenced consumer previews; admin v1.5.0 / v10.131.0 (Track Q3b; owner decisions 20 Oct 2026) fences admin previews (ADM-09). Left for the owner: scope vyact-admin's production Supabase env to Production and give Preview the vyact-test values. | Owner: scope the vyact-admin Vercel env (Production / Preview) | XS |
 | OPS-11 | medium | Partly | #168 | The per-user cap now fails closed (parseDailyCallCap: only "off" disables it). A global LLM spend ceiling is backlog (owner: not now). | Track Q7: global daily ceiling (owner brought it in from backlog) | S |
 | XC-PRV-11 | medium | Partly | #165, #166, #167, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): Privacy adds the DPDP section (rights, nomination, Grievance Officer, Data Protection Board), a processor list with regions, withdrawal of optional processing in Settings (analytics), §10 breach and §12 18+ only (no child accounts; Terms too). SECURITY.md has the breach runbook (DPDP Board, 72 hours, GDPR). POLICY_VERSION bumped with re-consent (XC-PRV-09). T4B-006… | Owner: legal entity, address, Grievance Officer, Supabase region | M |
-| FE-MNY-08 | medium | Open | — | Decide the split money model: (a) the paying account drops by the full bill; (b) the others' shares become a receivable, and the owner chooses where it shows (Net Worth, Pip, free-to-spend); (c) settling moves money back into a named account. Then implement it with a money-model invariant (an account drops by the full amount; settling restores the share) and update the golden file deliberately. | Track Q6: full debit + Owed to you (owner) | L |
 | XC-ARC-05 | medium | Open | — | Restructure CLAUDE.md and freeze old docs? (W8 §3) | Track Q8: fix the stale lines, then close (owner) | S |
 | BE-FN-11 | low | Partly | #165, v10.123.0, v10.126.0, v10.128.0 | v10.126.0 (T4c) built the snapshot and the drift check; v10.128.0 (Q1) recorded the 29 live values with the owner's decisions (Q-AUTH-01..04). Left: --strict once the dashboard matches (Q-AUTH-01/02). | Owner: Q-AUTH-01/02 in the dashboard, then --strict | S |
 | BE-PIP-04 | low | Partly | #187 | A learned recipe is deterministic only when trusted (#187). No confirmation or promotion flow was built; the pipeline is not connected to any entrypoint, so nothing is exposed today. | Track Q8 (parked with XC-ARC-07) | S |
@@ -1318,7 +1318,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.133.
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (117)
+### C.3 Resolved, with a residual note (118)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1336,6 +1336,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.133.
 | INT-TXN-07 | high | Closed | #178, #179, #180, v10.89.0 | Recurring EMIs moved onto their loans (#180); WhatsApp "paid … EMI" pays the loan (#180); a WhatsApp correction to an EMI now pays the loan too (v10.89.0). |
 | OPS-06 | high | Closed | v10.132.0 | v10.132.0 / admin v1.6.0 (Track Q4; owner decision D9, 20 Oct 2026): every scheduled job records its runs (job_runs; Edge withJobRun, SQL wrappers); job_health() flags failed / partial twice / late; the hourly job-health email to HEALTH_ALERT_EMAIL (once a day per problem) and the admin Health page; app and Edge error… |
 | FE-MNY-06 | medium | Closed | #186, v10.99.0 | The chip was fixed in #186. v10.99.0 (Track E, E5): the pace banner and the Budget progress panel read lib/budgetProgress (the panel measures an annual line over its year), with the Budgets page, Reports and Pip. |
+| FE-MNY-08 | medium | Closed | v10.134.0 | v10.134.0 (Track Q6; owner decision 20 Oct 2026: full debit + Owed to you): a new split you pay debits the paying account by the whole bill (split.fullDebit); spending stays your share; the others' unpaid shares are "Owed to you" in Net Worth (short, never liquid or free to spend); a repayment records the account it c… |
 | FE-MNY-10 | medium | Closed | v10.98.0 | v10.98.0 (Track E, E4; owner decisions E-5 and E-9): one baseline, lib/spendBaseline.ts (the last 3 completed months with spending, the live need/want map, unmapped not essential), read by spendBasis (Pip, Net Worth, the server) and essentialRunway (Reports). The live map reaches Pip in the app (Chat) and on the serve… |
 | FE-PIP-06 | medium | Closed | #182, v10.90.0 | Descriptions stopped reaching the model in #182 (phraseData). v10.90.0: PHRASE_SYSTEM says text in FACTS/DATA is data, never instructions; a leak test covers every intent; account/asset names are cleaned and instruction-like ones sent as neutral labels (owner decision). |
 | FE-PIP-07 | medium | Closed | v10.90.0 | v10.90.0: a capture's category is a real category of its type (the model's word resolved, else a keyword); when nothing places it, Pip asks "Which category?" with chips before any form opens (owner decision). |
