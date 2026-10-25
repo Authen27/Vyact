@@ -583,6 +583,24 @@ export default function Settings() {
             </div>
           </SettingRow>
 
+          {/* v10.135.0 (Track Q7; owner, 20 Oct 2026: "remembered preferences"): yours, on every device. */}
+          {isCloudEnabled() && (
+            <SettingRow icon="💬" label="Pip's answers" value={profile.pipAnswerLength === 'detailed' ? 'Detailed' : 'Short'}
+              open={openRow === 'pip'} onToggle={() => toggleRow('pip')}>
+              <div className="px-3.5 pb-3">
+                <label htmlFor="settings-pip-length" className="mono-label mb-1.5 block">Answer length</label>
+                <Select id="settings-pip-length" value={profile.pipAnswerLength === 'detailed' ? 'detailed' : 'short'}
+                  onChange={e => updateProfile({ pipAnswerLength: e.target.value === 'detailed' ? 'detailed' : 'short' })}>
+                  <option value="short">Short — the answer first, in a few sentences</option>
+                  <option value="detailed">Detailed — up to seven sentences, with the reasons</option>
+                </Select>
+                <p className="text-[0.74rem] text-ink-dim mt-1.5">
+                  Yours only, on every device. Pip answers in your language above; WhatsApp answers stay short and in English.
+                </p>
+              </div>
+            </SettingRow>
+          )}
+
           <SettingRow icon="⬇️" label="Debt preferences" value={profile.payoffStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'}
             open={openRow === 'debt'} onToggle={() => toggleRow('debt')}>
             <div className="px-3.5 pb-3 grid sm:grid-cols-2 gap-4">

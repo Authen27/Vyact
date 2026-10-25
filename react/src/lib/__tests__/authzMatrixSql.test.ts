@@ -231,7 +231,7 @@ const TABLES: TableCase[] = [
 ];
 
 /** Tables that RLS closes to the API completely (no policy for anon, authenticated or public). */
-const SERVER_ONLY = ['admin_audit', 'ask_vyact_relay', 'invite_email_log', 'job_alerts', 'job_runs', 'migration_issues', 'push_deliveries',
+const SERVER_ONLY = ['admin_audit', 'ai_limits', 'invite_email_log', 'job_alerts', 'job_runs', 'migration_issues', 'push_deliveries',
   'push_subscriptions', 'split_email_log', 'whatsapp_identities', 'whatsapp_inbound_messages', 'whatsapp_pending_turns', 'whatsapp_preferences',
   'whatsapp_rule_state', 'whatsapp_verification_otps'];
 

@@ -131,6 +131,8 @@ export interface NotifInsertRow {
 }
 export const notificationsOnServer = generated.notificationsOnServer as (
   rows: HouseholdRows, existingKeys: readonly string[], householdId: string,
+  /** v10.135.0 (Q7): the household's Pip rows from either source, with their dates (Pip's nudge allowance). */
+  pipRows?: readonly { dedupe_key: string; created_at: string }[], nowMs?: number,
 ) => NotifInsertRow[];
 /** v10.126.0 (T4c, BE-FN-12) — the private line a device with "Show details on the lock screen" off gets. */
 export const lockScreenTextOnServer = generated.lockScreenTextOnServer as (type: string) => { title: string; body: string };

@@ -3,26 +3,29 @@
 // The `ask-vyact` gateway serves the app, and refuses service tokens by design, so
 // the WhatsApp webhook cannot call it over HTTP. This is the same sequence the
 // gateway runs for a signed-in user, from the same shared pieces:
-//   resolve the enabled `ai_model_configs` row for the seam (allowlist rules from
-//   relay.ts; the TEST-ONLY Claude Code relay is EXCLUDED — a webhook cannot wait for
-//   a person to answer) → reserve the daily call cap atomically (`reserve_ai_usage`,
-//   fail CLOSED) → `chatCompletion` → finalise the `ai_usage` row (metadata only,
-//   never message content), surface 'whatsapp'.
+//   resolve the enabled `ai_model_configs` row for the seam (pilot allowlists from
+//   modelRows.ts) → reserve under Pip's limits atomically (`reserve_ai_usage` →
+//   ai_limit_state, fail CLOSED; v10.135.0 always, with or without the gateway's cap) →
+//   `chatCompletion` → finalise the `ai_usage` row (metadata only, never message
+//   content; 'off_topic' on a classify call placed off topic), surface 'whatsapp'.
 //
 // Returns a function with the engine's ModelCall shape. Any failure throws; the
 // engine turns that into an explicit "unavailable" turn — never a canned answer.
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { buildUsageRow, chatCompletion, selectModelConfig, type ModelConfigRow } from './router.ts';
-import { filterRowsForUser, isRelayConfig } from './relay.ts';
+import { filterRowsForUser } from './modelRows.ts';
+import { offTopicIntent, quotaFromReserveError } from './limits.ts';
 
-export type ServerModelCall = (req: { system: string; user: string; json?: boolean; maxTokens?: number }) => Promise<string>;
+/** The engine's ModelCall shape; `op` says which of Pip's prompts this is. */
+export type ServerModelCall = (req: { op?: string; system: string; user: string; json?: boolean; maxTokens?: number }) => Promise<string>;
 
 export interface ServerCaller {
   userId: string;
   householdId: string;
   surface: 'whatsapp';
-  /** Per-user daily call cap — the gateway's (`parseDailyCallCap`); null only for an explicit `off`. */
+  /** Per-user daily call cap — the gateway's (`parseDailyCallCap`); null for an explicit `off`, which leaves the
+   *  database's own cap (ai_limits) in force. The gateway's cap can only lower it. */
   dailyCap: number | null;
   timeoutMs?: number;
   /** Where the metering promise goes (EdgeRuntime.waitUntil); awaited when absent. */
@@ -32,7 +35,7 @@ export interface ServerCaller {
 export function serverModelCall(admin: SupabaseClient, caller: ServerCaller): ServerModelCall {
   // `json` / `maxTokens` are accepted and not forwarded — exactly as the gateway
   // (params.max_tokens on the config row is the cap; see CLAUDE.md, v10.37).
-  return async ({ system, user }) => {
+  return async ({ op, system, user }) => {
     const { data: rows, error } = await admin
       .from('ai_model_configs')
       .select('id, seam, provider, model, base_url, key_env_var, params, enabled, priority')
@@ -40,22 +43,18 @@ export function serverModelCall(admin: SupabaseClient, caller: ServerCaller): Se
       .eq('enabled', true);
     // Cannot tell enabled from disabled: behave as off (the gateway's rule).
     if (error) throw new Error('model configuration could not be read');
-    const eligible = filterRowsForUser((rows ?? []) as unknown as Parameters<typeof filterRowsForUser>[0], caller.userId)
-      .filter((r) => !isRelayConfig(r)) as unknown as ModelConfigRow[];
+    const eligible = filterRowsForUser((rows ?? []) as unknown as ModelConfigRow[], caller.userId);
     const config = selectModelConfig(eligible, 'assistant');
     if (!config) throw new Error('no model is enabled for the assistant');
 
-    let reservationId: string | null = null;
-    if (caller.dailyCap !== null) {
-      const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
-        p_user_id: caller.userId, p_household_id: caller.householdId, p_surface: caller.surface, p_cap: caller.dailyCap,
-      });
-      if (resErr) {
-        const over = resErr.code === '42901' || /quota_exceeded/i.test(resErr.message ?? '');
-        throw new Error(over ? 'quota_exceeded' : 'quota_check_failed');
-      }
-      reservationId = resId as string;
+    const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
+      p_user_id: caller.userId, p_household_id: caller.householdId, p_surface: caller.surface, p_cap: caller.dailyCap,
+    });
+    if (resErr) {
+      const quota = quotaFromReserveError(resErr);
+      throw new Error(quota === 'exceeded' ? 'quota_exceeded' : quota ?? 'quota_check_failed');
     }
+    const reservationId = resId as string | null;
 
     const result = await chatCompletion(
       [{ role: 'system', content: system }, { role: 'user', content: user }],
@@ -63,6 +62,8 @@ export function serverModelCall(admin: SupabaseClient, caller: ServerCaller): Se
     );
 
     const usageRow = buildUsageRow(result, { householdId: caller.householdId, userId: caller.userId, surface: caller.surface, tier: 't1' });
+    const intent = result.ok ? offTopicIntent(op, result.text) : null;
+    if (usageRow && intent) usageRow.intent = intent;
     const meter = (async () => {
       try {
         if (reservationId) {

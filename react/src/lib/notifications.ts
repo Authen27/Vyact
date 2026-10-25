@@ -17,7 +17,7 @@ import type {
   Notification, NotifType, NotifPriority, NotifActionSpec, NotificationPrefs,
   RecurringSchedule, Transaction, Budget, BudgetAllocation, Debt, Account, ExchangeRates, SharedSplit, AppRole,
 } from '../types';
-import { uid, today, getMonthKey, fmt, convert } from './format';
+import { uid, today, dateKeyIn, getMonthKey, fmt, convert } from './format';
 import { upcomingSchedules, isLoanEmiSchedule } from './recurring';
 import { spendByCategoryInRange, spendByCategory } from './calculations';
 import { getCat } from '../constants';
@@ -379,9 +379,13 @@ export function staleBalanceNotifs(accounts: Account[], prefs: NotificationPrefs
 // ── v10.107.0 — Pip's proactive nudges ──────────────────────────────────────
 //
 // Pip speaks first only when something is worth knowing, and rarely: at most PIP_NUDGE_DAILY_CAP a
-// day and PIP_NUDGE_WEEKLY_CAP a week across every kind, P2 (in the bell, never pushed), each with
-// its own switch in Settings › Notifications ("fewer like this" is turning that kind off). A nudge
-// opens Pip with its question in the field (/chat?ask=…); nothing is asked or sent for the person.
+// day and PIP_NUDGE_WEEKLY_CAP a week across every kind, P2, each with its own switch in Settings ›
+// Notifications ("fewer like this" is turning that kind off). A nudge opens Pip with its question in
+// the field (/chat?ask=…); nothing is asked or sent for the person.
+// v10.135.0 (Track Q7; owner, 20 Oct 2026: "a Pip inbox while closed"): the server raises them too
+// (serverEngine.notificationsOnServer), so they wait in the bell when the app was closed, under the same
+// allowance counted across the device's and the server's; a device whose "Pip's nudges" switch is on
+// (PushPrefs.pipNudges, off by default) also gets them on its lock screen.
 // Every figure is computed here from the ledger, the same way the Transactions page totals it.
 
 export const PIP_NUDGE_DAILY_CAP = 1;
@@ -392,11 +396,20 @@ const PIP_NUDGE_PREFIX = 'pip:';
 
 const askPip = (question: string) => `/chat?ask=${encodeURIComponent(question)}`;
 
-/** How many more Pip nudges may be raised now (0 when the day's or the week's are used). */
-export function pipNudgeRoom(existing: Notification[], nowMs = Date.now()): number {
-  const pip = existing.filter(n => n.dedupeKey?.startsWith(PIP_NUDGE_PREFIX));
-  const startOfDay = new Date(nowMs); startOfDay.setHours(0, 0, 0, 0);
-  const today_ = pip.filter(n => Date.parse(n.createdAt) >= startOfDay.getTime()).length;
+/**
+ * How many more Pip nudges may be raised now (0 when the day's or the week's are used). The day is the
+ * device's, or `tz`'s on the server (the household's zone).
+ */
+export function pipNudgeRoom(existing: Notification[], nowMs = Date.now(), tz?: string | null): number {
+  const seen = new Set<string>();
+  const pip = existing.filter(n => {
+    // A key listed twice (the server's own list and the dated Pip rows) counts once, with its date.
+    if (!n.dedupeKey?.startsWith(PIP_NUDGE_PREFIX) || !Number.isFinite(Date.parse(n.createdAt)) || seen.has(n.dedupeKey)) return false;
+    seen.add(n.dedupeKey);
+    return true;
+  });
+  const day = dateKeyIn(new Date(nowMs), tz);
+  const today_ = pip.filter(n => dateKeyIn(new Date(n.createdAt), tz) === day).length;
   const week = pip.filter(n => Date.parse(n.createdAt) >= nowMs - 7 * 86_400_000).length;
   return Math.max(0, Math.min(PIP_NUDGE_DAILY_CAP - today_, PIP_NUDGE_WEEKLY_CAP - week));
 }
@@ -456,7 +469,7 @@ export function pipNudgeNotifs(
   txns: Transaction[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx,
   now: string = today(ctx.tz), nowMs = Date.now(),
 ): Notification[] {
-  const room = pipNudgeRoom(existing, nowMs);
+  const room = pipNudgeRoom(existing, nowMs, ctx.tz);
   if (room <= 0) return [];
   const candidates = [
     typeEnabled(prefs, 'trend_alert') ? categoryTrendNudge(txns, existing, ctx, now) : null,

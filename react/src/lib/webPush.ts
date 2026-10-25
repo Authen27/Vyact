@@ -16,7 +16,7 @@ import { sb } from './supabase';
 import { isIos, isNativeApp, isStandalone } from './pwa';
 import {
   pushPlugin, enableNativePush, syncNativePush, disableNativePush, forgetNativePush, nativePushStatus,
-  nativeHasServerPush, nativePushWanted, nativeToken,
+  nativeHasServerPush, nativePushWanted, nativeToken, prefsForServer,
 } from './nativePush';
 import type { NotificationPrefs } from '../types';
 import { expected } from './faults';
@@ -108,14 +108,6 @@ async function serverKey(): Promise<string> {
   const { data, error } = await sb().functions.invoke('web-push', { body: { mode: 'key' } });
   if (error || !data?.publicKey) throw new Error('push_key_unavailable');
   return data.publicKey as string;
-}
-
-function prefsForServer(prefs: NotificationPrefs) {
-  return {
-    master: prefs.master, perType: prefs.perType, quietStart: prefs.quietStart, quietEnd: prefs.quietEnd,
-    // v10.126.0 (T4c, BE-FN-12): the server sends the private line when this is false.
-    lockScreenDetails: prefs.lockScreenDetails !== false,
-  };
 }
 
 async function register(sub: PushSubscription, householdId: string, prefs: NotificationPrefs): Promise<void> {

@@ -125,6 +125,22 @@ export class ModelUnavailableError extends Error {
   }
 }
 
+/** v10.135.0 (Track Q7; audit OPS-11) — which of Pip's limits refused a call: the gateway's error code. */
+export type ModelLimit = 'quota_exceeded' | 'rate_limited' | 'cooldown' | 'global_limit';
+export const MODEL_LIMITS: readonly ModelLimit[] = ['quota_exceeded', 'rate_limited', 'cooldown', 'global_limit'];
+
+/** The model was not called because one of Pip's limits applies (`limit`), until about `retryAfterSec` from now. */
+export class ModelLimitError extends ModelUnavailableError {
+  readonly limit: ModelLimit;
+  readonly retryAfterSec: number | null;
+  constructor(limit: ModelLimit, retryAfterSec: number | null = null) {
+    super(`limit: ${limit}`);
+    this.name = 'ModelLimitError';
+    this.limit = limit;
+    this.retryAfterSec = retryAfterSec;
+  }
+}
+
 export class InventedFigureError extends Error {
   readonly offending: string[];
   constructor(offending: string[]) {
@@ -257,6 +273,8 @@ export async function classifyIntentViaModel(
   try {
     raw = await call({ op: 'classify', system: systemPromptFor('classify'), user: utterance, json: true, maxTokens: 256 });
   } catch (err) {
+    // A limit keeps its name, so Pip can say which one applies (Q7).
+    if (err instanceof ModelUnavailableError) throw err;
     throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
   }
 
@@ -391,6 +409,11 @@ export interface FigureGuardOptions {
   question?: string;
   /** Figures the PREVIOUS assistant turn was allowed to use (one turn only). */
   alsoAllowed?: readonly string[];
+  /**
+   * v10.135.0 (Track Q7) — the answer is in another language. No number is exempt as a count or a
+   * year then: a small number before a word this guard cannot read (万, Mio., लाख) may be an amount.
+   */
+  strict?: boolean;
 }
 
 /** A date, not money: "13 September", "15-Sep-26", "13/09", "September 13". */
@@ -423,6 +446,11 @@ export function assertNoInventedFigures(
   if (opts.question) admit(opts.question);
   for (const f of opts.alsoAllowed ?? []) admit(String(f));
 
+  // v10.135.0 (Q7): digits other than 0-9 (Devanagari, full-width, Arabic-Indic…) cannot be matched with what
+  // the tools computed, so a reply carrying them is refused like one with an invented figure.
+  const unreadable = reply.match(/[^\P{Nd}0-9]+/gu);
+  if (unreadable) throw new InventedFigureError([...new Set(unreadable)]);
+
   const isAllowed = (f: string) => allowed.has(f)
     || (f.includes('.') && allowed.has(f.replace(/\.0+$/, ''))) || (!f.includes('.') && allowed.has(`${f}.00`));
   const offending = figuresWithPos(reply).filter(({ value: f, index, raw }) => {
@@ -431,7 +459,7 @@ export function assertNoInventedFigures(
     const scale = SCALE_AFTER.exec(reply.slice(index + raw.length));
     if (scale) return !isAllowed(scaled(f, scale[1]));
     const asMoney = CURRENCY_PREFIX.test(reply.slice(0, index));
-    if (allowed.has(f) || (!asMoney && HARMLESS.has(f))) return false;
+    if (allowed.has(f) || (!asMoney && !opts.strict && HARMLESS.has(f))) return false;
     if (f.includes('.') && allowed.has(f.replace(/\.0+$/, ''))) return false;
     if (!f.includes('.') && allowed.has(`${f}.00`)) return false;
     // A bare 4-digit number in a sentence is far more likely a year than a
@@ -440,7 +468,7 @@ export function assertNoInventedFigures(
     // "You spent £2,050 on rent" and "Your net worth is £1,999" both passed the
     // guard completely un-computed. That is a realistic amount range, not a
     // theoretical one, and it was the largest hole in this function.
-    if (/^(19|20)\d{2}$/.test(f) && !CURRENCY_PREFIX.test(reply.slice(0, index))) return false;
+    if (!opts.strict && /^(19|20)\d{2}$/.test(f) && !CURRENCY_PREFIX.test(reply.slice(0, index))) return false;
     // A day-of-month next to a month name is a date, not a sum (v10.38).
     if (looksLikeDate(reply, index, f)) return false;
     return true;
@@ -489,6 +517,13 @@ THE RESPONSE CONTRACT (the same in the app and on WhatsApp)
 - \`channel: "whatsapp"\`: at most four short sentences, plain text, no links, English
   only. \`channel: "app"\`: if the question is written in Hinglish (Hindi in Latin
   script), answer in the same mix, keeping category names in English.
+- \`answer_length: "detailed"\` (the app only; the person's own setting): up to seven
+  sentences in at most three short paragraphs, still the direct answer first.
+- \`answer_language\` (the app only; the person's own setting): write the whole answer
+  in that language, instead of the Hinglish rule. Keep category, account and holding
+  names as FACTS write them, and copy every figure exactly as FACTS write it: the same
+  digits 0-9, separators and currency symbol. Never write a number in words or with a
+  word that scales it (no lakh, crore, 万, Mio. or millones).
 
 
 HOW TO ANSWER
@@ -548,8 +583,8 @@ HOW TO ANSWER
   then what it \`assumes\`. A bills review: the \`total_over_next_12_months\` and \`about_per_month\`, the
   two costliest, and any \`next_amount_compared_with_last\` or \`categories_with_more_than_one_bill\`
   as something worth checking — never call a bill unnecessary; the choice is theirs.
-- Two to five sentences, and prefer the shorter end: one idea per sentence, no
-  preamble, no restating the question.
+- Two to five sentences (unless \`answer_length\` is "detailed"), and prefer the shorter
+  end: one idea per sentence, no preamble, no restating the question.
 - Plain language, warm and direct. Speak to the user as "you".
 - No markdown, no bullet points, no headings, no emoji.
 
@@ -593,6 +628,23 @@ export function phraseData(result: ResolveResult): Record<string, string | numbe
  * transaction list — so it cannot leak detail the summary deliberately excludes,
  * and cannot base a figure on anything but a computed one.
  */
+/** v10.135.0 (Track Q7; owner, 20 Oct 2026: "remembered preferences") — how this person likes Pip's answers. */
+export interface PipStyle {
+  answerLength?: 'short' | 'detailed';
+  /** The person's app language (Profile.language), e.g. 'hi'. */
+  language?: string | null;
+}
+
+/** The languages the app offers besides English (constants LOCALES), as the model is told them. */
+const ANSWER_LANGUAGES: Record<string, string> = {
+  es: 'Spanish', fr: 'French', hi: 'Hindi (Devanagari script)', de: 'German', ja: 'Japanese',
+};
+
+/** The language Pip should answer in, or null for English (and for any code it does not know). */
+export function answerLanguage(code: string | null | undefined): string | null {
+  return code && Object.prototype.hasOwnProperty.call(ANSWER_LANGUAGES, code) ? ANSWER_LANGUAGES[code] : null;
+}
+
 export async function phraseViaModel(
   intent: IntentResult,
   result: ResolveResult,
@@ -601,7 +653,11 @@ export async function phraseViaModel(
   prevAllowed: readonly string[] = [],
   /** v10.46.0 — where the answer is read: the contract differs slightly per channel. */
   channel: 'app' | 'whatsapp' = 'app',
+  /** v10.135.0 (Q7) — the person's own answer length and language; the app only (WhatsApp is short and English). */
+  style: PipStyle = {},
 ): Promise<string> {
+  const detailed = channel === 'app' && style.answerLength === 'detailed';
+  const language = channel === 'app' ? answerLanguage(style.language) : null;
   // v10.36 — `question` and `facts` are new. The model previously never saw the
   // question it was answering (only `question_type`), so it answered the intent
   // CATEGORY rather than what was asked. `data` is the legacy one-line summary, sent only when
@@ -611,6 +667,8 @@ export async function phraseViaModel(
     question: intent.entities.text,
     question_type: intent.id,
     channel,
+    ...(detailed ? { answer_length: 'detailed' } : {}),
+    ...(language ? { answer_language: language } : {}),
     outcome: result.outcome,
     facts: result.facts ?? {},
     data,
@@ -623,6 +681,7 @@ export async function phraseViaModel(
   const guardOpts = {
     question: typeof intent.entities.text === 'string' ? intent.entities.text : undefined,
     alsoAllowed: prevAllowed,
+    strict: language !== null,
   };
 
   const ask = async (offending: readonly string[] = []): Promise<string> => {
@@ -635,6 +694,7 @@ export async function phraseViaModel(
         ...(offending.length ? { offending } : {}),
       })).trim();
     } catch (err) {
+      if (err instanceof ModelUnavailableError) throw err;
       throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
     }
     const cleaned = stripFences(raw);

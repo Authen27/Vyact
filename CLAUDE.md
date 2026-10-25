@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.134.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.135.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.6.0**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.6.1**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -479,18 +479,42 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     are the loan's. The surplus order is fixed (card dues → cushion → debts ≥12% → 30-day bills → long-term) and
     Pip never names a product.
   - Pip nudges (`pipNudgeNotifs`: `trend_alert` for a category already past a WHOLE usual month, `insight_fresh`
-    for last month's review on days 1–5) are P2, bell only, ≤1 a day and ≤3 a week (dedupe keys `pip:`), and
-    open `/chat?ask=…` with the question in the field; never sent for the person.
+    for last month's review on days 1–5) are P2, ≤1 a day and ≤3 a week (dedupe keys `pip:`), and open
+    `/chat?ask=…` with the question in the field; never sent for the person.
+    **Since v10.135.0 (Q7; owner, 20 Oct 2026: "a Pip inbox while closed") the server raises them too**
+    (`serverEngine.notificationsOnServer`, with the household's Pip rows from either source and their dates, so the
+    allowance is counted once, in the HOUSEHOLD's day), and a device whose "Pip's nudges" switch is on
+    (`NotificationPrefs.pipNudges` → `PushPrefs.pipNudges`, off by default) gets them on its lock screen
+    (`skipReason`). No other P2 is ever pushed. WhatsApp sends no Pip nudge until its template is approved
+    (`docs/WHATSAPP_TEMPLATES.md`, "Not submitted yet").
+  **Pip's limits are the database's (v10.135.0, Track Q7; audit OPS-11; owner decisions 20 Oct 2026: "a rate limit
+  with an off-topic cool-down", "a global daily ceiling, fail closed").**
+  - One row, `ai_limits` (service role only; a change is in `admin_audit`): a person's calls in 24 hours (200),
+    everyone's (5,000), a person's in a minute (12), and the off-topic cool-down (3 off-topic questions within 10
+    minutes pause Pip for that person until 15 minutes after the last). No row: every call is refused (closed).
+  - `ai_limit_state` decides, with the person's profile row locked; `prepare_ai_call` and `reserve_ai_usage` both
+    ask it and ALWAYS reserve (the gateway's `ASK_VYACT_DAILY_CALL_CAP` can only LOWER the database's cap; `off`
+    sends none). Everyone's count is taken under one advisory lock, and a reservation never finalised within 5
+    minutes is not a call. A refusal is answered 429 (503 when the limits cannot be read) naming its limit and,
+    where it ends, `retryAfter`; the app shows it through `ModelLimitError` → `limitCopy`, never "can't reach".
+  - The cool-down counts the GATEWAY's reading: a classify reply the model placed off topic is stamped
+    `intent = 'off_topic'` on the gateway's own row (`offTopicIntent`). Never count the app's rows for a limit.
+  - `job-health` emails the owner at 50%, 80% and 100% of the ceiling (`ai_ceiling_state`; job_alerts
+    `spend_50/80/100`, once a day each).
+  **Pip remembers how a person likes answers (v10.135.0, Q7; owner: "remembered preferences").** The app sends
+  `answer_length: "detailed"` (`profiles.pip_answer_length`, Settings → Pip's answers; null = short) and
+  `answer_language` (the person's `profiles.language`, any offered language but English) with each phrase call
+  (`PipStyle`, the app only; WhatsApp stays short and English). An answer in another language is checked
+  strictly (`FigureGuardOptions.strict`: no number passes as a count or a year), and digits other than 0–9 are
+  refused in any answer, because the guard cannot read them.
   **`params.max_tokens` in `ai_model_configs` IS the cap for
   every call (corrected v10.37)** — the client sends `maxOutputTokens` (256
   classify / 700 phrase) but `ask-vyact/index.ts` never forwards it to
   `chatCompletion`, so the router falls through to `params.max_tokens` (600).
-  🧪 **Claude Code relay (v10.37, TEMPORARY — TD-44):** an enabled
-  `provider='claude-code-relay'` row allowlisted by `params.allowed_user_ids`
-  makes the gateway QUEUE that user's calls in `ask_vyact_relay` (202 +
-  client polling) for a Claude Code session to answer. It stores message
-  content (a scoped exception to metadata-only), applies to the product
-  owner's own test household only, and is removed after validation.
+  **The Claude Code relay is gone (v10.135.0, Q7; BE-PIP-06, TD-44 closed; owner, 20 Oct 2026).** Its config rows,
+  its queue (`ask_vyact_relay`, which held message content), the `ask-vyact-relay-status` function and the app's
+  polling were removed; `ck_ai_model_configs_no_relay` refuses the provider. `params.allowed_user_ids` still pilots
+  a model on some accounts (`_shared/agent/modelRows.ts`).
 - **Agent = an INDEPENDENT SERVICE, never a second app** (v10.19+, in build).
   📖 **Working on the agent? Read [`vyact-agent-architecture.md`](vyact-agent-architecture.md)
   and stop there — it is self-contained by design.** Do NOT load the Aurora design
@@ -690,7 +714,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   hand-port engine logic into `_shared/`: change the app code and rebuild (the gate's
   `--check` fails on a stale bundle). `serverEngine.ts` must stay pure (no store, no browser API,
   no Supabase client). Answers only with `whatsapp_preferences.reads_enabled` (off by default); the
-  WhatsApp model path excludes the test-only relay and meters as surface `whatsapp`.
+  WhatsApp model path meters as surface `whatsapp` under the same limits (`reserve_ai_usage`).
   **v10.46.0 (W5): the assistant is "Pip" in every user-facing string** (code keeps `askVyact*`). How
   Pip speaks is ONE contract in `PHRASE_SYSTEM` for both channels (`ctx.channel`: WhatsApp = ≤4
   sentences, no links, English). The old `VARIANTS` phrase tables are gone; do not reintroduce copy
@@ -732,7 +756,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - The server raises only through `raise_server_notifications` (service role). It takes over a device's row
     with the same `(household_id, dedupe_key)` (the server's words, `source = 'server'`, read state kept) and
     never rewrites its own. Never raise with a plain upsert again: a device's copy would keep the server's off
-    the lock screen. A notification only devices raise (`split_received`, Pip's nudges) is bell-only.
+    the lock screen. A notification only devices raise (`split_received`) is bell-only; Pip's nudges are raised by
+    the server too since v10.135.0 and pushed only where a device turned them on.
   - A device may insert only `source = 'client'`, `pushed_at` null, a link inside Vyact (`/…`, never `//` or
     `/\`), and never as a viewer. From the app (`authenticated`) only `status` changes
     (`notifications_app_edits_status_only`); viewers may mark read but not delete.
@@ -828,8 +853,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - A WhatsApp link ends with the membership (trigger), and the webhook / `guardedSend` re-check membership (`isLiveMember`).
   - Platform admins read household ledgers only through SECURITY DEFINER aggregate RPCs, never row by row.
   - **Staff changes are audited (v10.130.0, Q3a; ADM-04).** `admin_audit` is append-only (a trigger refuses
-    every update and delete) and records admin roles, Learn content (which fields, never the text), needs/wants and
-    AI model settings, with the actor (none = the dashboard or a migration). Roles change only through
+    every update and delete) and records admin roles, Learn content (which fields, never the text), needs/wants,
+    AI model settings and Pip's limits (v10.135.0), with the actor (none = the dashboard or a migration). Roles change only through
     `grant_admin_role` / `revoke_admin_role` (super only; the last super admin is kept); super admins read it with
     `admin_staff_audit`. Only super admins write `category_classifications` (ADM-05). Content-tier staff read AI
     usage as totals: per-person segments are super-only, and `ai_usage` rows are their household's only (ADM-06).
@@ -900,7 +925,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
       `eraseHouseholdSql.test.ts`, or the gate fails.
 - **Abuse limits (v10.64.0, audit W1c; owner decision D28).**
   - Pip's prompts are the SERVER's. The app sends `op` (`classify` | `phrase`) + text (+ rejected figures on a phrase retry); `ask-vyact` builds the messages with `systemPromptFor` (`_shared/agent/prompts.ts`). Never let a client send a system prompt, and add a new op (not a free-text prompt) when a feature needs one. The legacy `messages` form is accepted for one release only when it is exactly a server prompt — remove `fromLegacyMessages` next release.
-  - `ai_usage` metering comes from the server only: a client row is `source='client'` with its cost/tokens/provider/model cleared by trigger, and `reserve_ai_usage` counts `source='gateway'` rows only. The daily cap is `parseDailyCallCap` (only `off` disables it).
+  - `ai_usage` metering comes from the server only: a client row is `source='client'` with its cost/tokens/provider/model cleared by trigger, and `reserve_ai_usage` counts `source='gateway'` rows only. The daily cap is the database's (`ai_limits`, v10.135.0); `parseDailyCallCap` can only lower it, and `off` sends none.
   - **One row per model call, one per timed turn (v10.122.0, T5c; audit FE-PIP-09; owner, 19 Oct 2026: "timed turns only").**
     - The app writes its row only for a turn that called the model (`turnCalledModel` over the turn's timings).
       A quick reply, a greeting, an off-topic answer or the assistant switched off writes none.

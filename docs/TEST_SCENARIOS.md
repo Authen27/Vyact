@@ -25,22 +25,22 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1711 passing deterministic cases in 194 files. Zero failed, skipped or TODO cases at generation.**
+**1724 passing deterministic cases in 195 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
-| admin | unit | available | 21 |
+| admin | unit | available | 22 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 132 |
-| react | contract-unit | conditional | 132 |
-| react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 187 |
+| react | contract-unit | conditional | 131 |
+| react | handler-integration | conditional | 110 |
+| react | sql-integration | conditional | 196 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 77 |
 | react | store-integration | conditional | 44 |
-| react | unit | available | 493 |
-| react | unit | conditional | 236 |
+| react | unit | available | 505 |
+| react | unit | conditional | 230 |
 | react | unit | infrastructure | 229 |
 
 ### Executed Files
@@ -52,6 +52,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [admin/src/lib/__tests__/contentWorkflow.test.ts](../admin/src/lib/__tests__/contentWorkflow.test.ts) | Admin publication | contract-unit | conditional | 5 |
 | [admin/src/lib/__tests__/q3bAdminPages.test.ts](../admin/src/lib/__tests__/q3bAdminPages.test.ts) | Admin pages on the server tiers (Q3b) | unit | available | 8 |
 | [admin/src/lib/__tests__/q4HealthPage.test.ts](../admin/src/lib/__tests__/q4HealthPage.test.ts) | Admin Health page (Q4) | unit | available | 4 |
+| [admin/src/lib/__tests__/q7PipLimitsAudit.test.ts](../admin/src/lib/__tests__/q7PipLimitsAudit.test.ts) | Pip's limits in Staff actions (Q7) | unit | available | 1 |
 | [admin/src/lib/__tests__/roleGating.test.ts](../admin/src/lib/__tests__/roleGating.test.ts) | Admin content and permissions | unit | conditional | 4 |
 | [admin/src/lib/__tests__/w8cAdminFixes.test.ts](../admin/src/lib/__tests__/w8cAdminFixes.test.ts) | Admin fixes (W8c) | unit | available | 6 |
 | [react/src/components/ui/__tests__/estimatedTag.test.ts](../react/src/components/ui/__tests__/estimatedTag.test.ts) | Estimate provenance | unit | available | 5 |
@@ -77,7 +78,6 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/agentPipeline.test.ts](../react/src/lib/__tests__/agentPipeline.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 18 |
 | [react/src/lib/__tests__/agentRecipe.test.ts](../react/src/lib/__tests__/agentRecipe.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 34 |
 | [react/src/lib/__tests__/agentRecipeStore.test.ts](../react/src/lib/__tests__/agentRecipeStore.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |
-| [react/src/lib/__tests__/agentRelay.test.ts](../react/src/lib/__tests__/agentRelay.test.ts) | Ask Vyact | unit | conditional | 8 |
 | [react/src/lib/__tests__/agentResolver.test.ts](../react/src/lib/__tests__/agentResolver.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 36 |
 | [react/src/lib/__tests__/agentRouter.test.ts](../react/src/lib/__tests__/agentRouter.test.ts) | Ask Vyact | unit | conditional | 15 |
 | [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |
@@ -90,7 +90,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
 | [react/src/lib/__tests__/askVyactFacts.test.ts](../react/src/lib/__tests__/askVyactFacts.test.ts) | Ask Vyact | unit | conditional | 67 |
 | [react/src/lib/__tests__/assetStaleness.test.ts](../react/src/lib/__tests__/assetStaleness.test.ts) | Net worth history | unit | available | 4 |
-| [react/src/lib/__tests__/assistantCore.test.ts](../react/src/lib/__tests__/assistantCore.test.ts) | Ask Vyact on the server | unit | conditional | 2 |
+| [react/src/lib/__tests__/assistantCore.test.ts](../react/src/lib/__tests__/assistantCore.test.ts) | Ask Vyact on the server | unit | conditional | 3 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/authzMatrixSql.test.ts](../react/src/lib/__tests__/authzMatrixSql.test.ts) | Who can read and change what (Q2) | sql-integration | conditional | 9 |
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
@@ -105,7 +105,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 10 |
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/chunkRecovery.test.ts](../react/src/lib/__tests__/chunkRecovery.test.ts) | Frontend guards (W6) | unit | available | 3 |
-| [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 9 |
+| [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 8 |
 | [react/src/lib/__tests__/consentConfirmedEmailSql.test.ts](../react/src/lib/__tests__/consentConfirmedEmailSql.test.ts) | Consent and confirmed-email splits SQL (T4a) | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/cronProjectUrlSql.test.ts](../react/src/lib/__tests__/cronProjectUrlSql.test.ts) | Scheduled jobs call their own project (T5d) | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 2 |
@@ -121,7 +121,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/formRoutes.test.ts](../react/src/lib/__tests__/formRoutes.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/funnelAnalytics.test.ts](../react/src/lib/__tests__/funnelAnalytics.test.ts) | Marketing funnel and auth landing | unit | available | 5 |
 | [react/src/lib/__tests__/fxCentralization.test.ts](../react/src/lib/__tests__/fxCentralization.test.ts) | Money model | unit | available | 2 |
-| [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 21 |
+| [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 19 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
 | [react/src/lib/__tests__/householdAuthzSql.test.ts](../react/src/lib/__tests__/householdAuthzSql.test.ts) | Household authorization SQL | sql-integration | conditional | 8 |
 | [react/src/lib/__tests__/householdJoinSql.test.ts](../react/src/lib/__tests__/householdJoinSql.test.ts) | Household joining SQL (T2a) | sql-integration | conditional | 8 |
@@ -167,12 +167,12 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/permissionsRole.test.ts](../react/src/lib/__tests__/permissionsRole.test.ts) | Permissions and faults | unit | available | 4 |
 | [react/src/lib/__tests__/personalInsights.test.ts](../react/src/lib/__tests__/personalInsights.test.ts) | Merged personal Insights | unit | available | 10 |
 | [react/src/lib/__tests__/pipCorrectness.test.ts](../react/src/lib/__tests__/pipCorrectness.test.ts) | Pip correctness | unit | conditional | 11 |
-| [react/src/lib/__tests__/pipGatewayOneTrip.test.ts](../react/src/lib/__tests__/pipGatewayOneTrip.test.ts) | Pip answer timings | unit | conditional | 8 |
+| [react/src/lib/__tests__/pipGatewayOneTrip.test.ts](../react/src/lib/__tests__/pipGatewayOneTrip.test.ts) | Pip answer timings | unit | conditional | 9 |
 | [react/src/lib/__tests__/pipGuard.test.ts](../react/src/lib/__tests__/pipGuard.test.ts) | Pip guard | unit | conditional | 6 |
 | [react/src/lib/__tests__/pipLatency.test.ts](../react/src/lib/__tests__/pipLatency.test.ts) | Pip answer timings | unit | conditional | 8 |
 | [react/src/lib/__tests__/pipPlanner.test.ts](../react/src/lib/__tests__/pipPlanner.test.ts) | Ask Vyact | unit | conditional | 14 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 3 |
-| [react/src/lib/__tests__/prepareAiCallSql.test.ts](../react/src/lib/__tests__/prepareAiCallSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 6 |
+| [react/src/lib/__tests__/prepareAiCallSql.test.ts](../react/src/lib/__tests__/prepareAiCallSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 15 |
 | [react/src/lib/__tests__/privacyCompliance.test.tsx](../react/src/lib/__tests__/privacyCompliance.test.tsx) | Privacy and consent in the app (T4b) | contract-unit | available | 9 |
 | [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 30 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
@@ -186,6 +186,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/q5ArchiveSql.test.ts](../react/src/lib/__tests__/q5ArchiveSql.test.ts) | Archive at zero (Q5) | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/q6SplitMoney.test.ts](../react/src/lib/__tests__/q6SplitMoney.test.ts) | Split full debit and Owed to you (Q6) | unit | available | 6 |
 | [react/src/lib/__tests__/q6SplitSql.test.ts](../react/src/lib/__tests__/q6SplitSql.test.ts) | Split receipts on the server (Q6) | sql-integration | conditional | 4 |
+| [react/src/lib/__tests__/q7Pip.test.ts](../react/src/lib/__tests__/q7Pip.test.ts) | Pip's limits, nudges and preferences (Q7) | unit | available | 12 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |

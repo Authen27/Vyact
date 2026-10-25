@@ -80,7 +80,8 @@ decompose.
 
 **Still open:** R1 (world context as a separate labelled channel), the coverage-matrix items
 (day-range periods, payoff simulation, contributions, dated commitments, budget pace, net-worth
-attribution), the local-model (Gemma) connection, and relay removal after validation (TD-44).
+attribution) and the local-model (Gemma) connection. The relay was removed in v10.135.0 (Track Q7; TD-44 closed),
+with Pip's limits (`ai_limits`) and remembered answer preferences.
 
 ---
 

@@ -177,7 +177,7 @@ jobs:
       # W0 (audit 2026-10-04, OPS-04) — deploy EVERY function directory. This list used to
       # be hand-maintained and never included send-split-email or delete-account, so the
       # v10.59/v10.60 fixes to those two never reached production. Same loop as
-      # deploy-test-functions.yml. Everything verifies a JWT except the four below:
+      # deploy-test-functions.yml. Everything verifies a JWT except the six below:
       #   whatsapp-webhook        Meta has no Supabase JWT; it checks Meta's signature.
       #   whatsapp-dispatch       pg_cron, no user JWT; checks WHATSAPP_DISPATCH_SECRET or
       #                           the service key in code (v10.42.0).
@@ -187,7 +187,6 @@ jobs:
       #                           service key (v10.70.0, posts due bills).
       #   job-health              pg_cron, no user JWT; the same check (Q4: emails the owner
       #                           about a scheduled job that failed or stopped).
-      #   ask-vyact-relay-status  TEST-ONLY relay watcher (TD-44); returns a count only.
       #   version                 Q1: which commit is deployed (a commit id only; public).
       # ask-vyact verifies a JWT and is inert until a super-admin enables an
       # ai_model_configs row; delete-account and send-split-email act as the signed-in user.
@@ -196,7 +195,7 @@ jobs:
         run: supabase secrets set BUILD_SHA="${{ github.sha }}" --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
       - name: Deploy all Edge Functions
         run: |
-          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post job-health ask-vyact-relay-status version"
+          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post job-health version"
           deployed=""
           for dir in supabase/functions/*/; do
             fn="$(basename "$dir")"

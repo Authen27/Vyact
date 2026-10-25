@@ -4,6 +4,8 @@
 // before push existed (notifySlice): only action-required (P1) notifications, only
 // types the person left on, never inside their quiet hours. Quiet hours are read in
 // the DEVICE's own time zone, which the app sends when it subscribes.
+// v10.135.0 (Track Q7): Pip's nudges (P2, dedupe key "pip:") reach a device only when its
+// "Pip's nudges" switch is on (pipNudges; off by default).
 
 export interface PushPrefs {
   master?: boolean;
@@ -12,7 +14,12 @@ export interface PushPrefs {
   quietEnd?: string;     // "07:00"
   /** v10.126.0 (T4c, BE-FN-12) — false: send the private line, not the amounts and names. Absent means on. */
   lockScreenDetails?: boolean;
+  /** v10.135.0 (Q7) — true: this device's lock screen also gets Pip's nudges. Absent means off. */
+  pipNudges?: boolean;
 }
+
+/** A nudge from Pip (lib/notifications.ts pipNudgeNotifs), by its dedupe key. */
+export const isPipNudge = (n: Pick<NotificationRow, 'dedupe_key'>): boolean => n.dedupe_key.startsWith('pip:');
 
 /** The private title and body for a type: the app's `lockScreenText`, read through the bundled engine. */
 export type PrivateText = (type: string) => { title: string; body: string };
@@ -82,7 +89,7 @@ export type SkipReason =
 export function skipReason(n: NotificationRow, sub: SubscriptionRow, now: Date): SkipReason | null {
   if (sub.disabled_at) return 'device_disabled';
   if (n.household_id !== sub.household_id) return 'other_household';
-  if (n.priority !== 'P1') return 'not_action_required';
+  if (n.priority !== 'P1' && !(isPipNudge(n) && sub.prefs?.pipNudges === true)) return 'not_action_required';
   if (n.status !== 'unread') return 'already_seen';
   // Never a backlog: a device hears about what was raised after it subscribed.
   if (Date.parse(n.created_at) < Date.parse(sub.created_at) - 60_000) return 'before_subscribed';

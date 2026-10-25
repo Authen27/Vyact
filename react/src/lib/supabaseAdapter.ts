@@ -630,6 +630,8 @@ export function mapCloudRow(entity: Entity, row: unknown): unknown {
 export interface ProfileRowCols {
   display_name?: string | null; default_currency?: string | null; language?: string | null;
   date_format?: string | null; education_progress?: unknown;
+  /** v10.135.0 (Q7): 'detailed', or null for short. */
+  pip_answer_length?: string | null;
 }
 export interface HouseholdRowCols {
   type?: string | null; base_currency?: string | null; language?: string | null;
@@ -652,6 +654,7 @@ export function profileFromRows(prof: ProfileRowCols, hh: HouseholdRowCols, emai
     payoffStrategy: (hh.payoff_strategy as Profile['payoffStrategy']) || 'avalanche',
     extraPayment: Number(hh.extra_payment) || 0,
     educationProgress: (prof.education_progress as Profile['educationProgress']) || {},
+    pipAnswerLength: prof.pip_answer_length === 'detailed' ? 'detailed' : 'short',
   };
 }
 
@@ -800,7 +803,7 @@ export class SupabaseAdapter implements DataAdapter {
     const { data: { user } } = await this.sb.auth.getUser();
     if (!user) return null;
     const { data: prof } = await this.sb.from('profiles')
-      .select('display_name,default_currency,language,date_format,education_progress')
+      .select('display_name,default_currency,language,date_format,education_progress,pip_answer_length')
       .eq('id', user.id).single();
     const { data: hh } = await this.sb.from('households')
       .select('name,type,base_currency,language,payoff_strategy,extra_payment')
@@ -817,6 +820,8 @@ export class SupabaseAdapter implements DataAdapter {
     if (patch.dateFormat  !== undefined) userPatch.date_format = patch.dateFormat;
     if (patch.language    !== undefined) userPatch.language = patch.language;
     if (patch.educationProgress !== undefined) userPatch.education_progress = patch.educationProgress;
+    // v10.135.0 (Q7): short is stored as null, the column's default.
+    if (patch.pipAnswerLength !== undefined) userPatch.pip_answer_length = patch.pipAnswerLength === 'detailed' ? 'detailed' : null;
     if (Object.keys(userPatch).length) {
       // Audit F7: PostgREST failures RESOLVE with { error } — they do not
       // throw. An unchecked call here let the queue treat a rejected profile

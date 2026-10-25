@@ -13,6 +13,7 @@ export function staffActorLabel(row: Pick<StaffAuditRow, 'actor_id' | 'actor_ema
 
 export const STAFF_TABLE_LABEL: Record<StaffAuditRow['target_table'], string> = {
   admin_roles: 'Staff role', content_items: 'Learn content', category_classifications: 'Needs / wants', ai_model_configs: 'AI model setting',
+  ai_limits: "Pip's limits",
 };
 
 /** One line on what a staff change did, from its small detail (never the text). */
@@ -30,5 +31,10 @@ export function staffChangeSummary(row: StaffAuditRow): string {
     }
     case 'ai_model_configs':
       return `${s('provider')} ${s('model')}${row.changed.length ? ` · ${row.changed.join(', ')}` : ''}`;
+    case 'ai_limits': {
+      // Admin v1.6.1 (Q7, OPS-11): each number that changed, before → after.
+      const num = (side: 'before' | 'after', k: string) => String((d[side] as Record<string, unknown> | undefined)?.[k] ?? '');
+      return row.changed.map(k => `${k} ${num('before', k)} → ${num('after', k)}`).join(' · ') || row.action;
+    }
   }
 }

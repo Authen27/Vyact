@@ -366,7 +366,7 @@ describe('web-push function', () => {
         subRow('s4', dev2, { household_id: HID, user_id: 'u4' }),     // no longer a member
       ]]],
       memberships: [[[{ household_id: HID, user_id: 'u1' }, { household_id: HID, user_id: 'u2' }, { household_id: HID, user_id: 'u3' }]]],
-      notifications: [[[]], [pending], [null]],
+      notifications: [[[]], [[]], [pending], [null]],   // Q7: the Pip rows are read second
       push_deliveries: [[null]],
     });
 
@@ -387,7 +387,7 @@ describe('web-push function', () => {
     expect(out.raised).toBe(3);
     expect(out.raiseDeferred).toBe(0);
     // Only the server's rows are pushed: a device's row (even a viewer's) never reaches a lock screen.
-    expect(calls.notifications[1].eq).toHaveBeenCalledWith('source', 'server');
+    expect(calls.notifications[2].eq).toHaveBeenCalledWith('source', 'server');
     // 2. Pushed: the P1 to u1 (accepted) and u2 (gone); u3 switched budgets off; u4 left; the P2 to nobody.
     expect(fetchMock.mock.calls.map(c => c[0])).toEqual(['https://fcm.googleapis.com/fcm/send/s1', 'https://fcm.googleapis.com/fcm/send/s2']);
     expect(JSON.parse((await receive(fetchMock.mock.calls[0][1].body, dev1)).text)).toEqual(payloadFor(pending[0]));
@@ -396,8 +396,8 @@ describe('web-push function', () => {
     expect(out.skipped).toEqual({ type_off: 1, not_a_member: 2, not_action_required: 2, device_disabled: 1 });
     expect(api.rpc).toHaveBeenCalledWith('web_push_mark_device', { p_id: 's2', p_status: 410, p_ok: false, p_gone: true });
     // 3. Stamped: both rows considered are done.
-    expect(calls.notifications[2].update).toHaveBeenCalledWith({ pushed_at: '2026-09-27T05:30:00.000Z' });
-    expect(calls.notifications[2].in).toHaveBeenCalledWith('id', ['n1', 'n2']);
+    expect(calls.notifications[3].update).toHaveBeenCalledWith({ pushed_at: '2026-09-27T05:30:00.000Z' });
+    expect(calls.notifications[3].in).toHaveBeenCalledWith('id', ['n1', 'n2']);
     vi.useRealTimers();
   });
 
@@ -450,7 +450,7 @@ describe('web-push function', () => {
       const calls = tableSequence({
         push_subscriptions: [[[subRow('s1', dev1, { household_id: HID, user_id: 'u1' })]]],
         memberships: [[[{ household_id: HID, user_id: 'u1' }]]],
-        notifications: [[[]], [pending], [null]],
+        notifications: [[[]], [[]], [pending], [null]],   // Q7: the Pip rows are read second
         push_deliveries: [[delivered], [null]],
       });
       const out = await (await post(handler, {}, { 'x-cron-secret': secret }, '?mode=dispatch')).json();
@@ -467,7 +467,7 @@ describe('web-push function', () => {
     const morning = await run('2026-09-28T02:00:00Z', []);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(morning.out).toEqual(expect.objectContaining({ pushed: 1, deferred: 0 }));
-    expect(morning.calls.notifications[2].in).toHaveBeenCalledWith('id', ['n1']);
+    expect(morning.calls.notifications[3].in).toHaveBeenCalledWith('id', ['n1']);
 
     // A run that finds the device already reached does not push it again.
     fetchMock.mockClear();
@@ -496,7 +496,7 @@ describe('web-push function', () => {
         subRow('s2', dev2, { household_id: HID, user_id: 'u2' }),    // saved before the switch existed: details on
       ]]],
       memberships: [[[{ household_id: HID, user_id: 'u1' }, { household_id: HID, user_id: 'u2' }]]],
-      notifications: [[[]], [pending], [null]],
+      notifications: [[[]], [[]], [pending], [null]],   // Q7: the Pip rows are read second
       push_deliveries: [[null]],
     });
     const handler = await load();
@@ -540,7 +540,7 @@ describe('web-push function', () => {
       tableSequence({
         push_subscriptions: [[subs]],
         memberships: [[[{ household_id: HID, user_id: 'u1' }, { household_id: HID, user_id: 'u2' }]]],
-        notifications: [[[]], [pending], [null]],
+        notifications: [[[]], [[]], [pending], [null]],   // Q7: the Pip rows are read second
         push_deliveries: [[null]],
       });
       api.rpc.mockClear();

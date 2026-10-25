@@ -187,6 +187,28 @@ export default function PushNotifications() {
         </label>
       )}
 
+      {/* v10.135.0 (Track Q7; owner, 20 Oct 2026): Pip's nudges reach the lock screen only when asked for. */}
+      {on && (
+        <label className="flex items-center justify-between gap-3 cursor-pointer pt-1">
+          <div>
+            <div className="text-sm font-semibold text-ink">Pip&apos;s nudges</div>
+            <div className="text-[0.76rem] text-ink-dim mt-0.5">
+              {prefs.pipNudges === true
+                ? 'Pip can tell this device when a category passes a usual month or your monthly review is ready: at most one a day and three a week.'
+                : 'They wait in the bell. Turn this on to get them on this device too: at most one a day and three a week.'}
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={prefs.pipNudges === true}
+            disabled={busy}
+            onChange={e => updatePrefs({ pipNudges: e.target.checked })}
+            className="accent-coral w-[18px] h-[18px] flex-shrink-0"
+            aria-label="Pip's nudges on this device"
+          />
+        </label>
+      )}
+
       {problem && (
         <div className="rounded-lg border border-line px-3 py-2.5 space-y-2" role="alert" data-testid="push-problem">
           <p className="text-[0.8rem] text-ink">{problem}</p>

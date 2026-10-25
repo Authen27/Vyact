@@ -4,8 +4,18 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.6.0`**
+> **Current production version: `v1.6.1`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.6.1 — Pip's limits in Staff actions *(2026-10-25)*
+
+Ships with consumer v10.135.0 (Track Q, part 7; audit OPS-11) and reads its migration: merge after its Deploy is
+green.
+
+- **Audit → Staff actions** names a change to Pip's limits ("Pip's limits") and says which numbers moved, before
+  and after, as it does for Pip's model settings.
 
 ---
 

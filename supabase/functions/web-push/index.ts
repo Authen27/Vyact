@@ -11,9 +11,11 @@
 //   • POST ?mode=dispatch pg_cron (x-cron-secret, checked against Vault) or the service key:
 //       1. for every household with a subscribed device, raise the notifications the APP
 //          would raise (the bundled lib/notifications.ts rules, serverEngine) into the
-//          shared `notifications` table, so nobody needs the app open;
+//          shared `notifications` table, so nobody needs the app open (v10.135.0: Pip's
+//          nudges too, within their allowance of one a day and three a week);
 //       2. push every unread, not-yet-pushed P1 notification to the household's devices,
-//          subject to each device's own switches and quiet hours (web-push-rules.ts);
+//          subject to each device's own switches and quiet hours (web-push-rules.ts), and
+//          Pip's nudges (P2) to the devices that turned "Pip's nudges" on;
 //       3. stamp `pushed_at`, log each attempt in `push_deliveries`, and retire devices the
 //          push service reports gone (404/410).
 //
@@ -40,6 +42,8 @@ const TEST_LIMIT_PER_10_MIN = 5;
 const RAISE_PER_RUN = 50;
 const RAISE_BUDGET_MS = 60_000;
 const RUN_EVERY_MS = 15 * 60_000;   // the pg_cron schedule
+/** Q7: Pip's rows read back for its allowance and its once-a-month keys (a month and a little). */
+const PIP_LOOKBACK_MS = 40 * 86_400_000;
 const SUB_COLUMNS = 'id, user_id, household_id, kind, fcm_token, endpoint, p256dh, auth, tz, prefs, created_at, disabled_at, user_agent';
 
 type Sub = SubscriptionRow & { user_agent: string | null };
@@ -204,7 +208,12 @@ async function dispatch(admin: SupabaseClient, now: Date) {
       const owner = subs.find((s) => s.household_id === hid)!;
       const rows = await loadHouseholdRows(admin, owner.user_id, hid);
       const { data: keys } = await admin.from('notifications').select('dedupe_key').eq('household_id', hid).eq('source', 'server');
-      const fresh = notificationsOnServer(rows, ((keys ?? []) as { dedupe_key: string }[]).map((k) => k.dedupe_key), hid);
+      // Q7: Pip's rows from either source, with their dates (the nudge allowance and a device's own nudges).
+      const { data: pipRows, error: pipErr } = await admin.from('notifications').select('dedupe_key, created_at')
+        .eq('household_id', hid).like('dedupe_key', 'pip:%').gt('created_at', new Date(now.getTime() - PIP_LOOKBACK_MS).toISOString());
+      if (pipErr) throw new Error(`pip rows: ${pipErr.message}`);
+      const fresh = notificationsOnServer(rows, ((keys ?? []) as { dedupe_key: string }[]).map((k) => k.dedupe_key), hid,
+        (pipRows ?? []) as { dedupe_key: string; created_at: string }[], now.getTime());
       if (fresh.length) {
         const { data: count, error: insErr } = await admin.rpc('raise_server_notifications', { p_rows: fresh });
         if (insErr) throw new Error(`raise: ${insErr.message}`);

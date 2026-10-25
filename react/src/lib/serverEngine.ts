@@ -37,10 +37,10 @@ import { spendByCategory } from './calculations';
 import { getCat } from '../constants';
 import {
   DEFAULT_PREFS, recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs, budgetThresholdLines, debtDueNotifs,
-  incomeLandedNotifs, staleBalanceNotifs, lockScreenText, type BudgetThresholdLine,
+  incomeLandedNotifs, staleBalanceNotifs, pipNudgeNotifs, lockScreenText, type BudgetThresholdLine,
 } from './notifications';
 import { toInsertRow, type NotifInsertRow } from './notificationRows';
-import { wallClock } from './format';
+import { dateKeyIn, wallClock } from './format';
 import type { Notification } from '../types';
 
 // W1c (v10.64.0, audit BE-PIP-02): the `ask-vyact` gateway composes Pip's prompts from this
@@ -321,10 +321,20 @@ export function runwaySnapshot(rows: HouseholdRows, now: Date): RunwaySnapshot {
  * lock screen is each device's own choice, applied when pushing.
  * Split notifications are not generated here: they come from the devices, which
  * hold the verified-email split lists.
+ *
+ * v10.135.0 (Track Q7): Pip's nudges too (`pipNudgeNotifs`), so they wait in the bell while the app is
+ * closed. `pipRows` are the household's Pip rows from either source with their dates: a nudge a device
+ * raised is not raised again, and the day's and the week's allowance count both.
  */
-export function notificationsOnServer(rows: HouseholdRows, existingKeys: readonly string[], householdId: string): NotifInsertRow[] {
+export function notificationsOnServer(
+  rows: HouseholdRows, existingKeys: readonly string[], householdId: string,
+  pipRows: readonly { dedupe_key: string; created_at: string }[] = [], nowMs: number = Date.now(),
+): NotifInsertRow[] {
   const { transactions, budgets, budgetAllocations, debts, accounts, recurring, profile, rates } = shapesFromRows(rows);
-  const existing = existingKeys.map((dedupeKey) => ({ dedupeKey }) as Notification);
+  const existing = [
+    ...existingKeys.map((dedupeKey) => ({ dedupeKey }) as Notification),
+    ...pipRows.map((r) => ({ dedupeKey: r.dedupe_key, createdAt: r.created_at }) as Notification),
+  ];
   const ctx = { householdId, baseCurrency: profile.baseCurrency, rates, tz: householdTz(rows) };
   const prefs = DEFAULT_PREFS;
   return [
@@ -334,6 +344,7 @@ export function notificationsOnServer(rows: HouseholdRows, existingKeys: readonl
     ...debtDueNotifs(debts, prefs, existing, ctx),
     ...incomeLandedNotifs(transactions, prefs, existing, ctx),
     ...staleBalanceNotifs(accounts, prefs, existing, ctx),
+    ...pipNudgeNotifs(transactions, prefs, existing, ctx, dateKeyIn(new Date(nowMs), ctx.tz), nowMs),
   ].map(toInsertRow);
 }
 

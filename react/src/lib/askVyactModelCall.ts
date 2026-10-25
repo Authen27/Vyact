@@ -14,7 +14,7 @@
 // be interpreted as permission to answer from somewhere else.
 
 import { supabase } from './supabase';
-import type { ModelCall } from './askVyactLlm';
+import { MODEL_LIMITS, ModelLimitError, type ModelCall, type ModelLimit } from './askVyactLlm';
 
 /** Shape the `ask-vyact` gateway returns. `enabled:false` is a normal, expected
  *  state — the kill switch is a DB row, and off is the default. */
@@ -24,15 +24,21 @@ interface GatewayResponse {
   text?: string;
   error?: string;
   message?: string;
-  /** v10.37 Claude Code relay (test-only): the queued call to poll. */
-  relayId?: string;
+  /** v10.135.0 (Q7): seconds until a refused call may be asked again. */
+  retryAfter?: number;
 }
 
-/** Relay polling cadence and budget (v10.37, TEST-ONLY — TD-44). */
-export const RELAY_POLL_INTERVAL_MS = 3_000;
-export const RELAY_POLL_BUDGET_MS = 5 * 60 * 1000;
-
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+/**
+ * v10.135.0 (Track Q7; audit OPS-11) — a refusal by one of Pip's limits (429) as a ModelLimitError, so Pip says
+ * which limit applies. Any other failure, or a body that cannot be read, stays a plain transport error.
+ */
+async function limitFrom(error: unknown): Promise<ModelLimitError | null> {
+  let body: GatewayResponse | undefined;
+  try { body = await (error as { context?: Response }).context?.json(); } catch { /* fault-ok: an unreadable error body is reported as the transport error it came with */ }
+  if (!body || !(MODEL_LIMITS as readonly string[]).includes(body.error ?? '')) return null;
+  const wait = typeof body.retryAfter === 'number' && Number.isFinite(body.retryAfter) ? body.retryAfter : null;
+  return new ModelLimitError(body.error as ModelLimit, wait);
+}
 
 /** W8a (audit FE-PIP-16): the longest the app waits for one gateway answer before giving up. */
 export const CLIENT_DEADLINE_MS = 30_000;
@@ -83,33 +89,9 @@ export function resolveConfiguredModelCall(householdId?: string | null, turnSign
       signal: call.signal,
     }).finally(call.done);
 
-    // Transport failure — the caller turns this into an "unavailable" turn.
-    if (error) throw new Error(error.message ?? 'gateway request failed');
+    // Transport failure — the caller turns this into an "unavailable" turn; one of Pip's limits says which.
+    if (error) throw (await limitFrom(error)) ?? new Error(error.message ?? 'gateway request failed');
     if (!data) throw new Error('empty gateway response');
-
-    // v10.37 Claude Code relay (TEST-ONLY, allowlisted accounts): the gateway queued
-    // the call instead of answering. Poll until the relay session writes the reply.
-    if (data.error === 'relay_pending' && data.relayId) {
-      const relayId = data.relayId;
-      const deadline = Date.now() + RELAY_POLL_BUDGET_MS;
-      while (Date.now() < deadline) {
-        await sleep(RELAY_POLL_INTERVAL_MS);
-        // The relay keeps its own (test-only) budget, but a stopped turn stops polling.
-        if (turnSignal?.aborted) throw stoppedError();
-        const poll = callSignal(turnSignal, null);
-        const polled = await client.functions.invoke<GatewayResponse>('ask-vyact', {
-          body: { seam: 'assistant', relayPoll: relayId },
-          signal: poll.signal,
-        }).finally(poll.done);
-        if (polled.error) throw new Error(polled.error.message ?? 'relay poll failed');
-        if (!polled.data) throw new Error('empty relay poll response');
-        if (polled.data.error === 'relay_pending') continue;
-        if (!polled.data.ok) throw new Error(polled.data.message ?? polled.data.error ?? 'relay error');
-        if (!polled.data.text) throw new Error('relay returned no text');
-        return polled.data.text;
-      }
-      throw new Error('relay did not answer in time');
-    }
 
     // The kill switch is off, or no model row is enabled. This is a normal
     // configuration state, not a bug, and it must surface as unavailable rather

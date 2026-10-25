@@ -228,7 +228,7 @@ export interface StaffAuditRow {
   actor_id: string | null;
   actor_email: string | null;
   action: 'insert' | 'update' | 'delete';
-  target_table: 'admin_roles' | 'content_items' | 'category_classifications' | 'ai_model_configs';
+  target_table: 'admin_roles' | 'content_items' | 'category_classifications' | 'ai_model_configs' | 'ai_limits';
   target_id: string | null;
   changed: string[];
   detail: Record<string, unknown>;
