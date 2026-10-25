@@ -14,7 +14,8 @@ import type {
 import { uid } from '../../lib/format';
 import { can } from '../../lib/permissions';
 import { track } from '../../lib/analytics';
-import { hasDependencies, localAccountDependencies, loansRecordingFrom, moveDestinations } from '../../lib/accountsView';
+import { archiveBlockedByBalance, hasDependencies, localAccountDependencies, loansRecordingFrom, moveDestinations } from '../../lib/accountsView';
+import { computeAccountBalance } from '../../lib/accountBalance';
 import { withRow, withRows, withoutRow } from '../../lib/rowMerge';
 import { landIn } from '../landIn';
 
@@ -269,6 +270,14 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const merged: Partial<Account> = existing
       ? { ...existing, ...Object.fromEntries(Object.entries(a).filter(([, v]) => v !== undefined)) }
       : a;
+    // v10.133.0 (Track Q5; FE-MNY-12): nor can an account that holds money or owes it (its balance after this patch,
+    // so marking a loan paid off, which zeroes and archives in one write, still works).
+    if (existing && a.isArchived === true && !existing.isArchived) {
+      const { transactions, rates, profile } = get();
+      const blocked = archiveBlockedByBalance(merged as Account,
+        computeAccountBalance(merged as Account, transactions, profile.baseCurrency, rates), profile.baseCurrency);
+      if (blocked) throw new Error(blocked);
+    }
     // v10.23.0 (R1) — currency is the HOUSEHOLD's, never the account's. The
     // cloud enforces it with a trigger (accounts_currency_from_household);
     // stamping it here keeps local-only mode and the optimistic cache telling

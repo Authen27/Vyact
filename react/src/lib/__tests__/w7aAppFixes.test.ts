@@ -112,7 +112,8 @@ describe('W7a · small app fixes', () => {
     expect(ds).toMatch(/switchHousehold\(nextHouseholdAfterExit\(households, id\) \?\? 'local'\)/);
     const hh = src('pages/Households.tsx');
     expect(hh.match(/leaveActive\(active\)/g)?.length).toBe(2);
-    expect(hh).toMatch(/if \(h\.id === currentHouseholdId && next\) await switchHousehold\(next\)/);
+    // v10.133.0 (Q5, INT-HH-13): with no household left, the local placeholder, never the one just left.
+    expect(hh).toMatch(/if \(h\.id === currentHouseholdId\) await switchHousehold\(next \?\? 'local'\)/);
   });
   it('W7a-UIC14-001 · the Reconcile sheet reads a card\'s "-23,990" as owed and refuses negative cash (FE-UIC-14)', () => {
     expect(statedForReconcile(-23990, 'credit_card')).toBe(23990);

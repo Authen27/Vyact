@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1680 passing deterministic cases in 190 files. Zero failed, skipped or TODO cases at generation.**
+**1696 passing deterministic cases in 192 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,11 +35,11 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 132 |
 | react | contract-unit | conditional | 132 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 179 |
+| react | sql-integration | conditional | 183 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 75 |
+| react | store-integration | available | 76 |
 | react | store-integration | conditional | 44 |
-| react | unit | available | 472 |
+| react | unit | available | 483 |
 | react | unit | conditional | 236 |
 | react | unit | infrastructure | 229 |
 
@@ -132,7 +132,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/inviteEmailHandler.test.ts](../react/src/lib/__tests__/inviteEmailHandler.test.ts) | Invite email handler | handler-integration | conditional | 6 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
 | [react/src/lib/__tests__/ledgerIntegritySql.test.ts](../react/src/lib/__tests__/ledgerIntegritySql.test.ts) | Ledger integrity SQL (T2c) | sql-integration | conditional | 9 |
-| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 40 |
+| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 41 |
 | [react/src/lib/__tests__/liabilityList.test.ts](../react/src/lib/__tests__/liabilityList.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/loanAutomationSql.test.ts](../react/src/lib/__tests__/loanAutomationSql.test.ts) | Loan automation SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/loanCalendar.test.ts](../react/src/lib/__tests__/loanCalendar.test.ts) | Loan calendar and reminders | unit | available | 3 |
@@ -182,6 +182,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/q3bActivityActor.test.ts](../react/src/lib/__tests__/q3bActivityActor.test.ts) | Activity feed actor (Q3b) | unit | available | 1 |
 | [react/src/lib/__tests__/q4JobHealthSql.test.ts](../react/src/lib/__tests__/q4JobHealthSql.test.ts) | Job runs and health (Q4) | sql-integration | conditional | 8 |
 | [react/src/lib/__tests__/q4Observability.test.ts](../react/src/lib/__tests__/q4Observability.test.ts) | Observability and WhatsApp consent (Q4) | unit | available | 14 |
+| [react/src/lib/__tests__/q5AppCorrectness.test.ts](../react/src/lib/__tests__/q5AppCorrectness.test.ts) | App correctness (Q5) | unit | available | 11 |
+| [react/src/lib/__tests__/q5ArchiveSql.test.ts](../react/src/lib/__tests__/q5ArchiveSql.test.ts) | Archive at zero (Q5) | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |

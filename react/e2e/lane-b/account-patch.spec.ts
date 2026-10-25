@@ -92,9 +92,11 @@ test.describe('§13 CLOUD-FC · account metadata patches', () => {
     const adapter = new SupabaseAdapter(owner.db);
     const hh = owner.householdId;
 
+    // v10.133.0 (Q5, FE-MNY-12): an account is archived at zero, so its 1,200 opening is reconciled away first; the
+    // archive patch must keep both the opening balance and the offset.
     const created = await adapter.upsert<Partial<Account>>('accounts', hh, {
       kind: 'bank', name: 'Old Savings', currency: 'GBP',
-      isDefault: false, isArchived: false, openingBalance: 1200,
+      isDefault: false, isArchived: false, openingBalance: 1200, reconciliationOffset: -1200,
     });
 
     await adapter.upsert('accounts', hh, {
@@ -106,5 +108,6 @@ test.describe('§13 CLOUD-FC · account metadata patches', () => {
       .find(a => a.id === created.id)!;
     expect(reloaded.isArchived, 'the archive flag must have applied').toBe(true);
     expect(reloaded.openingBalance, 'archiving must not zero the balance').toBe(1200);
+    expect(reloaded.reconciliationOffset, 'archiving must keep the offset').toBe(-1200);
   });
 });

@@ -93,7 +93,8 @@ export default function Accounts() {
       banks,
       cards,
       archived: onScreen.filter(a => a.isArchived).sort(order),
-      summary: accountsSummary(live, a => balances.get(a.id) ?? 0),
+      // v10.133.0 (Q5, FE-UIC-12): archived accounts count, as in Net Worth and Pip.
+      summary: accountsSummary(onScreen, a => balances.get(a.id) ?? 0),
       bankTotal: round2(banks.reduce((sum, a) => sum + (balances.get(a.id) ?? 0), 0)),
       stale: [...cash, ...banks, ...cards]
         .map(a => ({ a, days: staleDays(a, now) }))
@@ -150,6 +151,14 @@ export default function Accounts() {
             <SummaryTile label="Card outstanding" amount={view.summary.cardOutstanding} currency={baseCurrency} tone="honey" />
             <SummaryTile label="Spendable now" amount={view.summary.spendableNow} currency={baseCurrency} />
           </div>
+          {(view.summary.archivedHeld !== 0 || view.summary.archivedOwed !== 0) && (
+            <p className="text-[0.78rem] text-ink-dim">
+              Includes {[
+                view.summary.archivedHeld !== 0 ? `${fmtNet(view.summary.archivedHeld, baseCurrency)} in archived accounts` : null,
+                view.summary.archivedOwed !== 0 ? `${fmt(view.summary.archivedOwed, baseCurrency)} owed on archived cards` : null,
+              ].filter(Boolean).join(' and ')}. Restore one to move or reconcile it.
+            </p>
+          )}
 
           {/* The region keeps the name "Cash in Hand" (one per household); the group heading says Cash.
               No count or total — the card itself carries the one balance. */}

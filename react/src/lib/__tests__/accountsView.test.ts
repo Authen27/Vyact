@@ -105,18 +105,19 @@ describe('Accounts R2 — grouping and Spendable now', () => {
     const card = acct({ kind: 'credit_card', name: 'Regalia' });
     const balances = new Map([[hdfc.id, 124_000], [icici.id, 7_400], [card.id, -18_400]]);
     expect(accountsSummary([hdfc, icici, card], a => balances.get(a.id)!))
-      .toEqual({ cashAvailable: 131_400, cardOutstanding: 18_400, spendableNow: 113_000 });
+      .toEqual({ cashAvailable: 131_400, cardOutstanding: 18_400, spendableNow: 113_000, archivedHeld: 0, archivedOwed: 0 });
   });
 
-  it('archived accounts, loans and investments never reach the summary; an overpaid card is not cash', () => {
+  it('loans and investments never reach the summary; an overpaid card is not cash; archived accounts count (Q5)', () => {
     const live = acct({});
     const archived = acct({ isArchived: true });
     const loan = acct({ kind: 'loan' });
     const invest = acct({ kind: 'investment' });
     const overpaid = acct({ kind: 'credit_card' });
     const balances = new Map([[live.id, 1_000], [archived.id, 9_999], [loan.id, -50_000], [invest.id, 70_000], [overpaid.id, 300]]);
+    // v10.133.0 (Q5, FE-UIC-12): money in an archived account is still the household's, as Net Worth and Pip say.
     expect(accountsSummary([live, archived, loan, invest, overpaid], a => balances.get(a.id)!))
-      .toEqual({ cashAvailable: 1_000, cardOutstanding: 0, spendableNow: 1_000 });
+      .toEqual({ cashAvailable: 10_999, cardOutstanding: 0, spendableNow: 10_999, archivedHeld: 9_999, archivedOwed: 0 });
   });
 });
 

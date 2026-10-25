@@ -197,6 +197,7 @@ export function reconcileAccount(
   computedBalance: number,
   statedValue: number,
   kind: ReconciliationEntry['kind'],
+  opts: { cardInCredit?: boolean } = {},
 ): ReconcileResult {
   // v10.38.1 — A CARD IS STATED AS WHAT YOU OWE, AND A CARD'S BALANCE IS THAT
   // NEGATED (the convention `openingBalanceForCard` and `cardFigures` already use:
@@ -208,8 +209,12 @@ export function reconcileAccount(
   // it was counted as a liquid asset AND its liability floored to zero, overstating
   // net worth by twice the amount. Interpreting the statement for what it is keeps
   // the sign honest at the point of entry rather than compensating downstream.
+  //
+  // v10.133.0 (Track Q5; audit FE-MNY-13): a card can be OVERPAID (the issuer owes you a refund). The statement says
+  // "in credit", and the sheet says so explicitly (`cardInCredit`): the balance is then +stated, outstanding 0 and
+  // liquidity 'short' (computeNetWorth). Never inferred from a sign: a positive number for a card still means owed.
   const target = account.kind === 'credit_card'
-    ? -Math.abs(statedValue)
+    ? (opts.cardInCredit ? Math.abs(statedValue) : -Math.abs(statedValue))
     : statedValue;
   const delta = Math.round((target - computedBalance) * 100) / 100;
   const entry: ReconciliationEntry = {

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.132.0`** (consumer)
+> **Current production version: `v10.133.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,33 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.133.0 — Amounts read as typed, one "free to spend", and dialogs that keep focus *(2026-10-25)*
+
+Track Q, part 5 (audit FE-UIC-10, FE-UIS-03, FE-UIS-07, INT-HH-13, INT-HH-08, FE-UIC-12, FE-MNY-12, FE-MNY-13,
+FE-SYN-13; owner decisions 20 Oct 2026). The migration (`20261111120000_q5_archive_at_zero.sql`) must be live before
+this app.
+
+- **Amounts read as typed, in any convention.** "1.234,56" is 1,234.56 and "1.234" is 1,234 (they used to be read
+  about 1000 times too small); "12,50" stays 12.50 and "1,50,000" stays 1,50,000. Every amount field uses one reader,
+  and interest rates keep their decimals ("8.125").
+- **One "free to spend".** The Accounts summary now counts archived accounts, as Net Worth and Pip always did, and says
+  so when one holds money. **An account is archived at zero**: one that holds money or owes it asks you to move it or
+  reconcile it first (the database refuses it too).
+- **Net Worth no longer offers Cash, Checking or Savings** as asset types: that money belongs in Accounts, where every
+  entry moves it. Assets you already saved keep their type.
+- **A card can be reconciled "in credit"** when you have overpaid it: the credit counts in Net Worth, never as money to
+  spend. "I owe" stays the default.
+- **Dialogs keep focus.** Notifications, the household switcher, the account menu, ⌘K, the policy sheet and the
+  Insights reels keep Tab inside them and return focus to where it was when they close.
+- **Onboarding can run twice.** A second run updates the paycheck and bills the first one made, instead of adding them
+  again, and a run that failed half-way is finished by the next one.
+- **Leaving or deleting a household clears it from this device** (its cached entries, sync cursors, Pip chat and
+  copies). With no household left you land on Households.
+- **Your language is yours.** Everyone picks their own; it no longer changes the app for the rest of the household.
+  A household's name, type, currency and payoff settings are the owner's, and admins see them read-only, as the
+  database already required.
+- The dead "import anonymous data" step is removed.
 
 ## v10.132.0 — Vyact hears about its own failures; the weekly summary comes with your insights *(2026-10-25)*
 

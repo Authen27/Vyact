@@ -17,6 +17,12 @@
 //   4. The bills together   → a real BUDGET for the join month (even if the join
 //      date has already passed), with one allocation per category.
 //
+// v10.133.0 (Track Q5; audit FE-UIS-03): running onboarding again used to add the paycheck and every bill a second
+// time, and a run that failed half-way could only be finished by duplicating what had landed. Each schedule now has an
+// id made from its household and what it is (`onboarding:<household>:paycheck`, `…:bill:<key>`), so a re-run
+// updates the schedule the last run made: the new amount, words and category, while its dates (its next due date and
+// what it has already posted) stay as they are. A re-run therefore finishes what a failed one left, and never doubles it.
+//
 // CRITICAL money-model note: none of this POSTS a transaction. Opening balances,
 // recurring *schedules* (future-dated, approval-gated) and budgets don't move
 // spend/income, so the money invariants can't be violated by onboarding. The
@@ -25,6 +31,7 @@
 
 import type { RecurringSchedule, BudgetAllocation, Account, Budget } from '../types';
 import { localDayUTC } from './format';
+import { deterministicUuid } from './recurring';
 import { expected, failedWrite } from './faults';
 
 /** Fixed-cost chip key → real expense category id (constants.ts EXPENSE_CATEGORIES). */
@@ -107,8 +114,12 @@ export interface WireOnboardingInput {
   bills: OnboardingBill[];
   currency: string;
   memberId?: string;
+  /** The household being set up: the schedules' ids are made from it (FE-UIS-03). */
+  householdId?: string;
   now?: Date;
   fns: {
+    /** The schedule with this id, if the household has it (a previous run made it). */
+    getSchedule?: (id: string) => RecurringSchedule | undefined;
     ensureDefaultCashAccount: () => Promise<void>;
     getCashAccount: () => Account | undefined;
     upsertAccount: (a: Partial<Account>) => Promise<Account>;
@@ -126,9 +137,23 @@ export interface WireOnboardingInput {
  * T5b (v10.121.0; audit XC-ARC-11) — each failed step is recorded (`failedWrite`); they used to vanish.
  */
 const failed = (step: string) => (e: unknown) => failedWrite(e, `onboarding.${step}`);
+/** The id onboarding gives one of its schedules: the same household and kind, the same id (FE-UIS-03). */
+export function onboardingScheduleId(householdId: string | undefined, key: string): string {
+  return deterministicUuid(`onboarding:${householdId ?? 'local'}:${key}`);
+}
+
 export async function wireOnboardingToMoney(input: WireOnboardingInput): Promise<void> {
   const { monthlyIncome, bills, currency, memberId, fns } = input;
   const now = input.now ?? new Date();
+  // A schedule this household's onboarding made before is updated in place; a new one gets its id.
+  const scheduleFor = (key: string, fresh: Partial<RecurringSchedule>): Partial<RecurringSchedule> => {
+    const id = onboardingScheduleId(input.householdId, key);
+    const existing = fns.getSchedule?.(id);
+    if (!existing) return { ...fresh, id };
+    const t = fresh.transactionTemplate!;
+    return { ...existing, transactionTemplate: { ...existing.transactionTemplate,
+      amount: t.amount, currency: t.currency, category: t.category, description: t.description } };
+  };
 
   // 1 + 2 — Cash opening balance + the paycheck schedule.
   await fns.ensureDefaultCashAccount().catch(failed('cashAccount'));
@@ -146,7 +171,7 @@ export async function wireOnboardingToMoney(input: WireOnboardingInput): Promise
 
     // Paycheck — recurring income, 1st of month, into Cash, approval-gated.
     const payStart = nextMonthlyDate(1, now);
-    await fns.upsertRecurring({
+    await fns.upsertRecurring(scheduleFor('paycheck', {
       frequency: 'monthly',
       dayOfMonth: 1,
       startDate: payStart,
@@ -164,7 +189,7 @@ export async function wireOnboardingToMoney(input: WireOnboardingInput): Promise
         paymentMethod: cashRef,
         ...(memberId ? { memberId } : {}),
       } as RecurringSchedule['transactionTemplate'],
-    }).catch(failed('paycheck'));
+    })).catch(failed('paycheck'));
   }
 
   // 3 — one recurring EXPENSE schedule per bill that carries an amount, on the
@@ -172,7 +197,7 @@ export async function wireOnboardingToMoney(input: WireOnboardingInput): Promise
   const billStart = nextMonthlyDate(2, now);
   for (const bill of bills) {
     if (!(bill.amount > 0)) continue;
-    await fns.upsertRecurring({
+    await fns.upsertRecurring(scheduleFor(`bill:${bill.key}`, {
       frequency: 'monthly',
       dayOfMonth: 2,
       startDate: billStart,
@@ -189,7 +214,7 @@ export async function wireOnboardingToMoney(input: WireOnboardingInput): Promise
         paymentMethod: cashRef,
         ...(memberId ? { memberId } : {}),
       } as RecurringSchedule['transactionTemplate'],
-    }).catch(failed('bill'));
+    })).catch(failed('bill'));
   }
 
   // 4 — a budget for the JOIN month (created even if the month is already

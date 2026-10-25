@@ -173,7 +173,10 @@ export default function Onboarding() {
         bills: billsLater ? [] : bills,
         currency,
         memberId: primaryMember,
+        householdId,
         fns: {
+          // v10.133.0 (FE-UIS-03): a re-run updates the schedules the last run made.
+          getSchedule: (id) => useStore.getState().recurringSchedules.find(s => s.id === id),
           ensureDefaultCashAccount: st.ensureDefaultCashAccount,
           getCashAccount: () => useStore.getState().accounts.find(a => a.kind === 'cash'),
           upsertAccount: st.upsertAccount,

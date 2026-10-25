@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.132.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.133.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -935,9 +935,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   the magnitude only. Balances, nets, net worth and chart axes that can go negative use `fmtNet` /
   `fmtShortNet` (or `fmtSigned` where a "+" is wanted, or `<Money>`).
 - **Frontend guards (v10.79.0, W6).**
-  - Fields on the HOUSEHOLD row (currency, language, payoff strategy, extra payment) are editable only
-    where the database allows it: `canEditHouseholdRow` (owner in cloud mode). Never toast "saved" for a
-    write RLS will refuse.
+  - Fields on the HOUSEHOLD row (currency, payoff strategy, extra payment, and on Households its name and type)
+    are editable only where the database allows it: `canEditHouseholdRow` / `edit_household_settings` (the
+    owner's alone since v10.133.0, INT-HH-08). Never toast "saved" for a write RLS will refuse. **Language is each
+    person's own** (v10.133.0): `profiles.language`, read before the household's and never locked.
   - Every public `vercel.json` rewrite must be on the Workbox `navigateFallbackDenylist` (PUB-027), or an
     installed app answers it with the app shell.
   - `/__e2e_error` is routed only outside production builds; Lane A builds in `test` mode.
@@ -995,6 +996,23 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     A list row's category icon is `components/ui/CategoryTile` (34px raised, tinted with the colour).
   - "Available cash" is the Accounts figure (`accountsSummary`); Net Worth and Reports call their wider
     `liquidAssets` total "Liquid assets". Two names because they are two calculations.
+  - **App correctness (v10.133.0, Track Q5; owner decisions 20 Oct 2026).**
+    - **Every typed amount goes through `parseAmount`, a rate through `parseRate`** (`lib/amountInput.ts`). The last
+      separator (. or ,) with one or two digits after it is the decimal mark; one with exactly three is grouping;
+      anything else is not an amount. Never `parseFloat` a typed amount (Q5-002).
+    - **"Free to spend" is one figure**: the Accounts summary counts archived accounts, as Net Worth and Pip
+      (`liquidAssets − cardDues`) do (Q5-005). **A bank account or card is archived at zero** (the store and
+      `accounts_guard_lifecycle`'s `account_has_balance`, over `account_ledger_balance`, the app's fold on the
+      server); move the money or reconcile first. Net Worth never offers Cash, Checking or Savings as an asset type.
+    - **A card can be reconciled "in credit"** (`reconcileAccount(..., { cardInCredit })`): never inferred from a sign;
+      "I owe" stays the default (INV-11).
+    - **Every modal keeps focus**: a Radix Dialog (AccessibleDialog: form sheets and modals), or `useFocusTrap`
+      (`lib/focusTrap.ts`) for the app frame's own (PullDownSheet, the ⌘K palette, the account menu, the policy sheet,
+      the reels), which load with the first paint where Radix would break the 350 KB entry budget. Q5-004 fails on a
+      hand-written `aria-modal` dialog without the trap.
+    - Onboarding's schedules have ids of their household and kind (`onboardingScheduleId`): a re-run updates them in
+      place and keeps their dates. Leaving or deleting a household clears its cache from the device
+      (`purgeHouseholdCache`). The anonymous-data import (`lib/migration.ts`) is deleted.
   - A long form is split into short headed groups with `components/ui/FormSection` (the loan form: The
     loan · Repayment · Paying it; the recurring editor: What · When · How). Rarely changed fields sit behind
     one row that shows their values and opens in place (the transaction form's "More details").

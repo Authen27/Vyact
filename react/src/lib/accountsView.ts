@@ -14,7 +14,7 @@
 import type {
   Account, AccountDependencies, Debt, PaymentMode, RecurringSchedule, Transaction,
 } from '../types';
-import { localDayUTC } from './format';
+import { fmt, fmtNet, localDayUTC } from './format';
 import { parseAmount } from './amountInput';
 
 /** A balance not checked against a statement for longer than this says so. */
@@ -188,25 +188,57 @@ export interface AccountsSummary {
   cardOutstanding: number;
   /** cashAvailable − cardOutstanding. */
   spendableNow: number;
+  /** The part of the two figures above that archived accounts hold (cash) or owe (cards); usually 0. */
+  archivedHeld: number;
+  archivedOwed: number;
 }
 
 /**
- * Spendable now = what the Bank group holds minus what the cards owe. Archived
- * accounts, and accounts that live in other modules, are left out. An overpaid
- * card owes nothing; its credit is not counted as cash.
+ * Spendable now = what the Bank group holds minus what the cards owe. Accounts that live in other modules (loans,
+ * investments) are left out. An overpaid card owes nothing; its credit is not counted as cash.
+ *
+ * v10.133.0 (Track Q5; audit FE-UIC-12, FE-MNY-12; owner 20 Oct 2026) — ONE "free to spend". Archived accounts count
+ * here as they do in Net Worth and in Pip (liquidAssets − cardDues): money in an archived account is still the
+ * household's, and an archived card still owes. They used to be left out of this figure only, so the three disagreed.
+ * Since this release an account that holds money or owes cannot be archived (accounts_guard_lifecycle,
+ * `account_has_balance`), so archivedHeld / archivedOwed are 0 except for accounts archived before it; the page says
+ * so when they are not. Q5-005 holds Accounts = Net Worth = Pip on one household.
  */
 export function accountsSummary(accounts: Account[], balanceOf: (a: Account) => number): AccountsSummary {
   let cash = 0;
   let owed = 0;
+  let archivedHeld = 0;
+  let archivedOwed = 0;
   for (const a of accounts) {
-    if (a.isArchived) continue;
     const group = accountGroup(a);
-    if (group === 'bank') cash += balanceOf(a);
-    else if (group === 'credit_card') owed += Math.max(0, -balanceOf(a));
+    if (group === 'bank') {
+      cash += balanceOf(a);
+      if (a.isArchived) archivedHeld += balanceOf(a);
+    } else if (group === 'credit_card') {
+      owed += Math.max(0, -balanceOf(a));
+      if (a.isArchived) archivedOwed += Math.max(0, -balanceOf(a));
+    }
   }
   cash = round2(cash);
   owed = round2(owed);
-  return { cashAvailable: cash, cardOutstanding: owed, spendableNow: round2(cash - owed) };
+  return { cashAvailable: cash, cardOutstanding: owed, spendableNow: round2(cash - owed),
+    archivedHeld: round2(archivedHeld), archivedOwed: round2(archivedOwed) };
+}
+
+/**
+ * v10.133.0 (Track Q5; audit FE-MNY-12, owner 20 Oct 2026) — why this account cannot be archived yet, or null. An
+ * archived account left "Spendable now" while Net Worth and Pip still counted its money, so archiving needs a zero
+ * balance: the money is moved out first (a transfer, or Move, then delete) or the balance is reconciled to zero. The
+ * database refuses it too (accounts_guard_lifecycle, `account_has_balance`); this says why before anything is written.
+ */
+export function archiveBlockedByBalance(account: Pick<Account, 'name' | 'kind'>, balance: number, currency: string): string | null {
+  // The kinds "Spendable now" reads; a loan's account is archived by the loan functions, Cash in Hand never.
+  if (account.kind !== 'bank' && account.kind !== 'credit_card') return null;
+  if (Math.abs(balance) < 0.005) return null;
+  const what = account.kind === 'credit_card' && balance < 0
+    ? `still owes ${fmt(-balance, currency)}`
+    : `still holds ${fmtNet(balance, currency)}`;
+  return `${account.name} ${what}. An account is archived at zero: move the money out with a transfer, or reconcile it to zero, first.`;
 }
 
 // ── delete guard ─────────────────────────────────────────────────────────────

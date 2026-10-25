@@ -15,11 +15,13 @@ describe('Settings: household fields and the profile email (W6, audit FE-UIS-06)
     expect(baseline).toMatch(/create policy "owners update household"\s+on households for update using \(role_in\(id\) = 'owner'\);/);
   });
 
-  it('W6-UIS06-002 · currency, language, payoff strategy and extra payment are read-only for others; the email is shown, never saved', () => {
+  it('W6-UIS06-002 · currency, payoff strategy and extra payment are read-only for others; the email is shown, never saved', () => {
     const src = readFileSync(resolve(__dirname, '../../pages/Settings.tsx'), 'utf8');
-    for (const id of ['settings-language', 'settings-currency', 'settings-payoff']) {
+    for (const id of ['settings-currency', 'settings-payoff']) {
       expect(src, id).toMatch(new RegExp(`<Select id="${id}"[^>]*disabled=\\{!canEditHousehold\\}`));
     }
+    // v10.133.0 (Q5, INT-HH-08; owner): language is each person's own, so it is never locked (Q5-007).
+    expect(src).toMatch(/<Select id="settings-language" value=\{profile\.language\}\s*\n\s*onChange=/);
     expect(src).toMatch(/id="settings-extra-payment"[\s\S]{0,160}disabled=\{!canEditHousehold\}/);
     expect(src).toMatch(/canEditHousehold\s*\n?\s*\? <button className="btn-primary" onClick=\{saveDebtPrefs\}>/);
     expect(src).toMatch(/await updateProfile\(\{ name \}\);/);

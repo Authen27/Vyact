@@ -25,6 +25,7 @@ import type { Debt } from '../../types';
 import type { LoanSeed } from '../../lib/askVyactResponses';
 import { askSheet } from '../../lib/confirmSheet';
 import { deleteLoanRequest } from '../../lib/confirmCopy';
+import { parseAmount, parseRate } from '../../lib/amountInput';
 
 interface Props {
   open?: boolean;
@@ -147,9 +148,9 @@ export default function DebtFormModal(props: Props) {
 
   const isLoan = form.direction === 'owed_by_me';
   const payFrom = useMemo(() => accounts.filter(a => (a.kind === 'bank' || a.kind === 'cash') && !a.isArchived), [accounts]);
-  const rateChanged = !!initial && isLoan && Number(form.interestRate) !== initial.interestRate && form.interestRate !== '';
+  const rateChanged = !!initial && isLoan && parseRate(form.interestRate) !== initial.interestRate && form.interestRate !== '';
   const suggested = useMemo(() => {
-    const p = Number(form.principal), r = Number(form.interestRate), n = parseInt(form.tenureMonths, 10);
+    const p = parseAmount(form.principal), r = parseRate(form.interestRate), n = parseInt(form.tenureMonths, 10);
     return p > 0 && r >= 0 && n > 0 ? loanEmi(p, r, n, currency) : null;
   }, [form.principal, form.interestRate, form.tenureMonths, currency]);
 
@@ -158,7 +159,7 @@ export default function DebtFormModal(props: Props) {
     setSaving(true);
     try {
       if (!isLoan) {
-        const owed = parseFloat(form.outstanding);
+        const owed = parseAmount(form.outstanding);
         if (!(owed >= 0)) { toast('Enter how much is owed', 'error'); return; }
         await upsertDebt({
           ...(initial ?? {}), id: initial?.id ?? uid(), direction: 'owed_to_me', type: initial?.type ?? 'family',
@@ -169,11 +170,11 @@ export default function DebtFormModal(props: Props) {
         onClose();
         return;
       }
-      const rate = parseFloat(form.interestRate);
-      const emi = parseFloat(form.emi);
+      const rate = parseRate(form.interestRate);
+      const emi = parseAmount(form.emi);
       const tenure = parseInt(form.tenureMonths, 10);
-      const principal = parseFloat(form.principal);
-      const outstanding = ledgerOwned ? initial!.currentBalance : parseFloat(form.outstanding || form.principal);
+      const principal = parseAmount(form.principal);
+      const outstanding = ledgerOwned ? initial!.currentBalance : parseAmount(form.outstanding || form.principal);
       if (!(outstanding >= 0)) { toast('Enter what is still owed', 'error'); return; }
       if (!(rate >= 0 && rate < 100)) { toast('Enter the interest rate (% a year)', 'error'); return; }
       if (!(emi > 0)) { toast('Enter the EMI (use the suggested one, or your bank letter)', 'error'); return; }
@@ -326,7 +327,7 @@ export default function DebtFormModal(props: Props) {
           )}
 
           <Field label="EMI" hint={suggested == null ? 'From your loan letter.'
-            : Number(form.emi) === suggested ? 'The standard EMI for these terms.'
+            : parseAmount(form.emi) === suggested ? 'The standard EMI for these terms.'
             : <>The standard EMI for these terms is {money(suggested)}.{' '}
                 <button type="button" className="font-medium underline underline-offset-2 min-h-[44px] align-middle"
                   style={{ color: 'var(--accent-text)' }}

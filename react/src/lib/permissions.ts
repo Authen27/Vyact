@@ -33,7 +33,9 @@ const PERMS: Record<AppRole, Set<Action>> = {
     'add_transaction','edit_transaction','delete_transaction','edit_others_transaction',
     'manage_budgets','manage_goals','manage_debts','manage_assets',
     'invite_member','remove_member','change_member_role',
-    'edit_household_settings',
+    // v10.133.0 (Track Q5; INT-HH-08, owner 20 Oct 2026): no 'edit_household_settings'. The household's name, type,
+    // currency and payoff settings are the owner's, as the database says ("owners update household"); an admin's
+    // rename was refused after the field said it was saved.
     'view_activity_log',
   ]),
   member: new Set<Action>([
@@ -68,7 +70,7 @@ export function can(role: AppRole | undefined, action: Action): boolean {
  * language, payoff strategy, extra payment)? The database lets only the owner update a household
  * (RLS "owners update household"), so for anyone else the write queued, dead-lettered and the value
  * quietly reverted after a "saved" toast. Local-only mode has a single user and no roles.
- * (`edit_household_settings` above also grants admins; reconciling that with RLS is INT-HH-08.)
+ * Since v10.133.0 `edit_household_settings` is the owner's alone too (INT-HH-08); this adds local-only mode.
  */
 export function canEditHouseholdRow(role: AppRole | undefined, cloudEnabled: boolean): boolean {
   if (!cloudEnabled) return true;

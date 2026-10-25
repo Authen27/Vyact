@@ -441,7 +441,8 @@ describe('Accounts R2 — delete, move, archive and reconcile change no number t
     seed();
     const month = monthlyData(useStore.getState().transactions, '2026-09', 'USD', R);
     const cats = categoryTotals();
-    await useStore.getState().upsertAccount({ id: 'icici', isArchived: true });
+    // v10.133.0 (Q5, FE-MNY-12): an account is archived at zero, so it is reconciled to zero in the same write.
+    await useStore.getState().upsertAccount({ id: 'icici', reconciliationOffset: -bal('icici')!, isArchived: true });
     expect(monthlyData(useStore.getState().transactions, '2026-09', 'USD', R)).toEqual(month);
     expect(categoryTotals()).toEqual(cats);
     expect(useStore.getState().transactions).toHaveLength(3);
@@ -484,5 +485,16 @@ describe('base currency change (v10.54.0)', () => {
     expect(state.accounts.map(a => a.currency)).toEqual(['INR', 'INR']);
     const nw = computeNetWorth({ assets: [], accounts: state.accounts, debts: [], transactions: [] }, 'INR', { USD: 1, INR: 83.2 });
     expect(nw.netWorth).toBe(1200);
+  });
+});
+
+describe('an account is archived at zero (v10.133.0, Q5; FE-MNY-12)', () => {
+  it('Q5-012 · the store refuses to archive an account that holds money, says why, and archives it once it is at zero', async () => {
+    await expect(useStore.getState().upsertAccount({ id: 'bank', isArchived: true }))
+      .rejects.toThrow(/^Bank still holds \$1,000(\.00)?\. An account is archived at zero/);
+    expect(useStore.getState().accounts.find(a => a.id === 'bank')?.isArchived).toBeFalsy();
+    // Reconciled to zero in the same write, it archives (as marking a loan paid off does).
+    const zeroed = await useStore.getState().upsertAccount({ id: 'bank', reconciliationOffset: -1000, isArchived: true });
+    expect(zeroed.isArchived).toBe(true);
   });
 });

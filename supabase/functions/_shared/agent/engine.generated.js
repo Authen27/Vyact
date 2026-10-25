@@ -1625,8 +1625,8 @@ function liveTotalAssets(rows) {
 * a dated quiet-log entry. WRITES NO TRANSACTION — the drift is forgiven, not
 * fabricated into an event. Returns a null-delta no-op when already reconciled.
 */
-function reconcileAccount(account, computedBalance, statedValue, kind) {
-	const target = account.kind === "credit_card" ? -Math.abs(statedValue) : statedValue;
+function reconcileAccount(account, computedBalance, statedValue, kind, opts = {}) {
+	const target = account.kind === "credit_card" ? opts.cardInCredit ? Math.abs(statedValue) : -Math.abs(statedValue) : statedValue;
 	const delta = Math.round((target - computedBalance) * 100) / 100;
 	const entry = {
 		at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -1879,7 +1879,7 @@ function profileFromRows(prof, hh, email) {
 		name: prof.display_name || "",
 		email,
 		baseCurrency: hh.base_currency || prof.default_currency || "USD",
-		language: hh.language || prof.language || "en",
+		language: prof.language || hh.language || "en",
 		household: normalizeHouseholdType(hh.type),
 		dateFormat: prof.date_format || "us",
 		payoffStrategy: hh.payoff_strategy || "avalanche",

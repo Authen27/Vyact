@@ -18,6 +18,7 @@ import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import { PROFILE_TYPES, CURRENCIES, deterministicColor } from '../constants';
 import { HOUSEHOLD_TYPE_ORDER, normalizeHouseholdType, typeFits, inviteBlockedReason, householdLimitMessage, nextHouseholdAfterExit } from '../lib/householdTypes';
+import { purgeHouseholdCache } from '../lib/cacheInvalidation';
 import {
   createInviteLink, listInvitations, revokeInvitation, INVITE_LABEL_SENTINEL,
   changeMemberRole, removeMembership, leaveHousehold, listActivity,
@@ -106,8 +107,11 @@ export default function Households() {
     try {
       await leaveHousehold(h.id);
       await refreshHouseholds();
+      // v10.133.0 (Q5, INT-HH-13): the household's cache leaves the device, and with no household left the app moves
+      // to the local placeholder (this page then offers to create one), never staying on the one just left.
+      await purgeHouseholdCache(h.id);
       const next = nextHouseholdAfterExit(useStore.getState().households, h.id);
-      if (h.id === currentHouseholdId && next) await switchHousehold(next);
+      if (h.id === currentHouseholdId) await switchHousehold(next ?? 'local');
       toast(`Left ${h.name}`, 'info');
     } catch (e) { toast((e as Error).message, 'error'); }
   }
@@ -366,6 +370,10 @@ export default function Households() {
                   ))}
                 </Select>
                 <p className="text-[0.78rem] text-ink-mid mt-1.5">{PROFILE_TYPES[normalizeHouseholdType(active.type)].detail}</p>
+                {/* v10.133.0 (Q5, INT-HH-08): the household's name and type are the owner's to change. */}
+                {!can(myRole, 'edit_household_settings') && (
+                  <p className="text-[0.74rem] text-ink-dim mt-1">Only the household owner can change this.</p>
+                )}
                 </div>
               </div>
             </Panel>

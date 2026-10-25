@@ -11,6 +11,7 @@ import FlippableCardDetail from './FlippableCardDetail';
 import { readingChip, type EvergreenCard } from '../../lib/evergreen';
 import { track } from '../../lib/analytics';
 import { setCanonical } from '../../lib/seo';
+import { useFocusTrap } from '../../lib/focusTrap';
 
 interface Props {
   cards: EvergreenCard[];
@@ -24,6 +25,9 @@ function paragraphs(body: string): string[] {
 
 export default function EvergreenReel({ cards, startIndex = 0, onClose }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
+  // v10.133.0 (Q5, FE-UIS-07): Tab stays in the reel, and closing it returns focus to the card that opened it.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
   const [active, setActive] = useState(startIndex);
   const viewed = useRef(new Set<string>());
 
@@ -75,7 +79,7 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose }: Props)
   // no matter how high. That trapped the reel's Play/Text controls under the tab
   // bar on mobile. Escaping to `document.body` sidesteps the trap entirely.
   return createPortal(
-    <div className="fixed inset-0 z-[190] bg-bg" role="dialog" aria-label="Learn" aria-modal="true">
+    <div ref={dialogRef} tabIndex={-1} className="fixed inset-0 z-[190] bg-bg outline-none" role="dialog" aria-label="Learn" aria-modal="true">
       <button onClick={onClose} aria-label="Close"
         className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-ink/10 hover:bg-ink/20 text-ink flex items-center justify-center backdrop-blur-sm">
         <X size={20} />

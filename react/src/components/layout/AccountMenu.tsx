@@ -6,7 +6,10 @@
 // switching moved here from the header chip — the avatar wears a household badge
 // and the menu's first row opens the switcher (HouseholdSheet); the
 // "Households" route row still goes to household management.
+// v10.133.0 (Track Q5; audit FE-UIS-07): the desktop dropdown keeps focus (useFocusTrap), Escape closes it, and focus
+// returns to the avatar; the phone's sheet is a PullDownSheet, which does the same.
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../../lib/focusTrap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Sun, Moon, Monitor, LogOut, ChevronRight } from 'lucide-react';
 import { useStore } from '../../store';
@@ -30,6 +33,8 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
   const [open, setOpen] = useState(false);
   const [hhOpen, setHhOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dropdownRef, open && trigger === 'pill');
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useStore(s => s.theme);
@@ -57,6 +62,13 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
 
   // Close after navigating.
   useEffect(() => { setOpen(false); }, [location.pathname]);
+  // The desktop dropdown closes on Escape (the phone sheet has its own).
+  useEffect(() => {
+    if (!open || trigger !== 'pill') return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, trigger]);
 
   const avatar = (size: number, font: number) => (
     <span
@@ -237,7 +249,8 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
     <div ref={ref} className="relative">
       {triggerBtn}
       {open && (
-        <div className="glass-panel absolute right-0 top-[calc(100%+10px)] w-[300px] rounded-r3 p-3 z-[60]">
+        <div ref={dropdownRef} tabIndex={-1} role="dialog" aria-label="Account menu"
+          className="glass-panel absolute right-0 top-[calc(100%+10px)] w-[300px] rounded-r3 p-3 z-[60] outline-none">
           {Body}
         </div>
       )}

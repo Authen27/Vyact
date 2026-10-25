@@ -16,7 +16,8 @@ export interface ReconcileSlice {
   /** Money-Model B1.3 — reconcile an account to a real balance by writing a dated
    *  Balance Adjustment transaction (never a silent overwrite), then mark the
    *  account balance confirmed. Returns the delta booked. */
-  reconcileAccount: (account: Account, realBalance: number) => Promise<number>;
+  /** v10.133.0 (FE-MNY-13): `cardInCredit` reconciles a card to a credit (overpaid) instead of what it owes. */
+  reconcileAccount: (account: Account, realBalance: number, opts?: { cardInCredit?: boolean }) => Promise<number>;
   /** v10.26.0 (R4) — "Update value" on an investment asset: the valuation offset
    *  absorbs stated − live with a dated log entry. Never a transaction, never a
    *  change to the opening value. Returns the delta booked. */
@@ -28,13 +29,13 @@ export const createReconcileSlice: StateCreator<Store, [], [], ReconcileSlice> =
   // The delta between the computed and the user-stated balance is absorbed into
   // accounts.reconciliation_offset with a dated quiet-log entry. Same path for
   // bank reconcile and investment value updates (kind switches the log entry).
-  reconcileAccount: async (account, realBalance) => {
+  reconcileAccount: async (account, realBalance, opts = {}) => {
     const { transactions, profile, rates, assets, debts } = get();
     const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
     const kind = account.kind === 'investment' ? 'investment' as const
       : account.kind === 'credit_card' ? 'credit_card' as const
       : 'bank' as const;
-    const { patch, delta } = buildReconcileOffset(account, computed, realBalance, kind);
+    const { patch, delta } = buildReconcileOffset(account, computed, realBalance, kind, opts);
     const confirmedProv = { confidence: 'confirmed' as const, source: 'user' as const, confirmedAt: new Date().toISOString() };
     // v10.24.0 (R2) — stamped on EVERY reconcile, including one with no drift.
     // A matching statement changes no number and writes no log entry (INV-3b),

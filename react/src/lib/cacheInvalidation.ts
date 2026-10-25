@@ -129,9 +129,13 @@ export async function purgeCachedCloudData(scope: PurgeScope = 'cache'): Promise
     removed = await kvPurgeWhere(purgeable);
   } catch (e) { unexpected(e, 'cacheInvalidation.purge:kv'); }
 
-  // Sweep raw localStorage too. kvStore only knows keys it wrote; the store and
-  // its slices also persist `vt_*` values directly through localJson (sentinels
-  // like cloud_synced_*, and pre-kvStore leftovers).
+  return removed + sweepLocalStorage(purgeable);
+}
+
+/** Sweep raw localStorage too. kvStore only knows keys it wrote; the store and its slices also persist `vt_*` values
+ *  directly through localJson (sentinels like cloud_synced_*, delta cursors, and pre-kvStore leftovers). */
+function sweepLocalStorage(purgeable: (bareKey: string) => boolean): number {
+  let removed = 0;
   try {
     const all: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -144,8 +148,30 @@ export async function purgeCachedCloudData(scope: PurgeScope = 'cache'): Promise
       try { localStorage.removeItem(raw); removed++; } catch { /* fault-ok: one key that cannot be removed does not stop the rest */ }
     }
   } catch { /* fault-ok: localStorage unavailable: nothing was kept there to purge */ }
-
   return removed;
+}
+
+/**
+ * v10.133.0 (Track Q5; audit INT-HH-13) — what this device kept for a household the person has just left or deleted:
+ * its cached entities (`<household>_<entity>`) and every per-household key the purge lists name (`<prefix><household>…`:
+ * delta cursors, Pip's chat history, the bell's copy, the cache sentinels, the onboarding copy). They used to stay, so a household the person was no longer in kept its ledger on the
+ * device. The write queue and the set-aside writes are never touched (owner-stamped; the database refuses them now,
+ * and they are set aside as their owner's, never lost silently).
+ */
+export function isHouseholdKey(bareKey: string, householdId: string): boolean {
+  if (!householdId || PRESERVE.has(bareKey)) return false;
+  return bareKey.startsWith(`${householdId}_`)
+    || [...SENTINEL_PREFIXES, ...PERSON_PREFIXES].some(p => bareKey.startsWith(`${p}${householdId}`));
+}
+
+export async function purgeHouseholdCache(householdId: string): Promise<number> {
+  if (!householdId || householdId === 'local') return 0;
+  const purgeable = (key: string) => isHouseholdKey(key, householdId);
+  let removed = 0;
+  try {
+    removed = await kvPurgeWhere(purgeable);
+  } catch (e) { unexpected(e, 'cacheInvalidation.purgeHousehold:kv'); }
+  return removed + sweepLocalStorage(purgeable);
 }
 
 export type InvalidationOutcome =

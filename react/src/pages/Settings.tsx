@@ -31,6 +31,7 @@ import { canEditHouseholdRow } from '../lib/permissions';
 import PageHead from '../components/ui/PageHead';
 import { askSheet, confirmSheet } from '../lib/confirmSheet';
 import { deactivateRequest, deleteAccountRequest, eraseDataRequest, verificationCodeRequest } from '../lib/confirmCopy';
+import { parseAmount } from '../lib/amountInput';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
   { key: 'dark',   label: 'Nocturne',   desc: 'Aurora dark — default' },
@@ -331,7 +332,7 @@ export default function Settings() {
   }
 
   async function saveDebtPrefs() {
-    const ep = parseFloat(extraPay);
+    const ep = parseAmount(extraPay);
     await updateProfile({ extraPayment: isNaN(ep) ? 0 : ep });
     followExtraPay();
     toast('Debt preferences saved', 'success');
@@ -541,13 +542,15 @@ export default function Settings() {
             <div className="px-3.5 pb-3 grid sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="settings-language" className="mono-label mb-1.5 block">Language</label>
-                <Select id="settings-language" value={profile.language} disabled={!canEditHousehold}
+                {/* v10.133.0 (Q5, INT-HH-08): everyone picks their own language; it is saved on their profile. */}
+                <Select id="settings-language" value={profile.language}
                   onChange={e => updateProfile({ language: e.target.value })}>
                   {Object.keys(LOCALES).map(k => (
                     <option key={k} value={k}>{languageOptionLabel(k)}</option>
                   ))}
                 </Select>
                 {/* W8a (FE-UIS-15): only English is complete; the rest translate the navigation. */}
+                <p className="text-[0.74rem] text-ink-dim mt-1.5">Yours only: it changes Vyact for you, not for the rest of the household.</p>
                 {!FULLY_TRANSLATED.has(profile.language) && (
                   <p className="text-[0.75rem] text-ink-dim mt-1.5">Preview: only the navigation is translated so far; the rest of the app stays in English.</p>
                 )}

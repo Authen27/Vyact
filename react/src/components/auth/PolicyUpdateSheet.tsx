@@ -8,12 +8,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { POLICY_CHANGES, POLICY_VERSION, formatPolicyDate } from '../../lib/policyVersion';
+import { useFocusTrap } from '../../lib/focusTrap';
 
 export default function PolicyUpdateSheet({ onAccept, onSignOut }: { onAccept: () => Promise<void>; onSignOut: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const acceptRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => { acceptRef.current?.focus(); }, []);
+  // v10.133.0 (Q5, FE-UIS-07): Tab stays in the sheet; the app behind it is not reachable until it is answered.
+  useFocusTrap(dialogRef);
 
   async function accept() {
     setSaving(true); setError('');
@@ -24,7 +28,7 @@ export default function PolicyUpdateSheet({ onAccept, onSignOut }: { onAccept: (
   return (
     <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,.45)' }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="policy-update-title"
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="policy-update-title"
         className="card-raised w-full max-w-lg p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
         <h2 id="policy-update-title" className="font-display font-semibold text-xl text-ink mb-1">We&apos;ve updated our policies</h2>
         <p className="text-[12px] text-ink-dim mb-4">Terms, Privacy and Cookie Policy · {formatPolicyDate(POLICY_VERSION)}</p>

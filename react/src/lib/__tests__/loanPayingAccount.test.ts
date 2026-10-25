@@ -59,7 +59,8 @@ describe('a loan\'s paying account', () => {
     // A loan that pays by hand, or pays from another account, doesn't stop it; nor does an edit that isn't an archive.
     useStore.setState({ debts: [loan({ autoRecord: false }), loan({ fundingAccountId: 'icici' })] });
     await useStore.getState().upsertAccount({ id: 'hdfc', name: 'HDFC Savings' });
-    await useStore.getState().upsertAccount({ id: 'hdfc', isArchived: true });
+    // v10.133.0 (Q5, FE-MNY-12): and at zero (its 1,000 reconciled away in the same write).
+    await useStore.getState().upsertAccount({ id: 'hdfc', reconciliationOffset: -1000, isArchived: true });
     expect(useStore.getState().accounts.find(a => a.id === 'hdfc')?.isArchived).toBe(true);
   });
 
