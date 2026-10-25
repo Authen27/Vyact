@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.131.0`** (consumer)
+> **Current production version: `v10.132.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,30 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.132.0 — Vyact hears about its own failures; the weekly summary comes with your insights *(2026-10-25)*
+
+Track Q, part 4 (audit OPS-06, DB-OPS-08, FE-UIS-12, Q-WA-01, XC-PRV-03; owner decisions 20 Oct 2026, D9). Ships
+with admin v1.6.0. The migration (`20261110120000_q4_job_runs.sql`) must be live before this app.
+
+- **Every scheduled job leaves a record.** Bills that post themselves, loan EMIs, push notifications, the WhatsApp
+  messages and retries, and retention each write one row per run in `job_runs` (counts only, kept 30 days): ok,
+  partly failed, or failed with its error. Until now a run's answer lived in pg_net for about 6 hours, so "nothing to
+  send" and "broken" looked the same.
+- **The owner is told.** An hourly check (`job-health`) emails `HEALTH_ALERT_EMAIL` about a job that failed, partly
+  failed twice in a row, or has not run for two of its intervals: once a day per problem. The admin Health page shows
+  every job.
+- **Errors reach Sentry (EU), scrubbed.** A dropped write, a crash the error screen caught, or an uncaught error in
+  the app, and a failed scheduled job on the server. The message loses emails, ids, tokens, numbers and query
+  strings; the page loses its query and ids. Never the screen, a replay, the person or their figures. Only from
+  vyact.app and the Android app, once the DSN is set (`VITE_SENTRY_DSN`; the server's `SENTRY_DSN`).
+- **Privacy names Sentry** (Section 5 and transfers). The policy version is now 25 Oct 2026, so everyone is asked to
+  accept it once.
+- **The weekly WhatsApp summary is an insight**, like the evening digest: it comes with "Insights about my money" on,
+  not with tips and promotions, which it never reached. Settings → WhatsApp lists it under insights, and says what
+  "Tips and reminders" sends. "Messages I send you" lists insights and tips apart.
+- **The feedback widget (Userback) no longer loads on localhost or the demo.** It stays on vyact.app and in the
+  Android app.
 
 ## v10.131.0 — The activity feed says when Vyact acted on its own *(2026-10-25)*
 

@@ -54,6 +54,7 @@ import {
 import { serverModelCall } from '../_shared/agent/assistantCore.ts';
 import { parseDailyCallCap } from '../_shared/agent/router.ts';
 import { isServiceCaller } from '../_shared/service-auth.ts';
+import { withJobRun } from '../_shared/jobRuns.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -171,7 +172,9 @@ Deno.serve(async (req: Request) => {
     const given = req.headers.get('x-cron-secret') ?? '';
     const { data: cronOk } = given ? await supabase.rpc('whatsapp_sweep_cron_ok', { p: given }) : { data: false };
     if (cronOk !== true && !(await isServiceCaller(bearer))) return new Response('Forbidden', { status: 403 });
-    const replayed = await sweepInbox(supabase);
+    // Q4 (OPS-06): the scheduled sweep's runs are recorded in job_runs.
+    const replayed = await withJobRun(supabase, 'whatsapp-inbox-sweep', () => sweepInbox(supabase),
+      (n) => ({ status: 'ok', summary: { replayed: n } }));
     return new Response(JSON.stringify({ status: 'ok', replayed }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });

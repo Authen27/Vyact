@@ -7,7 +7,13 @@ import App from './App';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { registerPwa, forceReloadForUpdate } from './lib/pwa';
 import { shouldReloadForChunk, sessionStore } from './lib/chunkRecovery';
+import { startErrorReporting } from './lib/errorReport';
+import { feedbackWidgetAllowed, isNativeApp } from './lib/feedbackWidget';
 import './index.css';
+
+// v10.132.0 (Q4, D9): unexpected faults and uncaught errors reach Sentry, scrubbed, from vyact.app and the
+// Android app only (lib/errorReport.ts). First, so a crash while the app starts is reported too.
+startErrorReporting();
 
 // W6 (audit FE-UIS-12) — a tab on an older build that cannot load a chunk reloads ONCE to get the
 // new one (Vite fires this before the import rejects). A second failure within a minute is shown.
@@ -45,7 +51,11 @@ function onFirstInteraction(run: () => void) {
   const fire = () => { events.forEach(e => window.removeEventListener(e, fire, true)); run(); };
   events.forEach(e => window.addEventListener(e, fire, { capture: true, once: true, passive: true }));
 }
-if (onLanding) onFirstInteraction(startUserback); else startUserback();
+// v10.132.0 (Q4; audit XC-PRV-03): never on localhost or the demo, where nobody's feedback is wanted and a
+// screenshot would show test or demo figures to Userback; on in the Android app (lib/feedbackWidget.ts).
+if (feedbackWidgetAllowed(window.location.hostname, import.meta.env.VITE_DEMO === '1', isNativeApp())) {
+  if (onLanding) onFirstInteraction(startUserback); else startUserback();
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

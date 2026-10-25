@@ -647,11 +647,12 @@ describe('WhatsApp preferences and taps (W2)', () => {
     const text = sentTexts()[0];
     expect(text).toContain('Bill reminders and large-spend alerts (always)');
     expect(text).toMatch(/Off:\n• Budget alerts/);
-    expect(text).toContain('Tips and weekly summaries');
+    // v10.132.0 (Q4, Q-WA-01): insights and tips are listed apart; the weekly summary is an insight.
+    expect(text).toMatch(/Off:\n(• .*\n)*• Insights: payday, the evening digest, the weekly summary and the month close\n• Tips and reminders/);
   });
 
   it('CON-UNIT-WA-P-007 · notify refuses a muted topic and marketing without opt-in, and records Meta’s id on a send', async () => {
-    const ENABLED = { WHATSAPP_OUTBOUND_ENABLED: 'true', WHATSAPP_APPROVED_TEMPLATES: 'budget_threshold_alert,weekly_summary' };
+    const ENABLED = { WHATSAPP_OUTBOUND_ENABLED: 'true', WHATSAPP_APPROVED_TEMPLATES: 'budget_threshold_alert,weekly_summary,reengagement_nudge' };
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     const call = (body: Record<string, unknown>) => handler(new Request('https://edge.example.com/notify', { method: 'POST',
       headers: { Authorization: 'Bearer test-service-key' }, body: JSON.stringify({ householdId: 'h', toProfileId: 'p2', ...body }) }));
@@ -668,7 +669,9 @@ describe('WhatsApp preferences and taps (W2)', () => {
     });
     const budget = { event: 'budget_threshold_alert', params: ['Dining', '81', '9', '1,540'] };
     expect((await (await call(budget)).json()).reason).toBe('muted');
-    expect((await (await call({ event: 'weekly_summary', params: ['₹1', '2', 'Dining'] })).json()).reason).toBe('marketing_consent_required');
+    expect((await (await call({ event: 'reengagement', params: ['Rohan', '6,850', 'four'] })).json()).reason).toBe('marketing_consent_required');
+    // v10.132.0 (Q4, Q-WA-01): the weekly summary needs insights consent, not marketing.
+    expect((await (await call({ event: 'weekly_summary', params: ['₹1', '2', 'Dining'] })).json()).reason).toBe('insights_consent_required');
     prefs = { ...prefs, muted_topics: [] };
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ messages: [{ id: 'wamid.SENT' }] })));
     expect(await (await call(budget)).json()).toEqual({ status: 'sent', template: 'budget_threshold_alert' });

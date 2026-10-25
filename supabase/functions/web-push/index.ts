@@ -23,6 +23,7 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, json, corsHeaders } from '../_shared/whatsapp.ts';
 import { isServiceCaller } from '../_shared/service-auth.ts';
+import { withJobRun, type JobOutcome } from '../_shared/jobRuns.ts';
 import { generateVapidKeys, sendWebPush, isPushEndpoint, type VapidKeys, type PushTarget } from '../_shared/web-push.ts';
 import { parseServiceAccount, sendFcm, type ServiceAccount } from '../_shared/fcm.ts';
 import {
@@ -82,7 +83,8 @@ Deno.serve(async (req: Request) => {
     const { data: cronOk } = given ? await admin.rpc('web_push_cron_ok', { p: given }) : { data: false };
     if (!cronOk && !(await isServiceCaller(bearer))) return json({ error: 'forbidden' }, 403);
     try {
-      return json(await dispatch(admin, new Date()));
+      // Q4 (OPS-06): the run is recorded in job_runs (counts only).
+      return json(await withJobRun(admin, 'web-push-dispatch', () => dispatch(admin, new Date()), dispatchOutcome));
     } catch (e) {
       console.error('[web-push] dispatch failed', (e as Error)?.message);
       return json({ error: 'dispatch_failed' }, 500);
@@ -162,6 +164,15 @@ function deviceLabel(sub: { kind?: string; user_agent: string | null }): string 
   const br = /Edg\//.test(u) ? 'Edge' : /SamsungBrowser/.test(u) ? 'Samsung Internet' : /Chrome\//.test(u) ? 'Chrome'
     : /Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : 'browser';
   return `${br} on ${os}`;
+}
+
+/** Q4: a run's record. A household or a device that failed makes it partial. */
+export function dispatchOutcome(r: Awaited<ReturnType<typeof dispatch>>): JobOutcome {
+  const problems = ('problems' in r && r.problems) || [];
+  const summary: JobOutcome['summary'] = { households: r.households, raised: r.raised, pushed: r.pushed, problems: problems.length };
+  if ('considered' in r) Object.assign(summary, { considered: r.considered, deferred: r.deferred, raiseDeferred: r.raiseDeferred });
+  for (const [why, n] of Object.entries(r.skipped as Record<string, number>)) summary[`skipped_${why}`] = n;
+  return { status: problems.length ? 'partial' : 'ok', summary, error: problems[0] };
 }
 
 async function dispatch(admin: SupabaseClient, now: Date) {

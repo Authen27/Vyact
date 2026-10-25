@@ -91,6 +91,7 @@ export default function Privacy() {
           <><strong className="text-ink">Amazon Web Services</strong> (Amazon Bedrock, Sydney, Australia) — the language model Pip uses to word its answers (Amazon Nova Lite). See &quot;How Pip uses a language model&quot; below.</>,
           <><strong className="text-ink">OpenRouter</strong> (USA) — a fallback route for Pip when Amazon Bedrock is unavailable. Every request asks OpenRouter to use only model providers that do not keep or train on what they receive.</>,
           <><strong className="text-ink">Google Analytics</strong> (Google, USA) — counts which pages and features are used, only if you allow it (on the web we ask first; in the Vyact Android app it is part of the app&apos;s permissions). Never your financial records.</>,
+          <><strong className="text-ink">Sentry</strong> (Functional Software, EU data region, Germany) — receives a report when the app or our server hits an unexpected error: what kind of error it was, its message with emails, ids, tokens and numbers taken out, where in the code it happened, the page it happened on (without its query) and the app version. Never your entries, figures, name or email, and never a recording of your screen.</>,
           <><strong className="text-ink">Userback</strong> — the in-app feedback widget on app pages. When you send feedback it can include a screenshot of the screen you are on and basic browser details; a screenshot can show the figures on that screen.</>,
           <><strong className="text-ink">Meta</strong> (WhatsApp Business Platform) — only if you link your WhatsApp number.</>,
           <><strong className="text-ink">Email delivery</strong> (MailerSend, Resend or our SMTP provider) — sends sign-in, invitation and split emails.</>,
@@ -208,7 +209,7 @@ export default function Privacy() {
       </Section>
 
       <Section title="11. International transfers" id="transfers">
-        <p>Vyact's providers process data outside India: Pip's language model in Australia (Amazon Web Services, Sydney) and, as a fallback, the USA (OpenRouter); usage analytics, if you allow it, in the USA (Google); and the hosting and database providers named in Section 5. Where required, we rely on appropriate safeguards (such as standard contractual clauses) to protect data transferred internationally.</p>
+        <p>Vyact's providers process data outside India: Pip's language model in Australia (Amazon Web Services, Sydney) and, as a fallback, the USA (OpenRouter); usage analytics, if you allow it, in the USA (Google); error reports in the European Union (Sentry, Germany); and the hosting and database providers named in Section 5. Where required, we rely on appropriate safeguards (such as standard contractual clauses) to protect data transferred internationally.</p>
       </Section>
 
       <Section title="12. Children's privacy" id="children">

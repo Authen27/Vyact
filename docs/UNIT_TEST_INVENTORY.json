@@ -74,6 +74,21 @@
     },
     {
       "app": "admin",
+      "file": "admin/src/lib/__tests__/q4HealthPage.test.ts",
+      "feature": "Admin Health page (Q4)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "admin v1.6.0 (OPS-06, DB-OPS-08): the roles tier opens Health; it reads admin_job_health / admin_job_runs only and labels every watched job; cadence, problem, counts and age wording; Help",
+      "count": 4,
+      "tests": [
+        "admin v1.6.0 Health (Q4) Q4-ADM-001 · the roles tier opens Health, from the sidebar and the route; content admins do not",
+        "admin v1.6.0 Health (Q4) Q4-ADM-002 · it reads the two Health RPCs only, and labels every job the server watches",
+        "admin v1.6.0 Health (Q4) Q4-ADM-003 · cadence, problem, counts and age read as the owner would say them",
+        "admin v1.6.0 Health (Q4) Q4-ADM-004 · Help says what Health shows and where errors go"
+      ]
+    },
+    {
+      "app": "admin",
       "file": "admin/src/lib/__tests__/roleGating.test.ts",
       "feature": "Admin content and permissions",
       "availability": "conditional",
@@ -1957,14 +1972,15 @@
       "availability": "conditional",
       "layer": "sql-integration",
       "owner": "Q2 (audit OPS-02; owner decision D10): every file in supabase/migrations applies in order, as written, on an empty PGlite set up as a new Supabase project (auth, storage, vault, realtime and default grants stood in; pg_cron and pg_net created by the migrations themselves); the jobs a new project gets and that each one's command runs; RLS on every table but the recorded gap; every definer function pins its search_path",
-      "count": 6,
+      "count": 7,
       "tests": [
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-001 · each file applies after the ones before it",
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-002 · the migrations create pg_cron and pg_net themselves; the rest are the baseline's",
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-003 · a new project gets these scheduled jobs, at these times",
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-004 · every job's command runs against the schema the migrations built",
         "every migration replays, in order, on an empty database (OPS-02) Q2-RP-005 · row-level security is on for every table in public",
-        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-006 · every SECURITY DEFINER function in public pins its search_path"
+        "every migration replays, in order, on an empty database (OPS-02) Q2-RP-006 · every SECURITY DEFINER function in public pins its search_path",
+        "every migration replays, in order, on an empty database (OPS-02) Q4-RP-007 · every scheduled job is watched by job_health(), and job_health() watches only scheduled jobs"
       ]
     },
     {
@@ -2640,6 +2656,50 @@
       "count": 1,
       "tests": [
         "the activity log names who acted (INT-TXN-14) Q3B-001 · no actor is Vyact on a schedule; a member is named; a delete reads as one"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/q4JobHealthSql.test.ts",
+      "feature": "Job runs and health (Q4)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "OPS-06, DB-OPS-08: record_job_run keeps counts; the SQL jobs record through wrappers; job_health failed / partial / late; one alert per job and problem a day; the Health page is the roles tier's; job-health on the project's own URL",
+      "count": 8,
+      "tests": [
+        "every scheduled run is recorded (OPS-06, DB-OPS-08) Q4-SQL-001 · record_job_run keeps counts and a short error, and only the server may call it",
+        "every scheduled run is recorded (OPS-06, DB-OPS-08) Q4-SQL-002 · the EMI job runs through its wrapper: ok with its counts, or failed with the error and nothing else kept",
+        "every scheduled run is recorded (OPS-06, DB-OPS-08) Q4-SQL-003 · the daily retention job records its run and keeps 30 days of runs",
+        "job health (OPS-06) Q4-SQL-004 · failed, partly failing twice, and late are problems; nothing is late before recording starts",
+        "job health (OPS-06) Q4-SQL-005 · one email per job and problem a day: claimed first, given back when the email fails",
+        "job health (OPS-06) Q4-SQL-006 · the Health page reads job health and recent runs as the roles tier; others are refused",
+        "the jobs (OPS-06) Q4-SQL-007 · the SQL jobs run through their wrappers; job-health is hourly, on this project's own URL",
+        "the jobs (OPS-06) Q4-SQL-008 · job_health_cron_ok accepts only the Vault secret, and only the server may ask"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/q4Observability.test.ts",
+      "feature": "Observability and WhatsApp consent (Q4)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "OPS-06, FE-UIS-12, Q-WA-01, XC-PRV-03: Sentry reports scrubbed (app and Edge, one rule), only from vyact.app and the Android app; job runs recorded; job-health emails once per problem a day; Userback off on localhost and the demo; the weekly summary needs insights consent",
+      "count": 14,
+      "tests": [
+        "Userback stays off on localhost and the demo (XC-PRV-03) Q4-012 · the widget loads on the real site and in the Android app, never on localhost, a .test host or the demo",
+        "error reports leave scrubbed (OPS-06, FE-UIS-12) Q4-001 · scrub takes out emails, ids, tokens, numbers and query strings, and caps the message",
+        "error reports leave scrubbed (OPS-06, FE-UIS-12) Q4-002 · a DSN must be Sentry's; frames come oldest first, without a query",
+        "error reports leave scrubbed (OPS-06, FE-UIS-12) Q4-003 · the Edge Functions scrub exactly as the app does (one rule, two copies)",
+        "error reports leave scrubbed (OPS-06, FE-UIS-12) Q4-004 · only a production build on vyact.app or in the Android app reports; never the demo, a preview or localhost",
+        "error reports leave scrubbed (OPS-06, FE-UIS-12) Q4-005 · the event holds the scrubbed error, where it happened and nothing else; network and chunk errors are not sent",
+        "error reports leave scrubbed (OPS-06, FE-UIS-12) Q4-006 · one envelope per error, a simple request, the same error once and at most 10 a page load; nothing without a DSN",
+        "error reports leave scrubbed (OPS-06, FE-UIS-12) Q4-007 · faults hand the error to the reporter; main.tsx starts it first; the CSP, Privacy and the policy say so",
+        "every scheduled run is recorded, and the owner hears about a broken one (OPS-06, DB-OPS-08) Q4-008 · withJobRun records ok, partial and failed runs; a failure is reported and rethrown; recording never decides the answer",
+        "every scheduled run is recorded, and the owner hears about a broken one (OPS-06, DB-OPS-08) Q4-009 · each Edge job records under its cron job's name, and a part that failed makes the run partial",
+        "every scheduled run is recorded, and the owner hears about a broken one (OPS-06, DB-OPS-08) Q4-010 · job-health emails the owner once per problem a day, gives the claim back when the email fails, and is inert unconfigured",
+        "every scheduled run is recorded, and the owner hears about a broken one (OPS-06, DB-OPS-08) Q4-011 · job-health is deployed without a user JWT, in production and on vyact-test",
+        "the weekly WhatsApp summary is an insight (Q-WA-01) Q4-013 · it needs insights consent, like the digest; Settings and \"Messages I send you\" say which switch sends what",
+        "the weekly WhatsApp summary is an insight (Q-WA-01) Q4-014 · the weekly job plans the summary for people with insights on, and the nudges only with marketing on"
       ]
     },
     {

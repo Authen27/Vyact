@@ -238,3 +238,36 @@ export async function fetchStaffAudit(limit = 200, before?: string): Promise<Sta
   if (error) throw error;
   return (data as StaffAuditRow[]) || [];
 }
+
+// ── Health (v1.6.0; Q4, OPS-06): every scheduled job against its cadence (roles tier) ──
+export interface JobHealthRow {
+  job: string;
+  every_minutes: number;
+  last_started_at: string | null;
+  last_finished_at: string | null;
+  last_status: 'ok' | 'partial' | 'failed' | null;
+  last_summary: Record<string, unknown> | null;
+  last_error: string | null;
+  runs_24h: number;
+  failed_24h: number;
+  problem: 'failed' | 'partial' | 'late' | null;
+}
+export async function fetchJobHealth(): Promise<JobHealthRow[]> {
+  const { data, error } = await sb().rpc('admin_job_health');
+  if (error) throw error;
+  return (data as JobHealthRow[]) || [];
+}
+export interface JobRunRow {
+  id: number;
+  job: string;
+  started_at: string;
+  finished_at: string;
+  status: 'ok' | 'partial' | 'failed';
+  summary: Record<string, unknown>;
+  error: string | null;
+}
+export async function fetchJobRuns(job: string, limit = 20): Promise<JobRunRow[]> {
+  const { data, error } = await sb().rpc('admin_job_runs', { p_job: job, p_limit: limit });
+  if (error) throw error;
+  return (data as JobRunRow[]) || [];
+}

@@ -185,6 +185,8 @@ jobs:
       #                           (member JWT for key/test, Vault cron secret or service key).
       #   recurring-post          pg_cron, no user JWT; checks the Vault cron secret or the
       #                           service key (v10.70.0, posts due bills).
+      #   job-health              pg_cron, no user JWT; the same check (Q4: emails the owner
+      #                           about a scheduled job that failed or stopped).
       #   ask-vyact-relay-status  TEST-ONLY relay watcher (TD-44); returns a count only.
       #   version                 Q1: which commit is deployed (a commit id only; public).
       # ask-vyact verifies a JWT and is inert until a super-admin enables an
@@ -194,7 +196,7 @@ jobs:
         run: supabase secrets set BUILD_SHA="${{ github.sha }}" --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
       - name: Deploy all Edge Functions
         run: |
-          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post ask-vyact-relay-status version"
+          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post job-health ask-vyact-relay-status version"
           deployed=""
           for dir in supabase/functions/*/; do
             fn="$(basename "$dir")"

@@ -3,7 +3,7 @@ import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Home, CreditCard, FileText,
   ScrollText, Settings, Sun, Moon, Search, ChevronDown, LogOut,
-  HelpCircle, Brain, Menu, X,
+  HelpCircle, Brain, Menu, X, Activity,
 } from 'lucide-react';
 import { useAdminStore } from '../store';
 import { signOut } from '../lib/auth';
@@ -17,6 +17,7 @@ const NAV = [
   { to: '/subscriptions', page: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
   { to: '/content',       page: 'content',       label: 'Content',       icon: FileText },
   { to: '/audit',         page: 'audit',         label: 'Audit Log',     icon: ScrollText },
+  { to: '/health',        page: 'health',        label: 'Health',        icon: Activity },
   { to: '/intelligence',  page: 'intelligence',  label: 'AI Intelligence', icon: Brain },
   { to: '/settings',      page: 'settings',      label: 'Settings',      icon: Settings },
   { to: '/help',          page: 'help',          label: 'Help & Manual', icon: HelpCircle },

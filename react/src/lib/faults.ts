@@ -28,7 +28,8 @@ export interface FaultRecord {
   at: number;
 }
 
-type FaultTransport = (record: FaultRecord) => void;
+/** Q4 (v10.132.0): the transport also gets the original error, so a report keeps its stack. */
+type FaultTransport = (record: FaultRecord, err?: unknown) => void;
 
 const RING_MAX = 50;
 const ring: FaultRecord[] = [];
@@ -85,7 +86,7 @@ export function unexpected(err: unknown, context: string): void {
   const rec = push('unexpected', context, err);
   console.error(`[fault:unexpected] ${context}: ${rec.message}`, err);
   if (transport) {
-    try { transport(rec); } catch { /* fault-ok: a broken fault transport must never break the caller */ }
+    try { transport(rec, err); } catch { /* fault-ok: a broken fault transport must never break the caller */ }
   }
 }
 

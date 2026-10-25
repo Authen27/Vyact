@@ -20,15 +20,13 @@
 // web; 18 or older; the processors named with their regions (AWS Bedrock in Sydney and OpenRouter in the USA
 // for Pip); rights under India's DPDP Act, grievance redressal and the breach process; what "Download my
 // data" holds. People who accepted an older version are asked again (components/auth/PolicyUpdateSheet).
-export const POLICY_VERSION = '2026-10-19';
+// 2026-10-25: Q4 (audit OPS-06; owner decision D9, 20 Oct 2026) — error reports go to Sentry in the EU, scrubbed.
+export const POLICY_VERSION = '2026-10-25';
 
 /** What changed in POLICY_VERSION, one sentence each: the re-consent sheet lists them. */
 export const POLICY_CHANGES: readonly string[] = [
-  'Usage analytics (Google Analytics) is off on the web until you allow it, and you can change it in Settings. In the Vyact app it is part of the app\'s permissions.',
-  'Vyact is for people 18 or older.',
-  'We name who processes your data and where: Pip\'s language model runs on Amazon Web Services in Sydney, Australia, with OpenRouter in the USA as a fallback that is asked not to keep your data.',
-  'Your rights under India\'s Digital Personal Data Protection Act, how to raise a grievance, and what we do if your data is ever breached.',
-  '"Download my data" holds your household\'s transactions, splits, debts, accounts, net worth, recurring bills and household details.',
+  'When Vyact hits an unexpected error, a report goes to Sentry in the European Union (Germany) so we can fix it: what failed and where, with emails, ids and numbers taken out.',
+  'An error report never holds your entries, figures, name or email, and never a recording of your screen.',
 ];
 
 /** POLICY_VERSION (an ISO date) as people read it: "Oct 19, 2026". */

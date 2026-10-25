@@ -2,8 +2,8 @@
 //
 // pg_cron calls this through pg_net (migration 20260926120000):
 //   POST ?job=alerts  every 15 minutes — large spends, budget lines at 80%, settled splits
-//   POST ?job=weekly  Sundays 18:00 local — weekly summary and stale balances (marketing:
-//                     only people who opted in)
+//   POST ?job=weekly  Sundays 18:00 local — the weekly summary (insights consent, since v10.132.0),
+//                     stale balances and re-engagement (marketing consent)
 //   POST ?job=bills   daily 09:00 local (W2b, v10.43.0) — approval bills due today, to the
 //                     linked members who can approve them ("paid Rent" in reply);
 //                     v10.58.0: bills that post themselves, the day BEFORE they are due
@@ -39,6 +39,7 @@ import {
 } from '../_shared/whatsapp-dispatch-rules.ts';
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
 import { runwaySnapshot } from '../_shared/agent/engine.ts';
+import { withJobRun, type JobOutcome } from '../_shared/jobRuns.ts';
 
 const WINDOW_MS = 30 * 60_000;
 // Track E (v10.96.0): the columns the APP's row mapper reads (member and debt links included), so the
@@ -64,11 +65,31 @@ Deno.serve(async (req: Request) => {
   if (!['alerts', 'weekly', 'bills', 'digest', 'monthly'].includes(job ?? '')) return json({ error: 'unknown_job' }, 400);
 
   const admin = createClient(env('SUPABASE_URL'), serviceKey);
-  const now = new Date();
+  try {
+    // Q4 (OPS-06): each run is recorded in job_runs as whatsapp-dispatch-<job> (counts only).
+    const r = await withJobRun(admin, `whatsapp-dispatch-${job}`, () => runDispatch(admin, job!, new Date()), runOutcome);
+    return json({ status: 'ok', job, planned: r.planned, results: r.results, problems: r.problems });
+  } catch (e) {
+    return json({ error: (e as Error)?.message === 'identities_unavailable' ? 'identities_unavailable' : 'dispatch_failed' }, 500);
+  }
+});
 
+export interface DispatchRun { planned: number; results: Record<string, number>; problems: string[] }
+
+/** Q4: a run's record. A household that could not be planned, or a send Meta refused, makes it partial. */
+export function runOutcome(r: DispatchRun): JobOutcome {
+  const failedSends = Object.entries(r.results).filter(([k]) => k.startsWith('failed:')).reduce((n, [, v]) => n + v, 0);
+  return {
+    status: r.problems.length || failedSends ? 'partial' : 'ok',
+    summary: { planned: r.planned, ...r.results, problems: r.problems.length },
+    error: r.problems[0] ?? (failedSends ? `${failedSends} send(s) failed` : undefined),
+  };
+}
+
+async function runDispatch(admin: SupabaseClient, job: string, now: Date): Promise<DispatchRun> {
   // Only households someone has linked a number to can receive anything.
   const { data: identities, error } = await admin.from('whatsapp_identities').select('profile_id, household_id');
-  if (error) return json({ error: 'identities_unavailable' }, 500);
+  if (error) throw new Error('identities_unavailable');
   const byHousehold = new Map<string, Member[]>();
   for (const i of (identities ?? []) as Member[]) {
     byHousehold.set(i.household_id, [...(byHousehold.get(i.household_id) ?? []), i]);
@@ -81,7 +102,7 @@ Deno.serve(async (req: Request) => {
       const household = await loadHousehold(admin, householdId);
       if (!household) continue;
       // W3a: the household's own clock decides whether this run is its slot, and what "today" is.
-      if (!inJobSlot(job!, now, household.timezone)) continue;
+      if (!inJobSlot(job, now, household.timezone)) continue;
       const today = localDay(now, household.timezone);
       if (job === 'alerts') planned.push(...await alertsFor(admin, household, members, now, today));
       else if (job === 'weekly') planned.push(...await weeklyFor(admin, household, members, now, today));
@@ -112,8 +133,8 @@ Deno.serve(async (req: Request) => {
     const k = r.status === 'sent' ? 'sent' : `${r.status}:${r.reason}`;
     tally[k] = (tally[k] ?? 0) + 1;
   }
-  return json({ status: 'ok', job, planned: planned.length, results: tally, problems });
-});
+  return { planned: planned.length, results: tally, problems };
+}
 
 async function loadHousehold(admin: SupabaseClient, id: string): Promise<Household | null> {
   const { data } = await admin.from('households').select('id, base_currency, timezone').eq('id', id).maybeSingle();
@@ -198,11 +219,14 @@ async function settledSplits(admin: SupabaseClient, now: Date): Promise<PlannedS
 async function weeklyFor(
   admin: SupabaseClient, household: Household, members: Member[], now: Date, today: string,
 ): Promise<PlannedSend[]> {
-  // Marketing: compute only for members who opted in (guardedSend checks again).
-  const { data: prefs } = await admin.from('whatsapp_preferences').select('profile_id')
-    .in('profile_id', members.map((m) => m.profile_id)).eq('marketing_opt_in', true);
-  const optedIn = new Set(((prefs ?? []) as { profile_id: string }[]).map((p) => p.profile_id));
-  const audience = members.filter((m) => optedIn.has(m.profile_id));
+  // v10.132.0 (Q4, Q-WA-01; owner, 20 Oct 2026): the weekly summary needs insights consent, like the digest; the
+  // balance and re-engagement nudges need marketing. Compute only for members who gave the consent a message needs
+  // (guardedSend checks again). Until now the whole job waited for marketing consent, so the summary never came.
+  const { data: prefs } = await admin.from('whatsapp_preferences').select('profile_id, insights_opt_in, marketing_opt_in')
+    .in('profile_id', members.map((m) => m.profile_id));
+  const consent = new Map(((prefs ?? []) as { profile_id: string; insights_opt_in?: boolean; marketing_opt_in?: boolean }[])
+    .map((p) => [p.profile_id, { insights: p.insights_opt_in === true, marketing: p.marketing_opt_in === true }]));
+  const audience = members.filter((m) => consent.get(m.profile_id)?.insights || consent.get(m.profile_id)?.marketing);
   if (!audience.length) return [];
 
   const weekKey = isoWeek(today);
@@ -229,8 +253,12 @@ async function weeklyFor(
   const out: PlannedSend[] = [];
   for (const m of audience) {
     const member = { ...m, first_name: first.get(m.profile_id) ?? null };
-    const w = weeklySummary({ household, today, txns: (txns ?? []) as TxnRow[], member, weekKey });
-    if (w) out.push(w);
+    const given = consent.get(m.profile_id)!;
+    if (given.insights) {
+      const w = weeklySummary({ household, today, txns: (txns ?? []) as TxnRow[], member, weekKey });
+      if (w) out.push(w);
+    }
+    if (!given.marketing) continue;
     const s = staleBalanceNudge({ household, now, accounts: (accounts ?? []) as never, member, weekKey });
     if (s) out.push(s);
     const r = reengagementNudge({ household, member, weekKey, today, lastLoggedDay, unnamed: (unnamed ?? []) as UnnamedRow[] });

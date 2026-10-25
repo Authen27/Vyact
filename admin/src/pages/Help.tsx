@@ -55,8 +55,10 @@ const SECTIONS: Section[] = [
     a: 'Consumer at https://vyact.app · Admin at https://admin.vyact.app. Both apps read their public URL from a committed VITE_APP_URL in react/.env.production / admin/.env.production, not a GitHub Actions secret. Both deploy on push to main via .github/workflows/deploy.yml.' },
   { q: 'How do I check what an admin did?', audience: ['super'],
     a: 'Audit Log → Staff actions (super admins): every staff role granted or removed, every Learn content change (which fields, never the text), every needs/wants change and every AI model setting change, with who and when. It cannot be edited or deleted. A change made in the Supabase dashboard shows as "Dashboard or migration".' },
+  { q: 'Are the scheduled jobs running?', audience: ['super','roles'],
+    a: 'Health lists every scheduled job (bills that post themselves, loan EMIs, push notifications, the WhatsApp messages and retries, retention): when it last ran, how that run ended and how many runs failed in 24 hours. A job that failed on its last run, partly failed twice in a row, or has not run for two of its intervals is marked, and the owner gets one email about it a day while it lasts. Open a row for its last 20 runs: counts and the error only, never a household\'s data.' },
   { q: 'What if I see an error or unexpected behavior?', audience: ['super','roles','content'],
-    a: 'Open the browser console (F12) and capture the error. For data anomalies, check Supabase logs (api/auth/postgres). Report to engineering with the deployment ID from the footer and a screenshot.' },
+    a: 'Errors in the consumer app and the server reach Sentry with emails, ids and numbers taken out; engineering reads them there. For something you can see, open the browser console (F12) and capture the error, check Health for a failing job, and report to engineering with the deployment ID from the footer and a screenshot.' },
 ];
 
 const TIER_LABEL: Record<AdminRole, { label: string; desc: string; emoji: string }> = {
