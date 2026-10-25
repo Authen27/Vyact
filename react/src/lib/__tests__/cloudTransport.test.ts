@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseAdapter } from '../supabaseAdapter';
 import { resolveConfiguredModelCall, CLIENT_DEADLINE_MS } from '../askVyactModelCall';
+import { ModelLimitError, ModelUnavailableError } from '../askVyactLlm';
 import { readWhatsAppLink } from '../whatsappLink';
 
 const transport = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -35,34 +36,26 @@ describe('cloud command transports', () => {
       op: 'classify', input: 'Summarize', maxOutputTokens: 100 }, signal: expect.any(AbortSignal) });
   });
 
-  it('a relay-queued call polls the gateway until the answer arrives (v10.37, test-only)', async () => {
-    vi.useFakeTimers();
-    try {
-      transport.invoke
-        .mockResolvedValueOnce({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-1' }, error: null })
-        .mockResolvedValueOnce({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-1' }, error: null })
-        .mockResolvedValueOnce({ data: { ok: true, enabled: true, text: 'Relayed explanation' }, error: null });
-      const pending = resolveConfiguredModelCall()!({ op: 'phrase', system: 'Use computed facts', user: 'Summarize' });
-      await vi.advanceTimersByTimeAsync(6_000);
-      expect(await pending).toBe('Relayed explanation');
-      expect(transport.invoke).toHaveBeenCalledTimes(3);
-      expect(transport.invoke).toHaveBeenLastCalledWith('ask-vyact', { body: { seam: 'assistant', relayPoll: 'relay-1' }, signal: expect.any(AbortSignal) });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('a relay call that is never answered becomes an error, not a silent empty answer', async () => {
-    vi.useFakeTimers();
-    try {
-      transport.invoke.mockResolvedValue({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-2' }, error: null });
-      const pending = resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' });
-      const outcome = expect(pending).rejects.toThrow('relay did not answer in time');
-      await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 3_000);
-      await outcome;
-    } finally {
-      vi.useRealTimers();
-    }
+  it("Q7-101 · a refusal by one of Pip's limits reaches Pip as a ModelLimitError naming it, with when to ask again (OPS-11)", async () => {
+    const refusal = (body: unknown, status = 429) => ({ data: null, error: { message: 'Edge Function returned a non-2xx status code',
+      context: new Response(JSON.stringify(body), { status }) } });
+    transport.invoke.mockResolvedValueOnce(refusal({ ok: false, enabled: true, error: 'cooldown', retryAfter: 840 }));
+    await expect(resolveConfiguredModelCall()!({ op: 'classify', system: 's', user: 'u' }))
+      .rejects.toMatchObject({ name: 'ModelLimitError', limit: 'cooldown', retryAfterSec: 840 });
+    transport.invoke.mockResolvedValueOnce(refusal({ ok: false, enabled: true, error: 'quota_exceeded' }));
+    const daily = await resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' }).catch(e => e);
+    expect(daily).toBeInstanceOf(ModelLimitError);
+    expect(daily).toBeInstanceOf(ModelUnavailableError);        // still an unavailable model wherever a limit is not named
+    expect(daily).toMatchObject({ limit: 'quota_exceeded', retryAfterSec: null });
+    // Anything else stays the transport error it was: another code, an unreadable body, no body at all.
+    transport.invoke.mockResolvedValueOnce(refusal({ ok: false, error: 'quota_misconfigured' }, 503));
+    await expect(resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' }).catch(e => e))
+      .resolves.not.toBeInstanceOf(ModelLimitError);
+    transport.invoke.mockResolvedValueOnce({ data: null, error: { message: 'boom', context: new Response('<html>', { status: 502 }) } });
+    await expect(resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' })).rejects.toThrow('boom');
+    transport.invoke.mockResolvedValueOnce({ data: null, error: { message: 'offline' } });
+    await expect(resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' })).rejects.toThrow('offline');
+    expect(transport.invoke).toHaveBeenCalledTimes(5);           // one request each: nothing is polled or retried
   });
 
   it('W8a-PIP16-001 · Stop aborts the in-flight gateway call; a stopped turn makes no further calls (FE-PIP-16)', async () => {

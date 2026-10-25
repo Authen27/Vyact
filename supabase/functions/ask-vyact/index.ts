@@ -88,8 +88,9 @@
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  — injected by the platform
 //   ASK_VYACT_ALLOWED_ORIGINS  — comma-separated CORS allowlist (see DEFAULT_ORIGINS)
 //   ASK_VYACT_TIMEOUT_MS       — per-request provider budget (default 20000)
-//   ASK_VYACT_DAILY_CALL_CAP   — per-user model calls per 24h (default 200; 'off' disables;
-//                                anything unparseable keeps 200 — parseDailyCallCap)
+//   ASK_VYACT_DAILY_CALL_CAP   — per-user model calls per 24h (default 200; anything unparseable keeps 200 —
+//                                parseDailyCallCap). v10.135.0: it can only LOWER the database's own cap
+//                                (ai_limits.per_user_daily_calls); 'off' sends no cap, so the database's applies.
 //   <whatever `ai_model_configs.key_env_var` names>  — the provider API key
 //   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (/ AWS_SESSION_TOKEN) — a Bedrock row signing with
 //                                SigV4 (key_env_var = 'AWS_ACCESS_KEY_ID'); see _shared/agent/bedrock.ts
@@ -99,10 +100,11 @@
 //
 // STATUS: deployed by deploy.yml on every push to main.
 //
-// v10.37 CLAUDE CODE RELAY (TEST-ONLY, TD-44): an enabled `claude-code-relay` row
-// allowlisted to a test user makes this function QUEUE the messages in
-// `ask_vyact_relay` and answer 202 `{ error: 'relay_pending', relayId }`; the client
-// then polls with `{ relayPoll: relayId }`. See `_shared/agent/relay.ts`.
+// v10.135.0 (Track Q7; audit OPS-11, BE-PIP-06): every model call is checked against Pip's limits in the database
+// (ai_limits: the person's 24 hours, a minute, an off-topic cool-down, everyone's 24 hours; no row = closed) and a
+// refused one is answered 429 (503 when the limits cannot be read) with `error` naming the limit and, where it ends,
+// `retryAfter` seconds. A classify call the model placed off topic is recorded as 'off_topic' on its own usage row:
+// that is what the cool-down counts. The v10.37 test relay is gone.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import {
@@ -118,15 +120,8 @@ import {
   type ModelConfigRow,
   type Seam,
 } from '../_shared/agent/router.ts';
-import {
-  detectCallKind,
-  filterRowsForUser,
-  isRelayConfig,
-  relayPollState,
-  RELAY_MODEL_LABEL,
-  RELAY_PROVIDER,
-  type RelayRowLike,
-} from '../_shared/agent/relay.ts';
+import { filterRowsForUser } from '../_shared/agent/modelRows.ts';
+import { isQuota, limitAnswer, offTopicIntent, quotaFromReserveError, retryAfterSeconds, type Quota } from '../_shared/agent/limits.ts';
 import { composeAssistantMessages } from '../_shared/agent/prompts.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
@@ -174,10 +169,10 @@ function corsHeadersFor(origin: string | null): Record<string, string> {
 const originAllowed = (origin: string | null): boolean =>
   !origin || ALLOWED_ORIGINS.includes(origin.replace(/\/+$/, ''));
 
-const respond = (body: Record<string, unknown>, status: number, origin: string | null): Response =>
+const respond = (body: Record<string, unknown>, status: number, origin: string | null, extra: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...BASE_HEADERS, ...corsHeadersFor(origin) },
+    headers: { ...BASE_HEADERS, ...corsHeadersFor(origin), ...extra },
   });
 
 // ── HTTP status for a router failure. Everything here means "fall back". ─────
@@ -205,8 +200,6 @@ interface RequestBody {
   householdId?: unknown;
   surface?: unknown;
   probe?: unknown;
-  /** v10.37 Claude Code relay: poll a queued call by id (see _shared/agent/relay.ts). */
-  relayPoll?: unknown;
   maxOutputTokens?: unknown;
 }
 
@@ -227,17 +220,17 @@ async function loadEnabledConfigRows(admin: SupabaseClient, seam: Seam): Promise
 }
 
 /** prepare_ai_call()'s answer, or null when it failed (the gateway then takes the sequential path). */
-interface Prepared { member: boolean | null; reservationId: string | null; quota: 'ok' | 'exceeded' | 'skipped' }
+interface Prepared { member: boolean | null; reservationId: string | null; quota: Quota; retryAt: string | null }
 
 function readPrepared(r: { data: unknown; error: unknown }): Prepared | null {
   if (r.error || !r.data || typeof r.data !== 'object') return null;
   const d = r.data as Record<string, unknown>;
-  const quota = d.quota === 'ok' || d.quota === 'exceeded' || d.quota === 'skipped' ? d.quota : null;
-  if (!quota) return null;
+  if (!isQuota(d.quota)) return null;
   return {
     member: typeof d.member === 'boolean' ? d.member : null,
     reservationId: typeof d.reservation_id === 'string' && UUID_RE.test(d.reservation_id) ? d.reservation_id : null,
-    quota,
+    quota: d.quota,
+    retryAt: typeof d.retry_at === 'string' ? d.retry_at : null,
   };
 }
 
@@ -318,7 +311,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const body: RequestBody = parsedBody.ok ? parsedBody.body : {};
   const seam: Seam = isSeam(body.seam) ? body.seam : 'assistant';
   const isProbe = body.probe === true;
-  const isRelayPoll = typeof body.relayPoll === 'string';
   const surface = typeof body.surface === 'string' && SURFACES.has(body.surface) ? body.surface : 'chat';
   const requestedHousehold = typeof body.householdId === 'string' && UUID_RE.test(body.householdId)
     ? body.householdId : null;
@@ -327,7 +319,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // v10.107.1: the conversation is composed before any lookup (pure, no network), so the quota is
   // reserved below only for a request that can actually be sent. Its errors are still answered in
   // the old order (step 6).
-  const composedEarly = parsedBody.ok && !isRelayPoll && !isProbe ? composeAssistantMessages(body) : null;
+  const composedEarly = parsedBody.ok && !isProbe ? composeAssistantMessages(body) : null;
   const cleanEarly = composedEarly?.ok ? sanitiseMessages(composedEarly.messages) : null;
   const dailyCap = parseDailyCallCap(env('ASK_VYACT_DAILY_CALL_CAP'));
 
@@ -341,7 +333,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       auth: { persistSession: false, autoRefreshToken: false },
     })
     : null;
-  const wantsPrepare = parsedBody.ok && !isRelayPoll && !isProbe && asCaller !== null;
+  const wantsPrepare = parsedBody.ok && !isProbe && asCaller !== null;
 
   // ── 3a. Verify the user, read the config and prepare the call TOGETHER (v10.106.3, v10.107.1). ──
   // v10.106.3 ran getUser ‖ config ‖ membership, then reserve_ai_usage() as a fourth, sequential round
@@ -355,7 +347,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     admin.auth.getUser(jwt)
       .then(r => r, () => ({ data: { user: null }, error: new Error('auth lookup failed') }))
       .finally(() => { stageMs.authMs = sinceStart(); }),
-    parsedBody.ok && !isRelayPoll
+    parsedBody.ok
       ? configCache.rows(seam, () => loadEnabledConfigRows(admin, seam))
         .finally(() => { stageMs.configMs = sinceStart(); })
       : Promise.resolve(null),
@@ -364,15 +356,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
         p_household_id: requestedHousehold,
         p_seam: seam,
         p_surface: surface,
+        // v10.135.0: always reserved when the request can be sent; the database's limits apply with or without a cap.
         p_cap: dailyCap,
-        p_reserve: dailyCap !== null && cleanEarly?.ok === true,
+        p_reserve: cleanEarly?.ok === true,
       }))
         .then(r => readPrepared(r), () => null)
         .finally(() => { stageMs.prepareMs = sinceStart(); })
       : Promise.resolve(null),
     // The v10.106.3 path, when prepare_ai_call() is not used (no anon key): the membership read runs
     // here too, for the token's `sub`; its answer is used only after getUser() verifies that id.
-    !wantsPrepare && parsedBody.ok && !isRelayPoll && !isProbe && requestedHousehold
+    !wantsPrepare && parsedBody.ok && !isProbe && requestedHousehold
       ? Promise.resolve(admin.from('memberships')
         .select('household_id')
         .eq('user_id', sub)
@@ -404,62 +397,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return respond({ ok: false, error: parsedBody.error, message: parsedBody.message, requestId }, parsedBody.status, origin);
   }
 
-  // ── 3b. Claude Code relay poll (v10.37, TEST-ONLY). ───────────────────────
-  // Returns a queued call's answer once the relay session has written it. Scoped
-  // to the caller's own rows, so an id guessed from elsewhere reveals nothing.
-  if (isRelayPoll && typeof body.relayPoll === 'string') {
-    if (!UUID_RE.test(body.relayPoll)) {
-      return respond({ ok: false, error: 'invalid_request', message: 'relayPoll must be an id.', requestId }, 400, origin);
-    }
-    const { data: row } = await admin
-      .from('ask_vyact_relay')
-      .select('id, status, created_at, answered_at, response, reservation_id')
-      .eq('id', body.relayPoll)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (!row) {
-      return respond({ ok: false, enabled: true, seam, error: 'not_found', message: 'No such relay call.', requestId }, 404, origin);
-    }
-    const poll = relayPollState(row as RelayRowLike);
-    if (poll.state === 'pending') {
-      return respond({ ok: false, enabled: true, seam, error: 'relay_pending', relayId: row.id, requestId }, 202, origin);
-    }
-    const reservationId = (row as { reservation_id?: string | null }).reservation_id ?? null;
-    if (poll.state === 'expired') {
-      if ((row as RelayRowLike).status !== 'expired') {
-        await admin.from('ask_vyact_relay').update({ status: 'expired' }).eq('id', row.id).eq('status', 'pending');
-        if (reservationId) {
-          await admin.from('ai_usage').update({
-            outcome: 'error', provider: RELAY_PROVIDER, model: RELAY_MODEL_LABEL,
-            prompt_tokens: 0, completion_tokens: 0, cost_usd: 0,
-          }).eq('id', reservationId);
-        }
-      }
-      return respond({
-        ok: false, enabled: true, seam, error: 'timeout',
-        message: 'The relay did not answer in time.', requestId,
-      }, STATUS_FOR.timeout, origin);
-    }
-    if (reservationId) {
-      const { error } = await admin.from('ai_usage').update({
-        outcome: 'ok', provider: RELAY_PROVIDER, model: RELAY_MODEL_LABEL,
-        prompt_tokens: 0, completion_tokens: 0, cost_usd: 0, latency_ms: poll.latencyMs,
-      }).eq('id', reservationId);
-      if (error) console.error('[ask-vyact] relay metering finalise failed', reservationId, error.message);
-    }
-    return respond({
-      ok: true, enabled: true, seam,
-      // UNTRUSTED MODEL OUTPUT — same contract as a provider answer.
-      text: poll.text,
-      toolCalls: [],
-      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-      costUsd: 0,
-      latencyMs: poll.latencyMs,
-      finishReason: 'stop',
-      requestId,
-    }, 200, origin);
-  }
-
   // Tool schemas are NOT accepted from a client. The tool registry is
   // server-owned (P7/P8) and read tools are separated from write tools there; a
   // client-supplied schema would be both an unbounded token cost and a way to
@@ -477,13 +414,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 200, origin);
   }
 
-  // v10.37/v10.38: a row carrying `params.allowed_user_ids` applies only to those
-  // users — a relay, or a self-hosted model being piloted on one account before it
-  // is promoted to the household. Everyone else resolves the next row by priority,
-  // exactly as before. Remove the key to promote the row to all users, no deploy.
+  // v10.38: a row carrying `params.allowed_user_ids` applies only to those users — a self-hosted model
+  // being piloted on some accounts before it is promoted to the household. Everyone else resolves the next
+  // row by priority. Remove the key to promote the row to all users, no deploy (modelRows.ts).
   const eligibleRows = filterRowsForUser(configResult.rows as ModelConfigRow[], user.id);
   const config = selectModelConfig(eligibleRows, seam);
-  const relay = isRelayConfig(config);
 
   if (!config) {
     // 🔴 THE INERT DEFAULT. One read happened. Nothing was called, nothing was
@@ -501,8 +436,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Deliberately omits provider/model — readiness is operational, model identity
   // is not something an end user needs from this endpoint.
   if (isProbe) {
-    // A relay row has no URL or key to validate; it is ready when it is selected.
-    const check = relay ? { ok: true } as ReturnType<typeof checkConfig> : checkConfig(config);
+    const check = checkConfig(config);
     return respond({
       ok: true, enabled: true, seam, ready: check.ok,
       reason: check.ok ? undefined : check.code,
@@ -551,26 +485,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
     householdId = requestedHousehold;
   }
 
-  // ── 8. Spend cap — ATOMIC reservation BEFORE the provider is called. ─────
+  // ── 8. Limits and the spend cap — ATOMIC reservation BEFORE the provider is called. ─────
   // Audit A2: the old sequence (count → call → insert) let every concurrent
   // request pass the same count check, and a failed count read was treated as
   // zero usage. reserve_ai_usage() row-locks the user, counts, and inserts a
   // 'reserved' row in one locked step — concurrent requests serialise, and a
   // count failure aborts here (fail-CLOSED; the provider is never called).
-  // W1c: read fail-closed — only an explicit 'off' skips the reservation.
   // v10.107.1: normally already decided in step 3a by prepare_ai_call(). The sequential call below is
   // the fallback: no anon key, the function missing (a database not yet migrated), or a row-rule
   // disagreement where it reserved nothing although a model applies.
-  let reservationId: string | null = null;
-  if (dailyCap !== null && prepared?.quota === 'exceeded') {
+  // v10.135.0 (Q7, OPS-11): always reserved, and the database checks Pip's limits (ai_limit_state) — the
+  // person's 24 hours, a minute, the off-topic cool-down and everyone's 24 hours. A refusal names its limit.
+  const refused = (quota: Quota, retryAt: unknown): Response | null => {
+    const answer = limitAnswer(quota);
+    if (!answer) return null;
+    const retryAfter = retryAfterSeconds(retryAt);
     return respond({
-      ok: false, enabled: true, seam, error: 'quota_exceeded',
-      message: 'Daily assistant limit reached. Try again tomorrow.', requestId,
-    }, 429, origin);
-  }
-  if (dailyCap !== null && prepared?.reservationId) {
+      ok: false, enabled: true, seam, error: answer.error, message: answer.message,
+      ...(retryAfter ? { retryAfter } : {}), requestId,
+    }, answer.status, origin, retryAfter ? { 'Retry-After': String(retryAfter) } : {});
+  };
+  let reservationId: string | null = null;
+  const early = prepared ? refused(prepared.quota, prepared.retryAt) : null;
+  if (early) return early;
+  if (prepared?.reservationId) {
     reservationId = prepared.reservationId;
-  } else if (dailyCap !== null) {
+  } else {
     const reserveStart = sinceStart();
     const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
       p_user_id: user.id,
@@ -580,48 +520,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
     stageMs.reserveMs = sinceStart() - reserveStart;
     if (resErr) {
-      const over = resErr.code === '42901' || /quota_exceeded/i.test(resErr.message ?? '');
-      return respond({
-        ok: false, enabled: true, seam,
-        error: over ? 'quota_exceeded' : 'quota_check_failed',
-        message: over
-          ? 'Daily assistant limit reached. Try again tomorrow.'
-          : 'Could not verify your usage allowance. Not calling the model.',
-        requestId,
-      }, over ? 429 : 503, origin);
+      const quota = quotaFromReserveError(resErr);
+      return (quota && refused(quota, null)) ?? respond({
+        ok: false, enabled: true, seam, error: 'quota_check_failed',
+        message: 'Could not verify your usage allowance. Not calling the model.', requestId,
+      }, 503, origin);
     }
     reservationId = resId as string;
-  }
-
-  // ── 8b. Claude Code relay (v10.37, TEST-ONLY): queue, don't call. ─────────
-  // The reservation stays 'reserved' until the poll finalises it. Nothing waits
-  // inside this function, so the edge wall-clock limit is never in play.
-  if (relay) {
-    const requestedMax = typeof body.maxOutputTokens === 'number' && Number.isFinite(body.maxOutputTokens)
-      ? Math.floor(body.maxOutputTokens) : null;
-    const { data: queued, error: queueErr } = await admin
-      .from('ask_vyact_relay')
-      .insert({
-        user_id: user.id,
-        household_id: householdId,
-        reservation_id: reservationId,
-        call_kind: detectCallKind(clean.messages),
-        messages: clean.messages,
-        max_tokens: requestedMax ?? (typeof config.params?.max_tokens === 'number' ? config.params.max_tokens : null),
-      })
-      .select('id')
-      .single();
-    if (queueErr || !queued) {
-      if (reservationId) {
-        await admin.from('ai_usage').update({ outcome: 'error', provider: RELAY_PROVIDER, model: RELAY_MODEL_LABEL,
-          prompt_tokens: 0, completion_tokens: 0 }).eq('id', reservationId);
-      }
-      return respond({
-        ok: false, enabled: true, seam, error: 'unreachable',
-        message: 'Could not queue the relay call.', requestId,
-      }, STATUS_FOR.unreachable, origin);
-    }
-    return respond({ ok: false, enabled: true, seam, error: 'relay_pending', relayId: queued.id, requestId }, 202, origin);
   }
 
   // ── 9. The call. Bounded, and it cannot throw. ────────────────────────────
@@ -656,6 +561,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     surface,
     tier: 't1',
   });
+  // v10.135.0 (Q7): a classify call the model placed off topic is recorded as such: the cool-down counts these.
+  const intent = result.ok ? offTopicIntent(body.op, result.text) : null;
+  if (usageRow && intent) usageRow.intent = intent;
   const meter = (async () => {
     try {
       if (reservationId) {

@@ -63,7 +63,7 @@ describe('lock-screen notifications in the Android app (T4d)', () => {
     expect(registered()).toEqual([{
       p_token: 'tok-1', p_household_id: 'h1', p_user_agent: 'Mozilla/5.0 (Linux; Android 14; wv) Chrome/129.0',
       p_tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      p_prefs: { master: true, perType: {}, quietStart: '22:00', quietEnd: '07:00', lockScreenDetails: false },
+      p_prefs: { master: true, perType: {}, quietStart: '22:00', quietEnd: '07:00', lockScreenDetails: false, pipNudges: false },
     }]);
     expect(m.deviceHasServerPush()).toBe(true);                         // the app's own local notifications stop
     expect(m.pushWanted(PREFS as never)).toBe(true);                    // although webPushEnabled is false

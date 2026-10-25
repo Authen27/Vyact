@@ -54,10 +54,14 @@ export function nativePushWanted(): boolean { return read(CHOICE_KEY) !== 'off';
 export function nativeHasServerPush(): boolean { return !!read(TOKEN_KEY) && nativePushWanted(); }
 export function nativeToken(): string | null { return read(TOKEN_KEY); }
 
-function prefsForServer(prefs: NotificationPrefs) {
+/** The device's switches as the server reads them (web-push-rules PushPrefs); browsers and phones alike. */
+export function prefsForServer(prefs: NotificationPrefs) {
   return {
     master: prefs.master, perType: prefs.perType, quietStart: prefs.quietStart, quietEnd: prefs.quietEnd,
+    // v10.126.0 (T4c, BE-FN-12): the server sends the private line when this is false.
     lockScreenDetails: prefs.lockScreenDetails !== false,
+    // v10.135.0 (Q7): Pip's nudges on this lock screen, only when turned on.
+    pipNudges: prefs.pipNudges === true,
   };
 }
 

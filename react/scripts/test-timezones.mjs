@@ -20,6 +20,7 @@ export const SUITES = [
   'src/lib/__tests__/recurringApproval.test.ts',
   'src/lib/__tests__/billCalendar.test.ts',
   'src/lib/__tests__/loanCalendar.test.ts',
+  'src/lib/__tests__/q7Pip.test.ts',          // v10.135.0: Pip's nudge allowance in the household's day
 ];
 
 const failed = [];

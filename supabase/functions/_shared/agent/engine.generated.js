@@ -1933,7 +1933,8 @@ function profileFromRows(prof, hh, email) {
 		dateFormat: prof.date_format || "us",
 		payoffStrategy: hh.payoff_strategy || "avalanche",
 		extraPayment: Number(hh.extra_payment) || 0,
-		educationProgress: prof.education_progress || {}
+		educationProgress: prof.education_progress || {},
+		pipAnswerLength: prof.pip_answer_length === "detailed" ? "detailed" : "short"
 	};
 }
 //#endregion
@@ -2947,6 +2948,17 @@ var ModelUnavailableError = class extends Error {
 		this.name = "ModelUnavailableError";
 	}
 };
+/** The model was not called because one of Pip's limits applies (`limit`), until about `retryAfterSec` from now. */
+var ModelLimitError = class extends ModelUnavailableError {
+	limit;
+	retryAfterSec;
+	constructor(limit, retryAfterSec = null) {
+		super(`limit: ${limit}`);
+		this.name = "ModelLimitError";
+		this.limit = limit;
+		this.retryAfterSec = retryAfterSec;
+	}
+};
 var InventedFigureError = class extends Error {
 	offending;
 	constructor(offending) {
@@ -3067,6 +3079,7 @@ async function classifyIntentViaModel(utterance, _ctx, call) {
 			maxTokens: 256
 		});
 	} catch (err) {
+		if (err instanceof ModelUnavailableError) throw err;
 		throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
 	}
 	let parsed;
@@ -3190,15 +3203,17 @@ function assertNoInventedFigures(reply, vars, opts = {}) {
 	for (const v of Object.values(vars ?? {})) admit(String(v));
 	if (opts.question) admit(opts.question);
 	for (const f of opts.alsoAllowed ?? []) admit(String(f));
+	const unreadable = reply.match(/[^\P{Nd}0-9]+/gu);
+	if (unreadable) throw new InventedFigureError([...new Set(unreadable)]);
 	const isAllowed = (f) => allowed.has(f) || f.includes(".") && allowed.has(f.replace(/\.0+$/, "")) || !f.includes(".") && allowed.has(`${f}.00`);
 	const offending = figuresWithPos(reply).filter(({ value: f, index, raw }) => {
 		const scale = SCALE_AFTER.exec(reply.slice(index + raw.length));
 		if (scale) return !isAllowed(scaled(f, scale[1]));
 		const asMoney = CURRENCY_PREFIX.test(reply.slice(0, index));
-		if (allowed.has(f) || !asMoney && HARMLESS.has(f)) return false;
+		if (allowed.has(f) || !asMoney && !opts.strict && HARMLESS.has(f)) return false;
 		if (f.includes(".") && allowed.has(f.replace(/\.0+$/, ""))) return false;
 		if (!f.includes(".") && allowed.has(`${f}.00`)) return false;
-		if (/^(19|20)\d{2}$/.test(f) && !CURRENCY_PREFIX.test(reply.slice(0, index))) return false;
+		if (!opts.strict && /^(19|20)\d{2}$/.test(f) && !CURRENCY_PREFIX.test(reply.slice(0, index))) return false;
 		if (looksLikeDate(reply, index, f)) return false;
 		return true;
 	}).map((f) => f.value);
@@ -3236,6 +3251,13 @@ THE RESPONSE CONTRACT (the same in the app and on WhatsApp)
 - \`channel: "whatsapp"\`: at most four short sentences, plain text, no links, English
   only. \`channel: "app"\`: if the question is written in Hinglish (Hindi in Latin
   script), answer in the same mix, keeping category names in English.
+- \`answer_length: "detailed"\` (the app only; the person's own setting): up to seven
+  sentences in at most three short paragraphs, still the direct answer first.
+- \`answer_language\` (the app only; the person's own setting): write the whole answer
+  in that language, instead of the Hinglish rule. Keep category, account and holding
+  names as FACTS write them, and copy every figure exactly as FACTS write it: the same
+  digits 0-9, separators and currency symbol. Never write a number in words or with a
+  word that scales it (no lakh, crore, 万, Mio. or millones).
 
 
 HOW TO ANSWER
@@ -3295,8 +3317,8 @@ HOW TO ANSWER
   then what it \`assumes\`. A bills review: the \`total_over_next_12_months\` and \`about_per_month\`, the
   two costliest, and any \`next_amount_compared_with_last\` or \`categories_with_more_than_one_bill\`
   as something worth checking — never call a bill unnecessary; the choice is theirs.
-- Two to five sentences, and prefer the shorter end: one idea per sentence, no
-  preamble, no restating the question.
+- Two to five sentences (unless \`answer_length\` is "detailed"), and prefer the shorter
+  end: one idea per sentence, no preamble, no restating the question.
 - Plain language, warm and direct. Speak to the user as "you".
 - No markdown, no bullet points, no headings, no emoji.
 
@@ -3331,19 +3353,28 @@ ABSOLUTE RULES ABOUT NUMBERS
 function phraseData(result) {
 	return result.facts && Object.keys(result.facts).length ? {} : result.vars ?? {};
 }
-/**
-* Turn a computed `ResolveResult` into prose.
-*
-* The model sees the user's own question plus COMPUTED aggregates — never the raw
-* transaction list — so it cannot leak detail the summary deliberately excludes,
-* and cannot base a figure on anything but a computed one.
-*/
-async function phraseViaModel(intent, result, call, prevAllowed = [], channel = "app") {
+/** The languages the app offers besides English (constants LOCALES), as the model is told them. */
+const ANSWER_LANGUAGES = {
+	es: "Spanish",
+	fr: "French",
+	hi: "Hindi (Devanagari script)",
+	de: "German",
+	ja: "Japanese"
+};
+/** The language Pip should answer in, or null for English (and for any code it does not know). */
+function answerLanguage(code) {
+	return code && Object.prototype.hasOwnProperty.call(ANSWER_LANGUAGES, code) ? ANSWER_LANGUAGES[code] : null;
+}
+async function phraseViaModel(intent, result, call, prevAllowed = [], channel = "app", style = {}) {
+	const detailed = channel === "app" && style.answerLength === "detailed";
+	const language = channel === "app" ? answerLanguage(style.language) : null;
 	const data = phraseData(result);
 	const payload = JSON.stringify({
 		question: intent.entities.text,
 		question_type: intent.id,
 		channel,
+		...detailed ? { answer_length: "detailed" } : {},
+		...language ? { answer_language: language } : {},
 		outcome: result.outcome,
 		facts: result.facts ?? {},
 		data
@@ -3354,7 +3385,8 @@ async function phraseViaModel(intent, result, call, prevAllowed = [], channel = 
 	};
 	const guardOpts = {
 		question: typeof intent.entities.text === "string" ? intent.entities.text : void 0,
-		alsoAllowed: prevAllowed
+		alsoAllowed: prevAllowed,
+		strict: language !== null
 	};
 	const ask = async (offending = []) => {
 		let raw;
@@ -3367,6 +3399,7 @@ async function phraseViaModel(intent, result, call, prevAllowed = [], channel = 
 				...offending.length ? { offending } : {}
 			})).trim();
 		} catch (err) {
+			if (err instanceof ModelUnavailableError) throw err;
 			throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
 		}
 		const cleaned = stripFences(raw);
@@ -5631,7 +5664,10 @@ var LlmBackend = class {
 	/** `seed` is accepted for interface conformance; a model does not use a
 	*  variant table, so phrasing variety comes from the model itself. */
 	async phraseResponse(intent, result, ctx, _seed, prevAllowed = []) {
-		return phraseViaModel(intent, result, this.call, prevAllowed, ctx?.channel ?? "app");
+		return phraseViaModel(intent, result, this.call, prevAllowed, ctx?.channel ?? "app", {
+			answerLength: ctx?.profile?.pipAnswerLength,
+			language: ctx?.profile?.language
+		});
 	}
 };
 /**
@@ -5693,6 +5729,7 @@ async function runAssistant(utterance, ctx, backend = selectAssistantBackend(), 
 	try {
 		intent = await backend.classifyIntent(utterance, ctx);
 	} catch (err) {
+		if (err instanceof ModelLimitError) return limitTurn(err);
 		if (err instanceof ModelUnavailableError) return unavailableTurn("unreachable");
 		throw err;
 	}
@@ -5769,6 +5806,7 @@ async function runAssistant(utterance, ctx, backend = selectAssistantBackend(), 
 	try {
 		reply = await backend.phraseResponse(effective, result, ctx, seed, prevAllowed);
 	} catch (err) {
+		if (err instanceof ModelLimitError) return limitTurn(err);
 		if (err instanceof ModelUnavailableError) return unavailableTurn("unreachable");
 		if (err instanceof InventedFigureError) return unavailableTurn("unverified_figures");
 		if (err instanceof OffScopeReplyError) return unavailableTurn("off_scope");
@@ -5794,6 +5832,24 @@ const UNAVAILABLE_COPY = {
 	unverified_figures: "I couldn't verify the numbers in that answer, so I haven't shown it. Please ask again.",
 	off_scope: "That answer wasn't about your money, so I haven't shown it. Ask me about your spending, budgets, bills or plans."
 };
+/** v10.135.0 (Track Q7; audit OPS-11) — when one of Pip's limits applies, say which, and when to ask again. */
+function limitCopy(limit, retryAfterSec) {
+	const when = retryAfterSec == null ? null : retryAfterSec <= 60 ? "in a minute" : `in ${Math.ceil(retryAfterSec / 60)} minutes`;
+	switch (limit) {
+		case "quota_exceeded": return "You've reached today's limit for questions to Pip. It frees up over the next 24 hours, and the rest of Vyact works as usual.";
+		case "rate_limited": return `That's a lot of questions at once. Ask again ${when ?? "in a minute"}.`;
+		case "cooldown": return `I only help with your household's money, so I'm pausing for a few minutes. Ask me about your spending, budgets, bills or plans ${when ?? "shortly"}.`;
+		case "global_limit": return "Pip has answered as many questions as it can today. Please try again later. Your data is untouched.";
+	}
+}
+function limitTurn(err) {
+	return {
+		reply: limitCopy(err.limit, err.retryAfterSec),
+		bucket: "none",
+		intentId: "unavailable",
+		clarify: true
+	};
+}
 function unavailableTurn(reason) {
 	return {
 		reply: UNAVAILABLE_COPY[reason],
@@ -6176,6 +6232,81 @@ function staleBalanceNotifs(accounts, prefs, existing, ctx) {
 		actions: [A("update", "Update balances", "primary"), A("dismiss", "Dismiss", "ghost")]
 	}];
 }
+const PIP_NUDGE_PREFIX = "pip:";
+const askPip = (question) => `/chat?ask=${encodeURIComponent(question)}`;
+/**
+* How many more Pip nudges may be raised now (0 when the day's or the week's are used). The day is the
+* device's, or `tz`'s on the server (the household's zone).
+*/
+function pipNudgeRoom(existing, nowMs = Date.now(), tz) {
+	const seen = /* @__PURE__ */ new Set();
+	const pip = existing.filter((n) => {
+		if (!n.dedupeKey?.startsWith(PIP_NUDGE_PREFIX) || !Number.isFinite(Date.parse(n.createdAt)) || seen.has(n.dedupeKey)) return false;
+		seen.add(n.dedupeKey);
+		return true;
+	});
+	const day = dateKeyIn(new Date(nowMs), tz);
+	const today_ = pip.filter((n) => dateKeyIn(new Date(n.createdAt), tz) === day).length;
+	const week = pip.filter((n) => Date.parse(n.createdAt) >= nowMs - 6048e5).length;
+	return Math.max(0, Math.min(1 - today_, 3 - week));
+}
+/**
+* trend_alert — a category that has ALREADY gone past a whole usual month, this month. Compared with a
+* whole month (not a pro-rated one), so the sentence is true whatever day it is: nothing is projected.
+* The largest such gap only; once per category per month.
+*/
+function categoryTrendNudge(txns, existing, ctx, now) {
+	const month = getMonthKey(now);
+	const history = [...new Set(txns.map((t) => getMonthKey(t.date)))].filter((m) => m < month).sort().slice(-3);
+	if (history.length < 2) return null;
+	const nowSpend = spendByCategory(txns, month, ctx.baseCurrency, ctx.rates);
+	const past = history.map((m) => spendByCategory(txns, m, ctx.baseCurrency, ctx.rates));
+	let best = null;
+	for (const [category, spent] of Object.entries(nowSpend)) {
+		if (category === "loan_emi") continue;
+		const usual = past.reduce((s, p) => s + (p[category] || 0), 0) / history.length;
+		if (!(usual > 0) || spent < usual * 1.25) continue;
+		if (existing.some((n) => n.dedupeKey === `${PIP_NUDGE_PREFIX}trend:${category}:${month}`)) continue;
+		if (!best || spent - usual > best.spent - best.usual) best = {
+			category,
+			spent,
+			usual
+		};
+	}
+	if (!best) return null;
+	const label = getCat(best.category).label;
+	return {
+		...base("trend_alert", `${PIP_NUDGE_PREFIX}trend:${best.category}:${month}`, ctx),
+		title: `${label} is already above a usual month`,
+		body: `${fmt$1(Math.round(best.spent), ctx.baseCurrency)} so far, against ${fmt$1(Math.round(best.usual), ctx.baseCurrency)} in a usual month`,
+		amountRef: Math.round(best.spent),
+		deepLink: askPip(`Why is my ${label.toLowerCase()} spending so high?`),
+		actions: [A("ask_pip", "Ask Pip why", "primary")]
+	};
+}
+/** insight_fresh — in the first five days of a month, last month's review is ready (once per month). */
+function monthReviewNudge(txns, existing, ctx, now) {
+	if (Number(now.slice(8, 10)) > 5) return null;
+	const [y, m] = getMonthKey(now).split("-").map(Number);
+	const prev = new Date(Date.UTC(y, m - 2, 1));
+	const prevKey = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}`;
+	const key = `${PIP_NUDGE_PREFIX}review:${prevKey}`;
+	if (existing.some((n) => n.dedupeKey === key)) return null;
+	if (!txns.some((t) => getMonthKey(t.date) === prevKey)) return null;
+	return {
+		...base("insight_fresh", key, ctx),
+		title: `Your ${MONTH_NAMES[prev.getUTCMonth()]} review is ready`,
+		body: "What came in, what went out and what moved",
+		deepLink: askPip("Give me a review of last month."),
+		actions: [A("ask_pip", "Ask Pip", "primary")]
+	};
+}
+/** Pip's nudges for this refresh, most useful first, within the day's and the week's allowance. */
+function pipNudgeNotifs(txns, prefs, existing, ctx, now = today(ctx.tz), nowMs = Date.now()) {
+	const room = pipNudgeRoom(existing, nowMs, ctx.tz);
+	if (room <= 0) return [];
+	return [typeEnabled(prefs, "trend_alert") ? categoryTrendNudge(txns, existing, ctx, now) : null, typeEnabled(prefs, "insight_fresh") ? monthReviewNudge(txns, existing, ctx, now) : null].filter((n) => n !== null).slice(0, room);
+}
 const PRIVATE_TEXT = {
 	recurring_due_confirm: {
 		title: "A bill is due",
@@ -6505,10 +6636,17 @@ function runwaySnapshot(rows, now) {
 * lock screen is each device's own choice, applied when pushing.
 * Split notifications are not generated here: they come from the devices, which
 * hold the verified-email split lists.
+*
+* v10.135.0 (Track Q7): Pip's nudges too (`pipNudgeNotifs`), so they wait in the bell while the app is
+* closed. `pipRows` are the household's Pip rows from either source with their dates: a nudge a device
+* raised is not raised again, and the day's and the week's allowance count both.
 */
-function notificationsOnServer(rows, existingKeys, householdId) {
+function notificationsOnServer(rows, existingKeys, householdId, pipRows = [], nowMs = Date.now()) {
 	const { transactions, budgets, budgetAllocations, debts, accounts, recurring, profile, rates } = shapesFromRows(rows);
-	const existing = existingKeys.map((dedupeKey) => ({ dedupeKey }));
+	const existing = [...existingKeys.map((dedupeKey) => ({ dedupeKey })), ...pipRows.map((r) => ({
+		dedupeKey: r.dedupe_key,
+		createdAt: r.created_at
+	}))];
 	const ctx = {
 		householdId,
 		baseCurrency: profile.baseCurrency,
@@ -6522,7 +6660,8 @@ function notificationsOnServer(rows, existingKeys, householdId) {
 		...budgetThresholdNotifs(budgets, budgetAllocations, transactions, prefs, existing, ctx),
 		...debtDueNotifs(debts, prefs, existing, ctx),
 		...incomeLandedNotifs(transactions, prefs, existing, ctx),
-		...staleBalanceNotifs(accounts, prefs, existing, ctx)
+		...staleBalanceNotifs(accounts, prefs, existing, ctx),
+		...pipNudgeNotifs(transactions, prefs, existing, ctx, dateKeyIn(new Date(nowMs), ctx.tz), nowMs)
 	].map(toInsertRow);
 }
 /**

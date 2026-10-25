@@ -65,7 +65,7 @@ describe('turning push on for this device', () => {
     expect(rpc).toHaveBeenCalledWith('register_push_subscription', expect.objectContaining({
       p_endpoint: 'https://fcm.googleapis.com/fcm/send/dev1', p_household_id: 'h1', p_p256dh: 'P'.repeat(87), p_auth: 'A'.repeat(22),
       // T4c (v10.126.0): prefs saved before the switch existed send details on.
-      p_prefs: { master: true, perType: {}, quietStart: '22:00', quietEnd: '07:00', lockScreenDetails: true },
+      p_prefs: { master: true, perType: {}, quietStart: '22:00', quietEnd: '07:00', lockScreenDetails: true, pipNudges: false },
     }));
     expect(deviceHasServerPush()).toBe(false);          // permission is still 'default' in this stub
   });
@@ -134,7 +134,7 @@ describe('turning push on for this device', () => {
     const m = await import('../webPush');
     await m.syncPush('h1', { ...PREFS, lockScreenDetails: false } as never);
     expect(rpc).toHaveBeenCalledWith('register_push_subscription', expect.objectContaining({
-      p_prefs: { master: true, perType: {}, quietStart: '22:00', quietEnd: '07:00', lockScreenDetails: false },
+      p_prefs: { master: true, perType: {}, quietStart: '22:00', quietEnd: '07:00', lockScreenDetails: false, pipNudges: false },
     }));
   });
 

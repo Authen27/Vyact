@@ -446,6 +446,9 @@ export interface Profile {
    *  progress: completed-at / dismissed-at per topic id. App caps at 50
    *  keys (Risk S-3) before pruning oldest by completed_at. */
   educationProgress?: EducationProgress;
+  /** v10.135.0 (Track Q7) — how long Pip's answers are for this person (profiles.pip_answer_length). Short
+   *  unless set. */
+  pipAnswerLength?: 'short' | 'detailed';
 }
 
 /** Per-topic education state. Topic ids are app-defined strings such as
@@ -566,6 +569,9 @@ export interface NotificationPrefs {
    *  notifications show their amounts and names. Off: a private line per type (`lockScreenText`).
    *  Absent (prefs saved before v10.126.0) means on. */
   lockScreenDetails?: boolean;
+  /** v10.135.0 (Track Q7; owner, 20 Oct 2026) — this device's lock screen also gets Pip's nudges (P2). Off unless
+   *  turned on; they always wait in the bell. */
+  pipNudges?: boolean;
 }
 
 /** How a part-payment was applied. 'apply_advance' survives only on legacy payment-log entries (W4f retired it). */

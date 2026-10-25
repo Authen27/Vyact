@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.134.0`** (consumer)
+> **Current production version: `v10.135.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,24 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.135.0 — Pip's limits, nudges while the app is closed, and answers the way you like them *(2026-10-25)*
+
+Track Q, part 7 (audit OPS-11, BE-PIP-06; owner decisions 20 Oct 2026). Ships with admin v1.6.1. The migration
+(`20261113120000_q7_pip.sql`) must be live before this app and the Edge Functions.
+
+- **Pip has limits, and says which one applies.** A person can ask about six questions a minute and 100 a day
+  (200 model calls); everyone together, 5,000 calls a day. Three questions that are not about money within ten
+  minutes pause Pip for that person for fifteen. Pip used to say "I can't reach the assistant" for all of these;
+  it now says which limit it is and when to ask again. The numbers live in the database (`ai_limits`), and
+  without them Pip answers nothing rather than everything.
+- **The owner hears when Pip is busy:** an email at half, most and all of the day's calls.
+- **Pip's nudges wait for you while the app is closed.** "Dining is already above a usual month" and "Your
+  September review is ready" are raised by the server too, still at most one a day and three a week. They wait
+  in the bell; turn on **Pip's nudges** in Settings → Notifications to get them on this device's lock screen.
+- **Pip remembers how you like answers:** Settings → Pip's answers (Short or Detailed), on every device. Pip
+  answers in your language when it is not English, and an answer whose numbers it cannot check is not shown.
+- **The test relay is gone.** The temporary Claude Code relay (and the message text it kept) is removed.
 
 ## v10.134.0 — A split takes the whole bill from your account; what others owe is "Owed to you" *(2026-10-25)*
 

@@ -12,13 +12,13 @@
 
 ## Status at a glance (revalidated 2026-09-13 against production)
 
-**45 items total — 27 ✅ resolved · 3 ⚠ partial · 15 ⬜ open.**
+**45 items total — 28 ✅ resolved · 3 ⚠ partial · 14 ⬜ open.**
 
 | Bucket | IDs |
 |---|---|
-| ✅ **Resolved** (27) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, **TD-22**, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, **TD-31**, TD-33, **TD-39** |
+| ✅ **Resolved** (28) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, **TD-22**, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, **TD-31**, TD-33, **TD-39**, **TD-44** |
 | ⚠ **Partial** (3) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A green since v10.49.1) · **TD-29** (Lane A 0 failures v10.49.1; required-check in branch protection is the owner's) |
-| ⬜ **Open** (15) | TD-15 ⚠**REOPENED**, TD-16, TD-30, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44**, **TD-45** |
+| ⬜ **Open** (14) | TD-15 ⚠**REOPENED**, TD-16, TD-30, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-45** |
 
 > ### 🔻 Paydown is DEPRIORITIZED (2026-09-13)
 > The current priority is **completing Ask Vyact** — see
@@ -106,7 +106,7 @@
 | TD-41 | No governance step retires a doc when the product moves past it — 5 docs actively misdescribe the current app | Technical / Process / Docs | Medium | S |
 | TD-42 | Production security advisors: 8 tables RLS-enabled with no policy, 38 SECURITY DEFINER functions callable by `authenticated` | Security | Medium | S–M |
 | TD-43 | No test exercises the deployed `ask-vyact` gateway against a real provider — a 2-day production outage went unnoticed | Technical / QA | High | S |
-| TD-44 | TEMPORARY Claude Code relay (v10.37.0) stores Ask Vyact message content for the owner's test account — remove after validation | Security / Privacy | Medium | S |
+| TD-44 | ✅ TEMPORARY Claude Code relay (v10.37.0) stores Ask Vyact message content for the owner's test account — remove after validation *(resolved · v10.135.0, Track Q7)* | Security / Privacy | Medium | S |
 | TD-45 | Inert exchange-rate plumbing after the single-currency change (v10.66.0): `rates` arguments, the `exchange_rates` table and its policies | Technical / Cleanup | Low | M |
 
 ---
@@ -1335,6 +1335,12 @@ any of those still ships unnoticed. Closing TD-43 needs a post-deploy smoke test
 real endpoint with a real user JWT.
 
 ## TD-44 — Remove the Claude Code relay after Ask Vyact validation
+
+> ✅ **Resolved in v10.135.0 (Track Q7; audit BE-PIP-06; owner, 20 Oct 2026: "retire it").** Migration
+> `20261113120000_q7_pip.sql` deletes the relay's config rows, drops `ask_vyact_relay` (and its line in the
+> household erase) and adds `ck_ai_model_configs_no_relay`; the gateway branch and `relayPoll`, `relay.ts`
+> (its pilot-row helpers live on in `modelRows.ts`), `ask-vyact-relay-status` and the app's polling are deleted.
+> The deployed `ask-vyact-relay-status` function is removed by the owner (`supabase functions delete`).
 
 **Description.** v10.37.0 added a TEST-ONLY relay so a developer's Claude Code session could stand
 in as the Ask Vyact model while the free provider timed out: a `provider='claude-code-relay'` row in

@@ -920,6 +920,8 @@ export interface AiUsageRow {
   latency_ms: number;
   outcome: 'ok' | 'error' | 'blocked' | 'fallback' | 'clarify';
   tool_calls: number;
+  /** v10.135.0 (Q7): 'off_topic' on a classify call the model placed off topic (limits.ts); else absent. */
+  intent?: 'off_topic';
 }
 
 export interface UsageContext {

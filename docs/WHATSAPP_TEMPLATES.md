@@ -341,6 +341,25 @@ After Meta approves it: add its name to the `WHATSAPP_APPROVED_TEMPLATES` secret
 
 ## Not submitted yet
 
+- **`pip_nudge` (proposed, v10.135.0, Track Q7; owner, 20 Oct 2026: Pip's nudges on WhatsApp under insights,
+  STOP-able).** Utility, English (US), no header image. To submit in WhatsApp Manager:
+  ```
+  {{1}}, {{2}}
+
+  {{3}}
+
+  Ask Pip about it in Vyact, or reply STOP PIP to end these.
+  ```
+  - Samples: {{1}} Rohan · {{2}} Dining is already above a usual month. · {{3}} ₹6,200 so far, against ₹4,800 in a
+    usual month.
+  - Footer: Reply STOP PIP to end these. Buttons: Ask Pip → https://vyact.app/chat · Stop these.
+  - The words come from the bell's own nudge (`pipNudgeNotifs`: its title and body), raised by the server under
+    the same allowance (one a day, three a week, counted with the bell's).
+  - **Until Meta approves it, nothing changes:** the manifest has no entry and no job sends it. After approval:
+    add it to `_shared/whatsapp-templates.ts` (topic `pip`: insights consent, STOP PIP in `STOP_WORDS`), a
+    dispatcher rule that sends the household's newest unsent `pip:` notification, and its name to
+    `WHATSAPP_APPROVED_TEMPLATES`.
+
 - **The other design variants B** (first month, one budget off, "you paid them", barely logged, one
   stale account, "it'd be tight", quiet digest day). Each is its own template under Meta's rules.
 - **Quick-reply buttons need handlers:** "Stop these" / "STOP …" (W2 mutes) and "What moved?" /

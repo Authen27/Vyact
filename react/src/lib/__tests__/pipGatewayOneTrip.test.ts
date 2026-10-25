@@ -127,7 +127,7 @@ describe('gateway pre-work in one round trip (v10.107.1)', () => {
     expect(meter.eq).toHaveBeenCalledWith('id', 'fallback-reservation');
   });
 
-  it('PIP-GW-007 · a request that cannot be sent asks for no reservation, and probes and relay polls never prepare', async () => {
+  it('PIP-GW-007 · a request that cannot be sent asks for no reservation, and probes never prepare', async () => {
     admin.from.mockReturnValueOnce(queryResult([config]));
     const bad = await handler(request({ householdId, op: 'write-a-poem', input: 'x' }));
     expect(bad.status).toBe(400);
@@ -139,6 +139,42 @@ describe('gateway pre-work in one round trip (v10.107.1)', () => {
     const probe = await handler(request({ probe: true }));
     expect(await probe.json()).toMatchObject({ ok: true, enabled: true, ready: true });
     expect(caller.rpc).not.toHaveBeenCalled();
+  });
+
+  it("Q7-105 · a limit prepare_ai_call decided is answered at once with when to ask again; nothing is reserved or spent", async () => {
+    admin.from.mockReturnValueOnce(queryResult([config]));
+    caller.rpc.mockResolvedValueOnce(prepared({ member: true, reservation_id: null, quota: 'cooldown',
+      retry_at: new Date(Date.now() + 840_000).toISOString() }));
+    const paused = await handler(request(ask));
+    expect(paused.status).toBe(429);
+    const retry = Number(paused.headers.get('Retry-After'));
+    expect(retry).toBeGreaterThan(820);
+    expect(retry).toBeLessThanOrEqual(840);
+    expect(await paused.json()).toMatchObject({ ok: false, enabled: true, error: 'cooldown', retryAfter: retry });
+    for (const [quota, status, error] of [['exceeded', 429, 'quota_exceeded'], ['rate_limited', 429, 'rate_limited'],
+      ['global_exceeded', 429, 'global_limit'], ['misconfigured', 503, 'quota_misconfigured']] as const) {
+      caller.rpc.mockResolvedValueOnce(prepared({ member: true, reservation_id: null, quota }));
+      const r = await handler(request(ask));
+      expect(r.status, quota).toBe(status);
+      expect(await r.json(), quota).toMatchObject({ error });
+    }
+    expect(admin.rpc).not.toHaveBeenCalledWith('reserve_ai_usage', expect.anything());
+    expect(provider).not.toHaveBeenCalled();
+    // 'off' at the gateway still reserves through prepare_ai_call: the database's own cap applies (p_cap null).
+    vi.resetModules();
+    await load({ SUPABASE_ANON_KEY: 'test-anon-key', ASK_VYACT_DAILY_CALL_CAP: 'off' });
+    caller.rpc.mockClear();
+    provider.mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: '{"id":"interpret.lookup"}' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 12, completion_tokens: 4, total_tokens: 16 } }), { status: 200 }));   // a fresh body per call
+    caller.rpc.mockResolvedValueOnce(prepared({ member: true, reservation_id: reservation, quota: 'ok' }));
+    admin.from.mockReturnValueOnce(queryResult([config])).mockReturnValueOnce(queryResult(null));
+    expect((await handler(request(ask))).status).toBe(200);
+    expect(caller.rpc).toHaveBeenCalledWith('prepare_ai_call', expect.objectContaining({ p_cap: null, p_reserve: true }));
+    // An answer the gateway does not know is not trusted: the sequential path decides.
+    caller.rpc.mockResolvedValueOnce(prepared({ member: true, reservation_id: null, quota: 'maybe' }));
+    admin.from.mockReturnValueOnce(queryResult({ household_id: householdId })).mockReturnValueOnce(queryResult(null));
+    expect((await handler(request(ask))).status).toBe(200);
+    expect(admin.rpc).toHaveBeenCalledWith('reserve_ai_usage', expect.objectContaining({ p_user_id: 'user' }));
   });
 
   it('PIP-GW-008 · without the anon key the gateway keeps the v10.106.3 path', async () => {

@@ -195,24 +195,25 @@ describe('every scheduled run is recorded, and the owner hears about a broken on
       if (name === 'job_health') return { data: rows, error: null };
       if (name === 'claim_job_alert') return { data: ++claims !== 2, error: null };       // the sweep's was sent today already
       if (name === 'release_job_alert') { releases.push(args); return { data: null, error: null }; }
+      if (name === 'ai_ceiling_state') return { data: { calls: 100, ceiling: 5000 }, error: null };   // Q7: well below half
       return { data: 1, error: null };
     });
     // Unconfigured: counted, not emailed.
     let handler = await captureHandler(load);
     const call = (h: typeof handler, secret = 'h'.repeat(64)) => h(new Request('https://edge.example.com/job-health', { method: 'POST', headers: { 'x-cron-secret': secret } }));
     expect((await call(handler, 'x'.repeat(64))).status).toBe(403);
-    expect(await (await call(handler)).json()).toEqual({ problems: 2, emailed: 0, email: 'not_configured' });
+    expect(await (await call(handler)).json()).toEqual({ problems: 2, emailed: 0, email: 'not_configured', spend_pct: 2 });
     // Configured: one email for what was claimed.
     vi.resetModules();
     handler = await captureHandler(load, { HEALTH_ALERT_EMAIL: 'owner@vyact.app', MAILERSEND_API_KEY: 'ms-key' });
-    expect(await (await call(handler)).json()).toEqual({ problems: 2, emailed: 1 });
+    expect(await (await call(handler)).json()).toEqual({ problems: 2, emailed: 1, spend_pct: 2 });
     const mail = JSON.parse(String((vi.mocked(fetch).mock.calls[0] as [string, RequestInit])[1].body));
     expect(mail.to).toEqual([{ email: 'owner@vyact.app' }]);
     expect(mail.subject).toBe('Vyact: a scheduled job needs a look');
     expect(mail.text).toContain('recurring-post failed at 2026-10-25 10:10 UTC: schedules: <b>timeout</b>');
     expect(mail.html).toContain('schedules: &lt;b&gt;timeout&lt;/b&gt;');                // escaped
     expect(mail.html).toContain('https://admin.vyact.app/health');
-    expect(api.rpc).toHaveBeenCalledWith('record_job_run', expect.objectContaining({ p_job: 'job-health', p_status: 'ok', p_summary: { problems: 2, emailed: 1 } }));
+    expect(api.rpc).toHaveBeenCalledWith('record_job_run', expect.objectContaining({ p_job: 'job-health', p_status: 'ok', p_summary: { problems: 2, emailed: 1, spend_pct: 2 } }));
     // The email fails: the claims are given back, the run is failed.
     claims = 0;
     vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 500 }));

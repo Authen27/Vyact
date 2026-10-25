@@ -36,7 +36,7 @@ import type { IntentResult, AssistantBucket } from './askVyactIntents';
 import { normaliseChips, type AssistantChip, type ResolveResult, type RecurringSeed, type LoanSeed } from './askVyactResponses';
 import {
   classifyIntentViaModel, phraseViaModel, phraseData,
-  InventedFigureError, ModelUnavailableError, OffScopeReplyError, LOW_CONFIDENCE, type ModelCall,
+  InventedFigureError, ModelLimitError, ModelUnavailableError, OffScopeReplyError, LOW_CONFIDENCE, type ModelCall,
 } from './askVyactLlm';
 import { resolveConfiguredModelCall } from './askVyactModelCall';
 import { isAskVyactBucketEnabled, FEATURES } from '../config/features';
@@ -2265,7 +2265,10 @@ export class LlmBackend implements AssistantBackend {
     intent: IntentResult, result: ResolveResult, ctx?: AssistantContext, _seed?: number,
     prevAllowed: readonly string[] = [],
   ): Promise<string> {
-    return phraseViaModel(intent, result, this.call, prevAllowed, ctx?.channel ?? 'app');
+    // v10.135.0 (Q7): the person's own answer length and language, remembered on their profile.
+    return phraseViaModel(intent, result, this.call, prevAllowed, ctx?.channel ?? 'app', {
+      answerLength: ctx?.profile?.pipAnswerLength, language: ctx?.profile?.language,
+    });
   }
 }
 
@@ -2356,6 +2359,7 @@ export async function runAssistant(
   try {
     intent = await backend.classifyIntent(utterance, ctx);         // stages 1–3
   } catch (err) {
+    if (err instanceof ModelLimitError) return limitTurn(err);
     if (err instanceof ModelUnavailableError) return unavailableTurn('unreachable');
     throw err;
   }
@@ -2457,6 +2461,7 @@ export async function runAssistant(
   try {
     reply = await backend.phraseResponse(effective, result, ctx, seed, prevAllowed);
   } catch (err) {
+    if (err instanceof ModelLimitError) return limitTurn(err);
     if (err instanceof ModelUnavailableError) return unavailableTurn('unreachable');
     // The model put a figure in the reply that no tool computed. Discard the
     // whole reply: showing an invented number in a finance app is the one
@@ -2494,6 +2499,26 @@ const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
   unverified_figures: "I couldn't verify the numbers in that answer, so I haven't shown it. Please ask again.",
   off_scope: "That answer wasn't about your money, so I haven't shown it. Ask me about your spending, budgets, bills or plans.",
 };
+
+/** v10.135.0 (Track Q7; audit OPS-11) — when one of Pip's limits applies, say which, and when to ask again. */
+export function limitCopy(limit: ModelLimitError['limit'], retryAfterSec: number | null): string {
+  const when = retryAfterSec == null ? null
+    : retryAfterSec <= 60 ? 'in a minute' : `in ${Math.ceil(retryAfterSec / 60)} minutes`;
+  switch (limit) {
+    case 'quota_exceeded':
+      return "You've reached today's limit for questions to Pip. It frees up over the next 24 hours, and the rest of Vyact works as usual.";
+    case 'rate_limited':
+      return `That's a lot of questions at once. Ask again ${when ?? 'in a minute'}.`;
+    case 'cooldown':
+      return `I only help with your household's money, so I'm pausing for a few minutes. Ask me about your spending, budgets, bills or plans ${when ?? 'shortly'}.`;
+    case 'global_limit':
+      return 'Pip has answered as many questions as it can today. Please try again later. Your data is untouched.';
+  }
+}
+
+function limitTurn(err: ModelLimitError): AssistantTurn {
+  return { reply: limitCopy(err.limit, err.retryAfterSec), bucket: 'none', intentId: 'unavailable', clarify: true };
+}
 
 function unavailableTurn(reason: UnavailableReason): AssistantTurn {
   return {

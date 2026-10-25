@@ -63,70 +63,51 @@ describe('actual Ask Vyact gateway handler', () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
-  describe('Claude Code relay (v10.37, test-only)', () => {
-    const relayId = '30000000-0000-4000-8000-000000000001';
-    const relayConfig = { id: 'relay', seam: 'assistant', provider: 'claude-code-relay', model: 'claude-opus-5 (Claude Code)',
-      base_url: 'https://claude-code.relay', key_env_var: null, params: { allowed_user_ids: ['user'] }, enabled: true, priority: 200 };
-    const ask = { op: 'classify', input: 'How am I doing?' };
-    const messages = [{ role: 'system', content: CLASSIFY_SYSTEM }, { role: 'user', content: 'How am I doing?' }];
-
-    it('queues an allowlisted user\'s call instead of calling a provider and answers 202', async () => {
-      api.from.mockReturnValueOnce(queryResult([relayConfig, config]));
-      const queue = queryResult({ id: relayId });
-      api.from.mockReturnValueOnce(queue);
-      const result = await handler(request(ask));
-      expect(result.status).toBe(202);
-      expect(await result.json()).toMatchObject({ ok: false, enabled: true, error: 'relay_pending', relayId });
-      expect(api.from).toHaveBeenLastCalledWith('ask_vyact_relay');
-      expect(queue.insert).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'user', reservation_id: 'reservation',
-        call_kind: 'classify', messages }));
-      expect(api.rpc).toHaveBeenCalledWith('reserve_ai_usage', expect.objectContaining({ p_user_id: 'user' }));
+  describe("Pip's limits (v10.135.0, Track Q7; OPS-11)", () => {
+    it('Q7-102 · a refusal on the sequential path names its limit; the provider is never called', async () => {
+      api.from.mockReturnValueOnce(queryResult([config]));
+      const cases: [Record<string, string>, number, string][] = [
+        [{ code: '42901', message: 'quota_exceeded' }, 429, 'quota_exceeded'],
+        [{ code: '42901', message: 'rate_limited' }, 429, 'rate_limited'],
+        [{ code: '42901', message: 'cooldown' }, 429, 'cooldown'],
+        [{ code: '42901', message: 'global_exceeded' }, 429, 'global_limit'],
+        [{ code: '55000', message: 'quota_misconfigured' }, 503, 'quota_misconfigured'],
+        [{ code: 'XX000', message: 'connection reset' }, 503, 'quota_check_failed'],
+      ];
+      for (const [error, status, code] of cases) {
+        api.rpc.mockResolvedValueOnce({ data: null, error });
+        const result = await handler(request({ op: 'classify', input: 'Hello' }));
+        expect(result.status, code).toBe(status);
+        expect(await result.json(), code).toMatchObject({ ok: false, error: code });
+      }
       expect(provider).not.toHaveBeenCalled();
     });
 
-    it('a user who is not allowlisted resolves the next config and never touches the relay', async () => {
-      api.auth.getUser.mockResolvedValue({ data: { user: { id: 'other' } }, error: null });
-      api.from.mockReturnValueOnce(queryResult([relayConfig, config])).mockReturnValueOnce(queryResult(null));
-      const result = await handler(new Request('https://edge.example.com/ask-vyact', { method: 'POST', headers: {
-        Authorization: `Bearer ${userToken('other')}`, Origin: 'https://vyact.app', 'Content-Type': 'application/json' },
-        body: JSON.stringify(ask) }));
-      expect(result.status).toBe(200);
-      expect(await result.json()).toMatchObject({ ok: true, text: 'Computed facts received.' });
+    it("Q7-103 · 'off' at the gateway still reserves: the database's own limits apply (p_cap null)", async () => {
+      vi.resetModules();
+      handler = await captureHandler(() => import('../../../../supabase/functions/ask-vyact/index'), { ASK_VYACT_DAILY_CALL_CAP: 'off' });
+      api.from.mockReturnValueOnce(queryResult([config])).mockReturnValueOnce(queryResult(null));
+      expect((await handler(request({ op: 'classify', input: 'Hello' }))).status).toBe(200);
+      expect(api.rpc).toHaveBeenCalledWith('reserve_ai_usage', { p_user_id: 'user', p_household_id: null, p_surface: 'chat', p_cap: null });
       expect(provider).toHaveBeenCalledOnce();
-      expect(api.from).not.toHaveBeenCalledWith('ask_vyact_relay');
     });
 
-    it('a poll returns the relay answer and finalises the reservation as ok', async () => {
-      const row = queryResult({ id: relayId, status: 'answered', created_at: '2026-09-15T10:00:00Z',
-        answered_at: '2026-09-15T10:00:09Z', response: 'You spent less than usual.', reservation_id: 'reservation' });
-      const meter = queryResult(null);
-      api.from.mockReturnValueOnce(row).mockReturnValueOnce(meter);
-      const result = await handler(request({ relayPoll: relayId }));
-      expect(result.status).toBe(200);
-      const body = await result.json();
-      expect(body).toMatchObject({ ok: true, text: 'You spent less than usual.', latencyMs: 9000 });
-      expect(body).not.toHaveProperty('provider');
-      expect(row.eq).toHaveBeenCalledWith('user_id', 'user');
-      expect(meter.update).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'ok', provider: 'claude-code-relay', latency_ms: 9000 }));
-      expect(api.rpc).not.toHaveBeenCalled();
-      expect(provider).not.toHaveBeenCalled();
-    });
-
-    it('a poll for a row the caller does not own is not found', async () => {
-      api.from.mockReturnValueOnce(queryResult(null));
-      const result = await handler(request({ relayPoll: relayId }));
-      expect(result.status).toBe(404);
-    });
-
-    it('a poll still pending is 202; past the TTL it expires as a 504 timeout', async () => {
-      api.from.mockReturnValueOnce(queryResult({ id: relayId, status: 'pending', created_at: new Date().toISOString(), reservation_id: null }));
-      expect((await handler(request({ relayPoll: relayId }))).status).toBe(202);
-      const stale = queryResult(null);
-      api.from.mockReturnValueOnce(queryResult({ id: relayId, status: 'pending', created_at: '2020-01-01T00:00:00Z', reservation_id: 'reservation' }))
-        .mockReturnValueOnce(stale).mockReturnValueOnce(queryResult(null));
-      const expired = await handler(request({ relayPoll: relayId }));
-      expect(expired.status).toBe(504);
-      expect(stale.update).toHaveBeenCalledWith({ status: 'expired' });
+    it('Q7-104 · a classify call the model placed off topic is recorded as off_topic on its own row; nothing else is', async () => {
+      const answer = (content: string) => provider.mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content }, finish_reason: 'stop' }], usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 } }), { status: 200 }));
+      const meters = [queryResult(null), queryResult(null), queryResult(null)];
+      // The config is read once and kept by the isolate (v10.106.3); each request then finalises its own row.
+      api.from.mockReturnValueOnce(queryResult([config])).mockReturnValueOnce(meters[0]).mockReturnValueOnce(meters[1]).mockReturnValueOnce(meters[2]);
+      answer('```json\n{"id":"off_topic","entities":{},"confidence":0.9}\n```');
+      await handler(request({ op: 'classify', input: 'write me a poem' }));
+      answer('{"id":"interpret.lookup","entities":{},"confidence":0.9}');
+      await handler(request({ op: 'classify', input: 'food this month?' }));
+      answer('{"id":"off_topic"}');
+      await handler(request({ op: 'phrase', input: '{"facts":{}}' }));
+      expect(meters[0].update).toHaveBeenCalledWith(expect.objectContaining({ intent: 'off_topic', outcome: 'ok' }));
+      expect(meters[1].update.mock.calls[0][0]).not.toHaveProperty('intent');
+      expect(meters[2].update.mock.calls[0][0]).not.toHaveProperty('intent');   // only a classify call is read
+      expect(JSON.stringify(meters.map(m => m.update.mock.calls))).not.toMatch(/poem|food this month/);
     });
   });
 
