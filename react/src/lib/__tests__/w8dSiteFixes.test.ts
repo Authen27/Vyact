@@ -17,7 +17,9 @@ const repo = resolve(__dirname, '../../../..');
 const read = (p: string) => readFileSync(resolve(repo, p), 'utf8').replace(/\r\n/g, '\n');
 const res = () => ({ status: vi.fn().mockReturnThis(), send: vi.fn(), setHeader: vi.fn(), redirect: vi.fn() });
 
-describe('W8d · site, platform and docs', () => {
+// v10.130.0: these cases read every source file or every migration from disk. Cold, on a loaded Windows machine,
+// that passed the 5-second default; the time is disk, not the code under test.
+describe('W8d · site, platform and docs', { timeout: 20_000 }, () => {
   it('W8d-PUB06-001 · made-up deep paths reach the middleware and get a real 404 (FE-PUB-06)', () => {
     const re = new RegExp(`^${mw.config.matcher[0]}$`);
     // Real routes and static files are still skipped (vercel.json serves them).
