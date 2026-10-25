@@ -94,6 +94,17 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
   }) => {
     await networth.goto();
 
+    // The seeded assets arrive after first paint. Reading the store before they land raced ("Seed asset missing"),
+    // so wait for them, as a user would.
+    await page.waitForFunction(() => {
+      const win = window as typeof window & {
+        __vt_store?: { getState(): { assets: { name: string }[] } };
+        __ff_store?: { getState(): { assets: { name: string }[] } };
+      };
+      const store = win.__vt_store ?? win.__ff_store;
+      return !!store?.getState().assets.some(a => a.name === 'E2E Checking');
+    });
+
     // UI gap: asset rows expose icon-only edit buttons with no accessible name.
     // Open the edit modal via the dev store hook until the row actions have a
     // stable accessible contract.
