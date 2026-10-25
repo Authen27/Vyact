@@ -4,7 +4,7 @@ import { canAccessPage as can, homePath } from '../permissions';
 // Audit 7.5; v1.5.0 (ADM-07; owner, 20 Oct 2026: "narrow the pages"): a page is offered only to the tiers whose
 // calls the server accepts (lib/permissions.ts). Content admins no longer see the Dashboard (its figures are the
 // roles tier's), and roles admins no longer see AI Intelligence (the content tier's).
-const PRIVILEGED = ['dashboard', 'users', 'households', 'subscriptions', 'content', 'audit', 'intelligence', 'settings'];
+const PRIVILEGED = ['dashboard', 'users', 'households', 'subscriptions', 'content', 'audit', 'health', 'intelligence', 'settings'];
 
 describe('admin route gating (audit 7.5, ADM-07)', () => {
   it('CON-UNIT-ADM-001 · a content admin reaches Content and AI Intelligence (and Help), and lands on Content', () => {
@@ -17,7 +17,7 @@ describe('admin route gating (audit 7.5, ADM-07)', () => {
 
   it('CON-UNIT-ADM-002 · a roles admin reaches the Dashboard and the people pages, never content, AI, subscriptions or settings', () => {
     for (const p of PRIVILEGED) {
-      expect(can('roles', p), `roles → ${p}`).toBe(['dashboard', 'users', 'households', 'audit'].includes(p));
+      expect(can('roles', p), `roles → ${p}`).toBe(['dashboard', 'users', 'households', 'audit', 'health'].includes(p));
     }
     expect(homePath('roles')).toBe('/');
   });

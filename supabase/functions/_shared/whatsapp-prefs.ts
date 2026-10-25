@@ -11,8 +11,10 @@
 //                 bill, a split). Some of these can be muted; bills and large-spend
 //                 alerts cannot, so STOP never silences a possible fraud warning.
 //   • insights  — interpretations of their data (payday room, the evening digest,
-//                 the month close). Off until they say yes; never bundled with
-//                 marketing.
+//                 the weekly summary, the month close). Off until they say yes; never
+//                 bundled with marketing. v10.132.0 (Q4, Q-WA-01; owner, 20 Oct 2026):
+//                 the weekly summary moved here from marketing. It is a Utility template
+//                 at Meta, and under marketing it never reached people who get the digest.
 //   • marketing — anything Meta classes as marketing. Off until they opt in, with
 //                 the time and place they did so recorded.
 
@@ -45,7 +47,7 @@ export const TOPICS = {
   runway: { label: 'savings-runway notes', mutable: true, consent: 'marketing' },
   setup: { label: 'budget set-up reminders', mutable: true, consent: 'marketing' },
   balances: { label: 'balance check reminders', mutable: true, consent: 'marketing' },
-  weekly: { label: 'weekly summaries', mutable: true, consent: 'marketing' },
+  weekly: { label: 'weekly summaries', mutable: true, consent: 'insights' },
   tips: { label: 'tips', mutable: true, consent: 'marketing' },
 } as const satisfies Record<string, TopicDef>;
 
@@ -201,7 +203,8 @@ export function prefsSummary(prefs: WaPrefs, appUrl: string): string {
   const on: string[] = ['Bill reminders and large-spend alerts (always)'];
   const off: string[] = [];
   for (const id of ['budgets', 'splits'] as TopicId[]) (prefs.muted_topics.includes(id) ? off : on).push(cap(TOPICS[id].label));
-  (prefs.marketing_opt_in ? on : off).push('Tips and weekly summaries');
+  (prefs.insights_opt_in ? on : off).push('Insights: payday, the evening digest, the weekly summary and the month close');
+  (prefs.marketing_opt_in ? on : off).push('Tips and reminders');
   (prefs.reads_enabled ? on : off).push('Answers to your questions (ANSWERS ON / ANSWERS OFF)');
   const lines = [`What I send you here:\n• ${on.join('\n• ')}`];
   if (off.length) lines.push(`Off:\n• ${off.join('\n• ')}`);

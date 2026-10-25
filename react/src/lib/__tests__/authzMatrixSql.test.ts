@@ -231,7 +231,7 @@ const TABLES: TableCase[] = [
 ];
 
 /** Tables that RLS closes to the API completely (no policy for anon, authenticated or public). */
-const SERVER_ONLY = ['admin_audit', 'ask_vyact_relay', 'invite_email_log', 'migration_issues', 'push_deliveries',
+const SERVER_ONLY = ['admin_audit', 'ask_vyact_relay', 'invite_email_log', 'job_alerts', 'job_runs', 'migration_issues', 'push_deliveries',
   'push_subscriptions', 'split_email_log', 'whatsapp_identities', 'whatsapp_inbound_messages', 'whatsapp_pending_turns', 'whatsapp_preferences',
   'whatsapp_rule_state', 'whatsapp_verification_otps'];
 
@@ -442,6 +442,7 @@ const SIGNED_IN_CALLABLE: Record<string, 'household' | 'caller' | 'staff' | 'pol
   'admin_weekly_trend(integer)': 'staff', 'admin_list_users_page(integer,integer,text)': 'staff',
   'admin_list_households(integer,integer,text)': 'staff', 'admin_staff_audit(integer,timestamp with time zone)': 'staff',
   'grant_admin_role(uuid,text)': 'staff', 'revoke_admin_role(uuid)': 'staff', 'admin_people_summary()': 'staff',
+  'admin_job_health()': 'staff', 'admin_job_runs(text,integer)': 'staff',
   'is_admin(text)': 'policy helper', 'is_split_participant(uuid)': 'policy helper', 'owns_shared_split(uuid)': 'policy helper',
   'agent_conversation_in_household(uuid,uuid)': 'policy helper',
 };
@@ -495,6 +496,9 @@ const RPCS = (): RpcCase[] => [
   { name: 'admin_list_households', sql: `select * from admin_list_households(10, 0, null)`, expect: { superAdmin: 'ok', rolesAdmin: 'ok' } },
   { name: 'admin_people_summary', sql: `select admin_people_summary()`, expect: { superAdmin: 'ok', rolesAdmin: 'ok' } },
   { name: 'admin_staff_audit', sql: `select * from admin_staff_audit(10, null)`, expect: { superAdmin: 'ok' } },
+  // Q4 (v10.132.0, OPS-06): the admin Health page.
+  { name: 'admin_job_health', sql: `select * from admin_job_health()`, expect: { superAdmin: 'ok', rolesAdmin: 'ok' } },
+  { name: 'admin_job_runs', sql: `select count(*) from admin_job_runs('recurring-post', 5)`, expect: { superAdmin: 'ok', rolesAdmin: 'ok' } },
   { name: 'grant_admin_role', sql: `select grant_admin_role('${UID.outsider}', 'content')`, expect: { superAdmin: 'ok' } },
   { name: 'revoke_admin_role', sql: `select revoke_admin_role('${UID.contentAdmin}')`, expect: { superAdmin: 'ok' } },
 ];

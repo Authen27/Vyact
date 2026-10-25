@@ -148,7 +148,8 @@ describe('consent is recorded with the account, and asked again on change (XC-PR
   it('T4B-004 · sign-up sends the policy version it showed, for the server to record (T4a)', async () => {
     await signUp({ email: 'a@example.com', password: 'longenough', displayName: 'Asha' });
     expect(sbMock.signUp.mock.calls[0][0].options.data).toMatchObject({ display_name: 'Asha', policy_version: POLICY_VERSION });
-    expect(POLICY_VERSION).toBe('2026-10-19');
+    // Moved to 2026-10-25 by Q4 (v10.132.0): Privacy names Sentry.
+    expect(POLICY_VERSION).toBe('2026-10-25');
   });
 
   it('T4B-005 · the sheet says what changed and asks to accept (18 or older); AuthGate asks only when the record is older, never over the legal pages', () => {

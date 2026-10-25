@@ -39,6 +39,8 @@ describe('every migration replays, in order, on an empty database (OPS-02)', () 
   it('Q2-RP-003 · a new project gets these scheduled jobs, at these times', async () => {
     const jobs = await q<{ jobname: string; schedule: string }>(`select jobname, schedule from cron.job order by jobname`);
     expect(jobs).toEqual([
+      // Q4 (v10.132.0, OPS-06): the hourly check that emails the owner about a job that failed or stopped.
+      { jobname: 'job-health', schedule: '55 * * * *' },
       { jobname: 'loan-auto-record', schedule: '20,50 * * * *' },
       { jobname: 'recurring-post', schedule: '10,40 * * * *' },
       { jobname: 'web-push-dispatch', schedule: '*/15 * * * *' },
@@ -68,6 +70,13 @@ describe('every migration replays, in order, on an empty database (OPS-02)', () 
     expect(broken).toEqual([]);
     // With no project_url in Vault (T5d), the HTTP jobs call nothing.
     expect(await q(`select 1 from net.http_request_queue`)).toEqual([]);
+  });
+
+  it('Q4-RP-007 · every scheduled job is watched by job_health(), and job_health() watches only scheduled jobs', async () => {
+    // Q4 (v10.132.0, OPS-06): a new job must join job_expectations() with its cadence, or it could stop unnoticed.
+    const scheduled = (await q<{ jobname: string }>(`select jobname from cron.job order by 1`)).map(j => j.jobname);
+    const watched = (await q<{ job: string }>(`select job from job_expectations() order by 1`)).map(j => j.job);
+    expect(watched).toEqual(scheduled);
   });
 
   it('Q2-RP-005 · row-level security is on for every table in public', async () => {

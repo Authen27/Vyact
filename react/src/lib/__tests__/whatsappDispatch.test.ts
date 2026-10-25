@@ -45,7 +45,9 @@ describe('topics and consent', () => {
   });
 
   it('CON-UNIT-WA-D-003 · marketing needs opt-in, insights needs opt-in, a muted topic is refused', () => {
-    expect(refusalFor(TEMPLATES.weekly_summary, DEFAULT_PREFS)).toBe('marketing_consent_required');
+    // v10.132.0 (Q4, Q-WA-01): the weekly summary is an insight, like the digest; a nudge is still marketing.
+    expect(refusalFor(TEMPLATES.weekly_summary, DEFAULT_PREFS)).toBe('insights_consent_required');
+    expect(refusalFor(TEMPLATES.balance_stale_nudge, DEFAULT_PREFS)).toBe('marketing_consent_required');
     expect(refusalFor(TEMPLATES.payday_headroom, DEFAULT_PREFS)).toBe('insights_consent_required');
     expect(refusalFor(TEMPLATES.budget_threshold_alert, { ...DEFAULT_PREFS, muted_topics: ['budgets'] })).toBe('muted');
     // A marketing-classed template needs marketing even if its topic is utility-by-default.
@@ -64,9 +66,13 @@ describe('topics and consent', () => {
     const bills = applyPrefCommand(DEFAULT_PREFS, { kind: 'stop', topic: 'bills' });
     expect(bills.prefs).toEqual(DEFAULT_PREFS);
     expect(bills.reply).toContain("can't be switched off here");
+    const tips = applyPrefCommand(DEFAULT_PREFS, { kind: 'start', topic: 'tips' });
+    expect(tips.reply).toContain('only come once you turn on');             // START never grants marketing consent
+    expect(tips.prefs.marketing_opt_in).toBe(false);
+    // v10.132.0 (Q4): the weekly summary waits for insights, which START never grants either.
     const weekly = applyPrefCommand(DEFAULT_PREFS, { kind: 'start', topic: 'weekly' });
-    expect(weekly.reply).toContain('only come once you turn on');           // START never grants marketing consent
-    expect(weekly.prefs.marketing_opt_in).toBe(false);
+    expect(weekly.reply).toBe('Weekly summaries are unmuted. They start once you turn on insights in the app: Settings › WhatsApp.');
+    expect(weekly.prefs.insights_opt_in).toBe(false);
   });
 
   it('CON-UNIT-WA-D-005 · every quick reply in the manifest is answered, or is a named W3 button', () => {

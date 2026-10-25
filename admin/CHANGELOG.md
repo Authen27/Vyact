@@ -4,8 +4,21 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.5.0`**
+> **Current production version: `v1.6.0`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.6.0 — Health: every scheduled job, and whether it is running *(2026-10-25)*
+
+Ships with consumer v10.132.0 (Track Q, part 4) and reads its migration: merge after its Deploy is green. Audit
+OPS-06, DB-OPS-08; owner decision D9, 20 Oct 2026.
+
+- **Health** (roles tier and super admins) lists every scheduled job: what it does, how often it runs, when it last
+  ran, how that run ended, and runs and failures in 24 hours. A job that failed on its last run, partly failed twice
+  in a row, or has not run for two of its intervals is marked; it is what the owner's hourly email is about.
+- A row opens its last 20 runs: counts and the error only, never a household's data.
+- **Help** says what Health shows, and that the app's and the server's errors reach Sentry, scrubbed.
 
 ---
 

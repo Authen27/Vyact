@@ -5,6 +5,7 @@
 //   users         admin_list_users_page, admin_people_summary, grant/revoke     → roles tier (role changes: super)
 //   households    admin_list_households, admin_people_summary                   → roles tier
 //   audit         admin_activity_feed (roles tier); Staff actions: admin_staff_audit (super)
+//   health        admin_job_health, admin_job_runs (v1.6.0, Q4)                → roles tier
 //   intelligence  admin_ai_usage_summary, admin_ai_feedback_summary             → content tier (super, content)
 //   content       content_items and the infographics bucket                     → content tier
 //   subscriptions, settings                                                      → super
@@ -18,6 +19,7 @@ export const PAGE_ROLES = {
   subscriptions: ['super'],
   content: ['super', 'content'],
   audit: ['super', 'roles'],
+  health: ['super', 'roles'],
   intelligence: ['super', 'content'],
   settings: ['super'],
   help: ['super', 'roles', 'content'],

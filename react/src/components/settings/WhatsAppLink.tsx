@@ -24,10 +24,11 @@ const MUTABLE_TOPICS: { id: string; label: string; hint: string }[] = [
   { id: 'recurring', label: 'Scheduled payments', hint: 'When a payment that posts itself has posted, with Undo.' },
 ];
 
-/** v10.47.0 — insight topics, sent only with insights on. */
+/** v10.47.0 — insight topics, sent only with insights on. v10.132.0 (Q4, Q-WA-01): the weekly summary is one. */
 const INSIGHT_TOPICS: { id: string; label: string; hint: string }[] = [
   { id: 'payday', label: 'Payday', hint: 'When your salary lands: the room left after your fixed bills.' },
   { id: 'digest', label: 'Evening digest', hint: 'At 8:30 pm, what your household spent today (households of two or more).' },
+  { id: 'weekly', label: 'Weekly summary', hint: 'On Sunday at 6 pm, what you spent that week and the top category.' },
   { id: 'summary', label: 'Month close', hint: 'On the 1st, how last month went.' },
 ];
 
@@ -104,7 +105,8 @@ function WhatsAppMessages() {
           <span>
             <span className="block text-[0.84rem] text-ink">Insights about my money</span>
             <span className="block text-[0.74rem] text-ink-dim">
-              Payday, the evening digest and the month close read your figures, so they only come if you turn them on.
+              Payday, the evening digest, the weekly summary and the month close read your figures, so they only come
+              if you turn them on.
             </span>
           </span>
           <input type="checkbox" checked={prefs.insights_opt_in} disabled={busy}
@@ -122,10 +124,11 @@ function WhatsAppMessages() {
         ))}
         <label className={`${row} border-t border-line cursor-pointer`}>
           <span>
-            <span className="block text-[0.84rem] text-ink">Tips, weekly summary and reminders</span>
+            <span className="block text-[0.84rem] text-ink">Tips and reminders</span>
             <span className="block text-[0.74rem] text-ink-dim">
-              Weekly summary, balance and budget set-up reminders, runway notes and tips. WhatsApp counts these as
-              promotional, so they only come if you turn them on.
+              Reminders to check your balances or set up a budget, savings-runway notes, tips, and a nudge if you
+              haven&apos;t logged anything in a while. WhatsApp counts these as promotional, so they only come if you turn
+              them on.
             </span>
           </span>
           <input type="checkbox" checked={prefs.marketing_opt_in} disabled={busy}

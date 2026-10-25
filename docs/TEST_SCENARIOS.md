@@ -25,21 +25,21 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1653 passing deterministic cases in 187 files. Zero failed, skipped or TODO cases at generation.**
+**1680 passing deterministic cases in 190 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
-| admin | unit | available | 17 |
+| admin | unit | available | 21 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 132 |
 | react | contract-unit | conditional | 132 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 170 |
+| react | sql-integration | conditional | 179 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
-| react | unit | available | 458 |
+| react | unit | available | 472 |
 | react | unit | conditional | 236 |
 | react | unit | infrastructure | 229 |
 
@@ -51,6 +51,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [admin/src/lib/__tests__/contentApi.test.ts](../admin/src/lib/__tests__/contentApi.test.ts) | Admin content and permissions | unit | conditional | 11 |
 | [admin/src/lib/__tests__/contentWorkflow.test.ts](../admin/src/lib/__tests__/contentWorkflow.test.ts) | Admin publication | contract-unit | conditional | 5 |
 | [admin/src/lib/__tests__/q3bAdminPages.test.ts](../admin/src/lib/__tests__/q3bAdminPages.test.ts) | Admin pages on the server tiers (Q3b) | unit | available | 8 |
+| [admin/src/lib/__tests__/q4HealthPage.test.ts](../admin/src/lib/__tests__/q4HealthPage.test.ts) | Admin Health page (Q4) | unit | available | 4 |
 | [admin/src/lib/__tests__/roleGating.test.ts](../admin/src/lib/__tests__/roleGating.test.ts) | Admin content and permissions | unit | conditional | 4 |
 | [admin/src/lib/__tests__/w8cAdminFixes.test.ts](../admin/src/lib/__tests__/w8cAdminFixes.test.ts) | Admin fixes (W8c) | unit | available | 6 |
 | [react/src/components/ui/__tests__/estimatedTag.test.ts](../react/src/components/ui/__tests__/estimatedTag.test.ts) | Estimate provenance | unit | available | 5 |
@@ -141,7 +142,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 14 |
 | [react/src/lib/__tests__/loanScheduleParity.test.ts](../react/src/lib/__tests__/loanScheduleParity.test.ts) | Loan arithmetic parity | sql-integration | conditional | 2 |
-| [react/src/lib/__tests__/migrationReplaySql.test.ts](../react/src/lib/__tests__/migrationReplaySql.test.ts) | Every migration replays (Q2) | sql-integration | conditional | 6 |
+| [react/src/lib/__tests__/migrationReplaySql.test.ts](../react/src/lib/__tests__/migrationReplaySql.test.ts) | Every migration replays (Q2) | sql-integration | conditional | 7 |
 | [react/src/lib/__tests__/money.test.ts](../react/src/lib/__tests__/money.test.ts) | Money model | unit | available | 8 |
 | [react/src/lib/__tests__/moneyModel.engines.test.ts](../react/src/lib/__tests__/moneyModel.engines.test.ts) | Money model | unit | available | 9 |
 | [react/src/lib/__tests__/moneyModel.invariants.test.ts](../react/src/lib/__tests__/moneyModel.invariants.test.ts) | Money model | unit | available | 19 |
@@ -179,6 +180,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/pushPrivacy.test.tsx](../react/src/lib/__tests__/pushPrivacy.test.tsx) | Lock-screen details and the Android app (T4c) | contract-unit | available | 4 |
 | [react/src/lib/__tests__/q3aDatabaseSql.test.ts](../react/src/lib/__tests__/q3aDatabaseSql.test.ts) | Database fixes from Track Q3a | sql-integration | conditional | 16 |
 | [react/src/lib/__tests__/q3bActivityActor.test.ts](../react/src/lib/__tests__/q3bActivityActor.test.ts) | Activity feed actor (Q3b) | unit | available | 1 |
+| [react/src/lib/__tests__/q4JobHealthSql.test.ts](../react/src/lib/__tests__/q4JobHealthSql.test.ts) | Job runs and health (Q4) | sql-integration | conditional | 8 |
+| [react/src/lib/__tests__/q4Observability.test.ts](../react/src/lib/__tests__/q4Observability.test.ts) | Observability and WhatsApp consent (Q4) | unit | available | 14 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |

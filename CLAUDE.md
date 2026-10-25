@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.131.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.132.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.5.0**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.6.0**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -651,7 +651,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `templates-submit.mjs --apply` yourself; submitting is the owner's action with the owner's token.
   **v10.42.0 (W2a): every proactive send goes through `guardedSend` (`_shared/whatsapp-send.ts`)** —
   notify and the `whatsapp-dispatch` scheduler alike. Consent lives in `whatsapp_preferences`
-  (marketing and insights OFF until given in the app; `START` in chat never grants it). Bills and
+  (marketing and insights OFF until given in the app; `START` in chat never grants it). **The weekly summary is an
+  insight (v10.132.0, Q4; Q-WA-01; owner, 20 Oct 2026)**, like the digest: `TOPICS.weekly` needs insights, and the
+  weekly job plans the summary for insights and its balance and re-engagement nudges for marketing. Bills and
   large-spend alerts cannot be muted. Scheduler figures come from the APP's engine (v10.96.0, Track E:
   `txnsFromRows` maps rows with the app's adapter, `spendRows` is what counts as spending; the
   `_shared/money` hand port is deleted, never bring one back). **Since v10.122.0 (T5c; audit XC-ARC-06,
@@ -824,6 +826,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     table, `PAGE_ROLES` in `admin/src/lib/permissions.ts`, drives the sidebar and the routes: Dashboard, Users,
     Households and Audit are the roles tier's, Content and AI Intelligence the content tier's, Subscriptions and
     Settings super's. A new admin page joins that table with the tiers its RPCs accept; never a second list.
+    Health (admin v1.6.0, Q4) is the roles tier's: `admin_job_health()` / `admin_job_runs()`.
     Admin previews build only on `staging` / `develop` (`admin/scripts/ignore-build.sh`) and never against production
     (`admin/previewGuard.ts`). A `vercel.json` command is at most 256 characters (Q3B-PUB-001); longer logic goes in a
     script, or Vercel refuses every deployment.
@@ -856,6 +859,20 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     the choice only through `lib/analyticsConsent.ts`. The redacted `page_location` (W0) is the script's.
   - The Privacy Policy names every processor with where it is. A new third party is added there, and to
     `POLICY_CHANGES` with a new `POLICY_VERSION`, before it receives anyone's data.
+  - **Userback never loads on localhost, a `.test` host or the demo (v10.132.0, Q4; XC-PRV-03; owner, 20 Oct 2026)**;
+    it stays on the real site and in the Android app (`lib/feedbackWidget.ts`, read by `main.tsx`).
+- **Errors reach Sentry, scrubbed (v10.132.0, Q4; audit OPS-06, FE-UIS-12; owner decision D9: "EU, errors only,
+  scrubbed, never replay").**
+  - The app (`lib/errorReport.ts`) reports unexpected faults (`setFaultTransport`, so the ErrorBoundary too) and
+    uncaught errors from its own scripts; the Edge Functions (`_shared/errorReport.ts`) report a job that throws
+    (`withJobRun`). No SDK: one envelope POST, the same error once, at most 10 a page load.
+  - What leaves: the error's type, its message through `scrub` (no email, id, token, number of two digits or more,
+    or query string; 300 characters), the stack's file:line frames, the context tag, the page path through
+    `cleanPath`, the version and the platform. Never a request body, a household's data, the person, the screen
+    (no replay), or a trail of clicks. The two `scrub` copies are identical (Q4-003).
+  - Only a production build on vyact.app / www.vyact.app or in the Android app, with `VITE_SENTRY_DSN` (a public
+    key, in `react/.env.production`); never localhost, a preview, stage/dev or the demo (`reportingAllowed`). The
+    Edge Functions need the `SENTRY_DSN` secret. Network failures and an old build's missing chunk are not sent.
 - **Account lifecycle (v10.63.0, audit W1b; owner decisions).**
   - Deleting an account is **immediate and one database transaction**: `purge_account(user)` (service role only), called by `delete-account`, which deletes the login last. No 30-day schedule — it was never executed and is gone.
   - An owner whose household has other members and no other owner gets `transfer_required`; never delete a household out from under its members.
@@ -1089,6 +1106,16 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   - Never write a host into a migration. They named production until v10.123.0, so vyact-test called
     production every few minutes. A new job copies the T5d form, and T5D-004 fails on a later migration naming
     the production host.
+- **Every scheduled job records its runs (v10.132.0, Q4; audit OPS-06, DB-OPS-08; owner decision D9).**
+  - One row per run in `job_runs` (server-only, 30 days): ok · partial (some of its work failed) · failed, with
+    counts only and the error. Edge jobs run through `withJobRun` (`_shared/jobRuns.ts`); the SQL jobs through
+    `run_loan_auto_record()` / `run_retention()`. A job's run name is its cron job's name.
+  - `job_health()` reads each job in `job_expectations()` against its cadence: failed (last run), partial (last
+    two), late (no run for two intervals + 10 minutes). A new cron job joins `job_expectations()` and records its
+    runs (Q4-RP-007 fails otherwise).
+  - `job-health` (pg_cron hourly, the T5d form, its own Vault secret) emails `HEALTH_ALERT_EMAIL` about each
+    problem once a day (`claim_job_alert`, given back when the email fails). Inert without that secret or an
+    email transport; the admin Health page shows the same.
 
 - **Production's sign-in settings are recorded (v10.126.0, T4c; audit BE-FN-11; owner, 19 Oct 2026: "snapshot
   + drift check").** `supabase/auth-config.json` holds the Supabase Auth settings that matter (redirect URLs,

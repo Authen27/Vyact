@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_LOCAL_ONLY?: string;
   /** v10.57.0 (B20) — '1' on the guest demo build (demo.vyact.app). */
   readonly VITE_DEMO?: string;
+  /** v10.132.0 (Q4, D9) — Sentry's vyact-web DSN (a public key). Reports only from vyact.app and the Android app. */
+  readonly VITE_SENTRY_DSN?: string;
 }
 
 interface ImportMeta {

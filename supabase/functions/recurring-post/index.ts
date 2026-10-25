@@ -18,6 +18,7 @@ import { env, json, corsHeaders } from '../_shared/whatsapp.ts';
 import { isServiceCaller } from '../_shared/service-auth.ts';
 import { localDayIn } from '../_shared/localTime.ts';
 import { recurringPostPlan } from '../_shared/agent/engine.ts';
+import { withJobRun } from '../_shared/jobRuns.ts';
 
 const PAGE = 500;
 /** Occurrences one schedule may post in one run (a daily bill 45 days behind, with room). */
@@ -35,7 +36,9 @@ Deno.serve(async (req: Request) => {
   const { data: cronOk } = given ? await admin.rpc('recurring_post_cron_ok', { p: given }) : { data: false };
   if (!cronOk && !(await isServiceCaller(bearer))) return json({ error: 'forbidden' }, 403);
   try {
-    return json(await postDue(admin, new Date()));
+    // Q4 (OPS-06): the run is recorded in job_runs; a schedule that could not post makes it partial.
+    return json(await withJobRun(admin, 'recurring-post', () => postDue(admin, new Date()),
+      (s) => ({ status: s.errors ? 'partial' : 'ok', summary: { ...s } })));
   } catch (e) {
     console.error('[recurring-post] failed', (e as Error)?.message);
     return json({ error: 'post_failed' }, 500);
