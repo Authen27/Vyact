@@ -40,7 +40,7 @@ export interface FormattedActivity {
   /** Optional one-line diff e.g. "amount: $50 → $65". Empty string when
    *  no meaningful diff was computable (e.g. INSERT/DELETE). */
   diff: string;
-  /** Display name for the actor; "System" when null, "—" when unknown. */
+  /** Display name for the actor; "Vyact (automatic)" when null (an entry written on a schedule). */
   actorName: string;
   /** Tone token consumed by ActivityRow for the left-border accent. */
   tone: 'sage' | 'terra' | 'denim' | 'honey' | 'coral' | 'plum';
@@ -73,7 +73,9 @@ const ENTITY_LABEL: Record<string, { singular: string; iconKey: FormattedActivit
 };
 
 function actorDisplayName(actorId: string | null, members: ResolveCtx['members']): string {
-  if (!actorId) return 'System';
+  // v10.131.0 (Q3b; INT-TXN-14): no actor is an entry Vyact wrote on a schedule (a bill posted, an EMI recorded).
+  // A WhatsApp entry names its sender since v10.130.0.
+  if (!actorId) return 'Vyact (automatic)';
   const m = members.find(x => x.userId === actorId);
   if (m?.name) return m.name;
   // Unknown actor (left the household, removed user, etc.) — show a short

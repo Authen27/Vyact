@@ -6,9 +6,13 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "lib": [
+      "ES2022"
+    ]
   },
   "include": [
-    "vite.config.ts"
+    "vite.config.ts",
+    "previewGuard.ts"
   ]
 }

@@ -4,8 +4,40 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.7`**
+> **Current production version: `v1.5.0`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.5.0 — Each tier sees the pages it can use; staff changes are on the record *(2026-10-25)*
+
+Ships with consumer v10.131.0 and reads what v10.130.0's migrations (Q3a) give it: merge after Q3a's Deploy is
+green. Track Q, part 3b. Owner decisions 20 Oct 2026.
+
+- **Pages follow the server's tiers (ADM-07).**
+  - One table (`PAGE_ROLES`, `lib/permissions.ts`) now drives both the sidebar and the routes.
+  - Content admins no longer see a Dashboard whose figures the server refuses them; they land on Content.
+  - Roles admins no longer see AI Intelligence, which needs the content tier.
+- **Users and Households page on the server (ADM-08, INT-HH-14).**
+  - 100 at a time, searched on the server.
+  - Member counts and the headline figures (confirmed, admins, multi-member, by type) are counted on the server.
+  - Before, both pages loaded whole tables, and past 1,000 rows both the lists and the counts stopped short.
+- **Staff roles (ADM-04).**
+  - Super admins grant and remove a staff role from a person's row, after confirming. Vyact always keeps one
+    super admin.
+  - **Audit Log → Staff actions** (super admins only) lists every staff change: roles, Learn content (which
+    fields, never the text), needs/wants and AI settings, with who and when.
+  - Household entries written on a schedule read "Vyact (automatic)".
+- **MRR per currency (ADM-14).** The Dashboard's "MRR (USD)" tile added rupees to dollars; it now shows each
+  currency.
+- **Infographics (ADM-10).** Only PNG, JPEG or WebP up to 5 MB can be chosen or uploaded, as the bucket now enforces.
+- **Previews (ADM-09, OPS-05).**
+  - Vercel builds admin previews only on `staging` and `develop`.
+  - A preview build that points at the production database fails before it builds (`previewGuard.ts`).
+  - The production fallback in `lib/supabase.ts` is gone.
+  - The admin CSP now also allows vyact-test, which `stage-admin` and `dev-admin` use.
+- **Help** no longer tells you to grant roles in SQL, use a pulse score or a Suspend button the console does not
+  have.
 
 ---
 

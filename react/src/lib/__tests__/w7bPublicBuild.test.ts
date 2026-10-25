@@ -9,6 +9,7 @@ import { readContent, READ_TIMEOUT_MS } from '../../../api/_supabase.js';
 import learnHandler from '../../../api/learn.js';
 import { isCloudBuild } from '../../../scripts/cloudMode.mjs';
 import { landingHtml } from '../../../scripts/landingHtml.mjs';
+import { ADMIN_PREVIEW_SKIP } from './helpers/deploySkip';
 
 const repo = resolve(__dirname, '../../../..');
 const read = (p: string) => readFileSync(resolve(repo, p), 'utf8');
@@ -16,7 +17,9 @@ const read = (p: string) => readFileSync(resolve(repo, p), 'utf8');
 describe('W7b · public site and build config', () => {
   it('W7b-PUB07-001 · the deploy skip compares with the last deployed commit, and builds when unsure (FE-PUB-07, OPS-13)', () => {
     for (const f of ['react/vercel.json', 'admin/vercel.json']) {
-      const cmd = JSON.parse(read(f)).ignoreCommand as string;
+      const raw = JSON.parse(read(f)).ignoreCommand as string;
+      if (f.startsWith('admin')) expect(raw.startsWith(ADMIN_PREVIEW_SKIP), f).toBe(true);
+      const cmd = f.startsWith('admin') ? raw.slice(ADMIN_PREVIEW_SKIP.length) : raw;
       // A push ending in a docs-only commit used to skip the code commits before it (HEAD^..HEAD only).
       expect(cmd, f).not.toMatch(/HEAD\^/);
       // W8d: exit 0 (skip) or exit 1 (build) ONLY — any other code is a Vercel deployment Error. The W7b form

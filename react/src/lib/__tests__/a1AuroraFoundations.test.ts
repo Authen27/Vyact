@@ -19,9 +19,7 @@ function tsxFiles(dir = src): string[] {
 /** The [data-theme="warm"] token block (Mist). */
 const mistBlock = () => read('index.css').split('[data-theme="warm"] {')[1].split('\n}')[0];
 
-// v10.130.0: these cases read every source file or every migration from disk. Cold, on a loaded Windows machine,
-// that passed the 5-second default; the time is disk, not the code under test.
-describe('A1 · Aurora 4.0 foundations', { timeout: 20_000 }, () => {
+describe('A1 · Aurora 4.0 foundations', () => {
   it('A1-X2-001 · three surface tiers; the bg3 + border + 8px tile is retired from the app', () => {
     const css = read('index.css');
     expect(css).toMatch(/\.card-raised \{[^}]*box-shadow: var\(--neu\);[^}]*border-radius: 18px;/);

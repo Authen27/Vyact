@@ -25,12 +25,12 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1643 passing deterministic cases in 185 files. Zero failed, skipped or TODO cases at generation.**
+**1652 passing deterministic cases in 187 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
-| admin | unit | available | 9 |
+| admin | unit | available | 17 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 131 |
 | react | contract-unit | conditional | 132 |
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 75 |
 | react | store-integration | conditional | 44 |
-| react | unit | available | 457 |
+| react | unit | available | 458 |
 | react | unit | conditional | 236 |
 | react | unit | infrastructure | 229 |
 
@@ -50,6 +50,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [admin/src/lib/__tests__/adm03AuditFeed.test.ts](../admin/src/lib/__tests__/adm03AuditFeed.test.ts) | Admin audit without values | unit | available | 3 |
 | [admin/src/lib/__tests__/contentApi.test.ts](../admin/src/lib/__tests__/contentApi.test.ts) | Admin content and permissions | unit | conditional | 11 |
 | [admin/src/lib/__tests__/contentWorkflow.test.ts](../admin/src/lib/__tests__/contentWorkflow.test.ts) | Admin publication | contract-unit | conditional | 5 |
+| [admin/src/lib/__tests__/q3bAdminPages.test.ts](../admin/src/lib/__tests__/q3bAdminPages.test.ts) | Admin pages on the server tiers (Q3b) | unit | available | 8 |
 | [admin/src/lib/__tests__/roleGating.test.ts](../admin/src/lib/__tests__/roleGating.test.ts) | Admin content and permissions | unit | conditional | 4 |
 | [admin/src/lib/__tests__/w8cAdminFixes.test.ts](../admin/src/lib/__tests__/w8cAdminFixes.test.ts) | Admin fixes (W8c) | unit | available | 6 |
 | [react/src/components/ui/__tests__/estimatedTag.test.ts](../react/src/components/ui/__tests__/estimatedTag.test.ts) | Estimate provenance | unit | available | 5 |
@@ -177,6 +178,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/pulseContentSql.test.ts](../react/src/lib/__tests__/pulseContentSql.test.ts) | Pulse content unpublished SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/pushPrivacy.test.tsx](../react/src/lib/__tests__/pushPrivacy.test.tsx) | Lock-screen details and the Android app (T4c) | contract-unit | available | 4 |
 | [react/src/lib/__tests__/q3aDatabaseSql.test.ts](../react/src/lib/__tests__/q3aDatabaseSql.test.ts) | Database fixes from Track Q3a | sql-integration | conditional | 16 |
+| [react/src/lib/__tests__/q3bActivityActor.test.ts](../react/src/lib/__tests__/q3bActivityActor.test.ts) | Activity feed actor (Q3b) | unit | available | 1 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |

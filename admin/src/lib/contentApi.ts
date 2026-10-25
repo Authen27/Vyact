@@ -242,8 +242,21 @@ export function slugify(s: string): string {
 // role check as content_items itself); reads are public.
 const INFOGRAPHIC_BUCKET = 'insight-infographics';
 
+/** ADM-10 (v1.5.0): what the bucket accepts (migration 20261109120300 sets the same on the bucket). */
+export const INFOGRAPHIC_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export const INFOGRAPHIC_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Why an image cannot be an infographic, or null when it can. Checked before anything is uploaded. */
+export function infographicProblem(file: Pick<File, 'type' | 'size'>): string | null {
+  if (!(INFOGRAPHIC_TYPES as readonly string[]).includes(file.type)) return 'Use a PNG, JPEG or WebP image.';
+  if (file.size > INFOGRAPHIC_MAX_BYTES) return 'That image is over 5 MB. Export it smaller and try again.';
+  return null;
+}
+
 /** Uploads a new infographic image and returns its public URL. */
 export async function uploadInfographic(file: File): Promise<string> {
+  const problem = infographicProblem(file);
+  if (problem) throw new Error(problem);
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const path = `${crypto.randomUUID()}.${ext}`;
   const { error } = await sb().storage.from(INFOGRAPHIC_BUCKET).upload(path, file, {

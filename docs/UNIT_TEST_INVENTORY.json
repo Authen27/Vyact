@@ -55,6 +55,25 @@
     },
     {
       "app": "admin",
+      "file": "admin/src/lib/__tests__/q3bAdminPages.test.ts",
+      "feature": "Admin pages on the server tiers (Q3b)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "admin v1.5.0 (ADM-04, ADM-07, ADM-08, ADM-09, ADM-10, ADM-14, INT-HH-14, OPS-05): one page-to-tier table for sidebar and routes; paged lists and server counts; super-only role changes and Staff actions; MRR per currency; infographic checks; previews never reach production; Help as the console is",
+      "count": 8,
+      "tests": [
+        "admin v1.5.0 (Q3b) Q3B-ADM-001 · one page-to-tier table, read by the sidebar and the routes (ADM-07)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-002 · the lists page on the server, with server counts (ADM-08, INT-HH-14)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-003 · staff roles change through the RPCs, by a real super admin only (ADM-04)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-004 · Staff actions name the actor and the change, never the text; household entries name Vyact",
+        "admin v1.5.0 (Q3b) Q3B-ADM-005 · MRR is shown per currency, never summed or labelled USD (ADM-14)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-006 · an infographic is checked before upload: PNG, JPEG or WebP, at most 5 MB (ADM-10)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-007 · admin previews never reach production (ADM-09, OPS-05)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-008 · Help says what the console does today"
+      ]
+    },
+    {
+      "app": "admin",
       "file": "admin/src/lib/__tests__/roleGating.test.ts",
       "feature": "Admin content and permissions",
       "availability": "conditional",
@@ -62,10 +81,10 @@
       "owner": "rowToArticle / slugify / canAccessPage",
       "count": 4,
       "tests": [
-        "admin route gating (audit 7.5) CON-UNIT-ADM-001 · a content-admin reaches content/intelligence/dashboard/help only",
-        "admin route gating (audit 7.5) CON-UNIT-ADM-002 · a roles-admin reaches user-mgmt pages but never content/subscriptions/settings",
-        "admin route gating (audit 7.5) CON-UNIT-ADM-003 · no role (null) reaches nothing but help — direct-URL access is denied",
-        "admin route gating (audit 7.5) CON-UNIT-ADM-004 · super reaches everything (the only role that may)"
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-001 · a content admin reaches Content and AI Intelligence (and Help), and lands on Content",
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-002 · a roles admin reaches the Dashboard and the people pages, never content, AI, subscriptions or settings",
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-003 · no role (null) reaches nothing but help — direct-URL access is denied",
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-004 · super reaches everything (the only role that may)"
       ]
     },
     {
@@ -2609,6 +2628,18 @@
         "the staff audit trail (ADM-04) Q3A-002 · the last super admin can be neither demoted nor removed",
         "the staff audit trail (ADM-04) Q3A-003 · content, needs/wants and model changes are recorded without their text; nobody can edit the trail",
         "the staff audit trail (ADM-04) Q3A-004 · super admins read the trail newest first, with the actor's email; nobody else reads it"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/q3bActivityActor.test.ts",
+      "feature": "Activity feed actor (Q3b)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "INT-TXN-14: an entry with no actor reads \"Vyact (automatic)\"; a member is named; a delete reads as one",
+      "count": 1,
+      "tests": [
+        "the activity log names who acted (INT-TXN-14) Q3B-001 · no actor is Vyact on a schedule; a member is named; a delete reads as one"
       ]
     },
     {

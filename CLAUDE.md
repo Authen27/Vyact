@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.130.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.131.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.7**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.5.0**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -820,6 +820,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     `grant_admin_role` / `revoke_admin_role` (super only; the last super admin is kept); super admins read it with
     `admin_staff_audit`. Only super admins write `category_classifications` (ADM-05). Content-tier staff read AI
     usage as totals: per-person segments are super-only, and `ai_usage` rows are their household's only (ADM-06).
+  - **The admin console offers a page only to the tiers whose calls it can make (admin v1.5.0, Q3b; ADM-07).** One
+    table, `PAGE_ROLES` in `admin/src/lib/permissions.ts`, drives the sidebar and the routes: Dashboard, Users,
+    Households and Audit are the roles tier's, Content and AI Intelligence the content tier's, Subscriptions and
+    Settings super's. A new admin page joins that table with the tiers its RPCs accept; never a second list.
+    Admin previews build only on `staging` / `develop` and never against production (`admin/previewGuard.ts`).
   - Admins see who did what and when in a household's activity log, never the values (owner decision
     13 Oct 2026; ADM-03). `admin_activity_feed` (v10.92.0) returns the time, household, actor, action and
     entity, never `activity_log.changes`. Never add `changes`, or a `select *`, to it. The admin Audit

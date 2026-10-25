@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import AuthGate from './components/AuthGate';
 import { useAdminStore } from './store';
-import { canAccessPage } from './lib/permissions';
+import { canAccessPage, homePath } from './lib/permissions';
 
 // Audit 7.3 — route-level code splitting. Every page was eagerly imported, so
 // the whole admin bundle (incl. the chart-heavy Intelligence and the Content
@@ -37,15 +37,14 @@ export default function App() {
 function AppShell() {
   const role = useAdminStore(s => s.role);
 
-  // Role-based route gating: each role sees only the pages it's allowed.
-  // PRD §07 — Super (everything), Roles (user mgmt only), Content (articles only).
+  // ADM-07 (v1.5.0): one page-to-tier table (lib/permissions.ts), the sidebar's too, narrowed to the server's tiers.
   const can = (page: string): boolean => canAccessPage(role, page);
 
   return (
     <Layout>
       <Suspense fallback={<PageFallback />}>
         <Routes>
-          <Route path="/"              element={<Dashboard />} />
+          <Route path="/"              element={can('dashboard')     ? <Dashboard />     : <Navigate to={homePath(role)} replace />} />
           <Route path="/users"         element={can('users')         ? <Users />         : <Forbidden />} />
           <Route path="/households"    element={can('households')    ? <Households />    : <Forbidden />} />
           <Route path="/subscriptions" element={can('subscriptions') ? <Subscriptions /> : <Forbidden />} />
@@ -54,7 +53,7 @@ function AppShell() {
           <Route path="/intelligence"  element={can('intelligence')  ? <Intelligence /> : <Forbidden />} />
           <Route path="/settings"      element={can('settings')      ? <Settings />      : <Forbidden />} />
           <Route path="/help"          element={<Help />} />
-          <Route path="*"              element={<Navigate to="/" replace />} />
+          <Route path="*"              element={<Navigate to={homePath(role)} replace />} />
         </Routes>
       </Suspense>
     </Layout>
