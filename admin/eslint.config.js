@@ -10,7 +10,8 @@ import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', '.vercel', 'coverage'],
+    // v1.5.0: vite.config.js / previewGuard.js are tsc -b output of the .ts sources (Vite loads the .js first).
+    ignores: ['dist', 'node_modules', '.vercel', 'coverage', 'vite.config.js', 'vite.config.d.ts', 'previewGuard.js', 'previewGuard.d.ts'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

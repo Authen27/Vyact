@@ -1,9 +1,14 @@
-// Vyact Admin v8 — Households (live public.households + memberships)
+// Vyact Admin — Households (live, through the roles-tier RPCs).
+// v1.5.0 (ADM-08, INT-HH-14): a page of 100 at a time, searched by name on the server, with member counts and the
+// headline counts counted on the server. The page read every household and every membership, and past 1,000 rows
+// both the list and the counts were cut short.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Home, RefreshCw } from 'lucide-react';
 import { useAdminStore } from '../store';
-import { fetchAllHouseholds, type AdminHouseholdRow } from '../lib/adminApi';
+import { fetchHouseholdsPage, fetchPeopleSummary, PAGE_SIZE, type AdminHouseholdRow, type PeopleSummary } from '../lib/adminApi';
+import { useDebounced } from '../lib/useDebounced';
+import Pager from '../components/Pager';
 
 // W8c (audit INT-CON-06): today's four types (couple added; retired multi_biz/shared are normalised).
 const TYPE_COLOR: Record<AdminHouseholdRow['type'], string> = {
@@ -14,41 +19,39 @@ const TYPE_COLOR: Record<AdminHouseholdRow['type'], string> = {
 };
 
 export default function Households() {
-  const query = useAdminStore(s => s.query);
+  const query = useDebounced(useAdminStore(s => s.query), 300);
   const [rows,    setRows]    = useState<AdminHouseholdRow[]>([]);
+  const [total,   setTotal]   = useState(0);
+  const [offset,  setOffset]  = useState(0);
+  const [summary, setSummary] = useState<PeopleSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
   const [tick,    setTick]    = useState(0);
+
+  useEffect(() => { setOffset(0); }, [query]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true); setError('');
       try {
-        const data = await fetchAllHouseholds();
-        if (!cancelled) setRows(data);
+        const [page, s] = await Promise.all([fetchHouseholdsPage(offset, query), fetchPeopleSummary()]);
+        if (!cancelled) { setRows(page.rows); setTotal(page.total); setSummary(s); }
       } catch (e) { if (!cancelled) setError((e as Error).message); }
       finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [tick]);
+  }, [tick, offset, query]);
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return rows;
-    const q = query.toLowerCase();
-    return rows.filter(h =>
-      h.name.toLowerCase().includes(q) ||
-      h.type.toLowerCase().includes(q) ||
-      h.base_currency.toLowerCase().includes(q));
-  }, [rows, query]);
-
-  const counts = useMemo(() => ({
-    total:      rows.length,
-    multi:      rows.filter(h => h.member_count >= 2).length,
-    couple:     rows.filter(h => h.type === 'couple').length,
-    family:     rows.filter(h => h.type === 'family').length,
-    business:   rows.filter(h => h.type === 'business').length,
-  }), [rows]);
+  const filtered = rows;
+  const hh = summary?.households;
+  const counts = {
+    total:      hh?.total,
+    multi:      hh?.multiMember,
+    couple:     hh ? hh.byType.couple ?? 0 : undefined,
+    family:     hh ? hh.byType.family ?? 0 : undefined,
+    business:   hh ? hh.byType.business ?? 0 : undefined,
+  };
 
   return (
     <div>
@@ -56,7 +59,7 @@ export default function Households() {
         <div>
           <h1 className="display-serif text-3xl text-ink mb-1">Households</h1>
           <p className="text-ink-mid text-[0.92rem]">
-            {counts.total} households · {counts.multi} multi-member · live from production
+            {hh ? `${counts.total} households · ${counts.multi} multi-member · live from production` : 'Live from production'}
           </p>
         </div>
         <button onClick={() => setTick(t => t + 1)}
@@ -112,19 +115,21 @@ export default function Households() {
         </div>
       )}
 
+      <Pager offset={offset} total={total} onPage={setOffset} />
+
       <p className="mt-4 text-[0.7rem] text-ink-dim font-mono">
-        Source: <code>public.households</code> · member counts from <code>public.memberships</code>
+        Source: <code>admin_list_households()</code> · {PAGE_SIZE} a page, searched by name on the server · counts from <code>admin_people_summary()</code>
       </p>
     </div>
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: number; tone?: 'positive' | 'warn' }) {
+function Metric({ label, value, tone }: { label: string; value: number | undefined; tone?: 'positive' | 'warn' }) {
   const cls = tone === 'positive' ? 'text-positive' : tone === 'warn' ? 'text-warn' : 'text-ink';
   return (
     <div className="panel p-4">
       <div className="mono-label mb-1.5">{label}</div>
-      <div className={`display-serif text-[1.6rem] leading-none ${cls}`}>{value}</div>
+      <div className={`display-serif text-[1.6rem] leading-none ${cls}`}>{value ?? '—'}</div>
     </div>
   );
 }

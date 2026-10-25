@@ -7,13 +7,8 @@ import {
 } from 'lucide-react';
 import { useAdminStore } from '../store';
 import { signOut } from '../lib/auth';
+import { canAccessPage } from '../lib/permissions';
 import type { AdminRole } from '../types';
-
-const ROLE_PAGES: Record<AdminRole, string[]> = {
-  super:   ['dashboard','users','households','subscriptions','content','audit','intelligence','settings','help'],
-  roles:   ['dashboard','users','households','audit','intelligence','help'],
-  content: ['dashboard','content','intelligence','help'],
-};
 
 const NAV = [
   { to: '/',              page: 'dashboard',     label: 'Dashboard',     icon: LayoutDashboard },
@@ -39,11 +34,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const visible = new Set(ROLE_PAGES[role]);
   const canSwitchRole = serverRole === 'super';
 
   const navLinks = (onNavigate?: () => void) =>
-    NAV.filter(n => visible.has(n.page)).map(n => (
+    NAV.filter(n => canAccessPage(role, n.page)).map(n => (
       <NavLink
         key={n.to}
         to={n.to}

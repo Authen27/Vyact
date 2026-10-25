@@ -5,14 +5,11 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// PUBLIC client config — prefer build-time env, fall back to the known public
-// project URL + publishable key in PRODUCTION builds so the deployed admin is
-// always DB-connected regardless of host env-injection quirks (see the
-// consumer supabase.ts note). Public values; RLS + admin_roles enforce access.
-const FALLBACK_URL = 'https://dmxqkvploojokffuhxnz.supabase.co';
-const FALLBACK_KEY = 'sb_publishable_SpuQFPzUWOnKI3nRR6ghNw_ktWqrKCA';
-const URL = (import.meta.env.VITE_SUPABASE_URL  as string | undefined) || (import.meta.env.PROD ? FALLBACK_URL : undefined);
-const KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || (import.meta.env.PROD ? FALLBACK_KEY : undefined);
+// PUBLIC client config, from the build's env only. v1.5.0 (ADM-09): the production fallback is gone, so a build
+// with no env of its own never quietly reaches production. Production builds read the committed .env.production;
+// staging/develop previews get vyact-test from Vercel's Preview env (other branches are not built; previewGuard.ts).
+const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const isCloudEnabled = (): boolean => Boolean(URL && KEY);
 /** W8c (ADM-12): the project the client actually talks to (Settings shows its ref). */

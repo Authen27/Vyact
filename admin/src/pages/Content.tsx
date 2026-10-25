@@ -717,7 +717,7 @@ function InfographicField({ value, onChange, updatedAt }: { value: string; onCha
           <div className="flex flex-col gap-1.5">
             <label className="font-mono text-[0.62rem] tracking-wider uppercase px-2.5 py-1.5 border border-line rounded-md hover:bg-elev transition cursor-pointer text-center">
               {uploading ? 'Uploading…' : 'Replace'}
-              <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={uploading} />
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onFile} disabled={uploading} />
             </label>
             <button type="button" onClick={() => onChange('')}
               className="font-mono text-[0.62rem] tracking-wider uppercase px-2.5 py-1.5 border border-line rounded-md hover:bg-elev transition text-danger flex items-center gap-1 justify-center">
@@ -729,7 +729,7 @@ function InfographicField({ value, onChange, updatedAt }: { value: string; onCha
       ) : (
         <label className="flex items-center gap-2 font-mono text-[0.72rem] px-3 py-2 border border-dashed border-line rounded-md hover:bg-elev transition cursor-pointer w-fit">
           <ImageIcon size={14} className="text-ink-dim" /> {uploading ? 'Uploading…' : 'Upload image'}
-          <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={uploading} />
+          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onFile} disabled={uploading} />
         </label>
       )}
       {error && <div className="text-danger text-[0.74rem] mt-1">{error}</div>}

@@ -19,7 +19,8 @@ export interface DashboardKpis {
   publishedArticles: number;
   contentFavorites: number;
   paidSubscriptions: number;
-  mrr: number;
+  /** ADM-14 (v1.5.0): monthly revenue of active and trialing subscriptions, per currency; never summed. */
+  mrrByCurrency: Record<string, number>;
   computedAt: string;
 }
 
@@ -118,10 +119,37 @@ export interface AdminUserRow {
   admin_role: AdminRole | null;
 }
 
-export async function fetchAllUsers(): Promise<AdminUserRow[]> {
-  const { data, error } = await sb().rpc('admin_list_users');
+/** One page of people, newest first, and how many matched (ADM-08, v1.5.0: the list stopped at 1,000 rows). */
+export interface Page<T> { rows: T[]; total: number }
+export const PAGE_SIZE = 100;
+
+export async function fetchUsersPage(offset = 0, query = '', limit = PAGE_SIZE): Promise<Page<AdminUserRow>> {
+  const { data, error } = await sb().rpc('admin_list_users_page', { p_limit: limit, p_offset: offset, p_query: query.trim() || null });
   if (error) throw error;
-  return (data as AdminUserRow[]) || [];
+  const rows = (data as (AdminUserRow & { total: number })[]) || [];
+  return { rows: rows.map(({ total: _total, ...r }) => r), total: rows.length ? Number(rows[0].total) : 0 };
+}
+
+/** The Users and Households pages' headline counts, counted on the server (they were counted from the list). */
+export interface PeopleSummary {
+  users: { total: number; confirmed: number; admins: number; multiHousehold: number };
+  households: { total: number; multiMember: number; byType: Partial<Record<string, number>> };
+}
+export async function fetchPeopleSummary(): Promise<PeopleSummary> {
+  const { data, error } = await sb().rpc('admin_people_summary');
+  if (error) throw error;
+  return data as PeopleSummary;
+}
+
+/** ADM-04 (v1.5.0): staff roles change only through these (super admins; the last super admin is kept). */
+export async function grantAdminRole(userId: string, role: AdminRole): Promise<void> {
+  const { error } = await sb().rpc('grant_admin_role', { p_user: userId, p_role: role });
+  if (error) throw error;
+}
+export async function revokeAdminRole(userId: string): Promise<boolean> {
+  const { data, error } = await sb().rpc('revoke_admin_role', { p_user: userId });
+  if (error) throw error;
+  return data === true;
 }
 
 // ── Households ─────────────────────────────────────────────────────
@@ -135,29 +163,19 @@ export interface AdminHouseholdRow {
   member_count: number;
 }
 
-export async function fetchAllHouseholds(): Promise<AdminHouseholdRow[]> {
-  // Read households + count memberships per household
-  const { data: hh, error: hhErr } = await sb()
-    .from('households')
-    .select('id,name,type,base_currency,created_by,created_at')
-    .order('created_at', { ascending: false });
-  if (hhErr) throw hhErr;
-
-  const { data: members, error: mErr } = await sb()
-    .from('memberships')
-    .select('household_id');
-  if (mErr) throw mErr;
-
-  const counts = new Map<string, number>();
-  (members || []).forEach((m: { household_id: string }) => {
-    counts.set(m.household_id, (counts.get(m.household_id) || 0) + 1);
-  });
-
-  return (hh || []).map(h => ({
-    ...(h as Omit<AdminHouseholdRow, 'member_count'>),
-    type: normalizeHouseholdType((h as { type?: unknown }).type),
-    member_count: counts.get(h.id) || 0,
-  }));
+/** One page of households with their member counts, counted on the server (INT-HH-14, v1.5.0). */
+export async function fetchHouseholdsPage(offset = 0, query = '', limit = PAGE_SIZE): Promise<Page<AdminHouseholdRow>> {
+  const { data, error } = await sb().rpc('admin_list_households', { p_limit: limit, p_offset: offset, p_query: query.trim() || null });
+  if (error) throw error;
+  const rows = (data as (AdminHouseholdRow & { total: number })[]) || [];
+  return {
+    rows: rows.map(({ total: _total, ...h }) => ({
+      ...h,
+      type: normalizeHouseholdType((h as { type?: unknown }).type),
+      member_count: Number(h.member_count) || 0,
+    })),
+    total: rows.length ? Number(rows[0].total) : 0,
+  };
 }
 
 // ── Subscriptions ──────────────────────────────────────────────────
@@ -199,4 +217,24 @@ export async function fetchActivityLog(limit = 200, before?: string): Promise<Ad
   const { data, error } = await sb().rpc('admin_activity_feed', { p_limit: limit, p_before: before ?? null });
   if (error) throw error;
   return (data as AdminActivityRow[]) || [];
+}
+
+// ── Staff actions (ADM-04, v1.5.0) ─────────────────────────────────────
+// What Vyact staff changed (roles, Learn content, needs/wants, AI model settings): who, when, which fields.
+// Never the text. Super admins only; an empty actor is the Supabase dashboard or a migration.
+export interface StaffAuditRow {
+  id: number;
+  at: string;
+  actor_id: string | null;
+  actor_email: string | null;
+  action: 'insert' | 'update' | 'delete';
+  target_table: 'admin_roles' | 'content_items' | 'category_classifications' | 'ai_model_configs';
+  target_id: string | null;
+  changed: string[];
+  detail: Record<string, unknown>;
+}
+export async function fetchStaffAudit(limit = 200, before?: string): Promise<StaffAuditRow[]> {
+  const { data, error } = await sb().rpc('admin_staff_audit', { p_limit: limit, p_before: before ?? null });
+  if (error) throw error;
+  return (data as StaffAuditRow[]) || [];
 }

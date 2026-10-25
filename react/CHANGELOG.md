@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.130.0`** (consumer)
+> **Current production version: `v10.131.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,18 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.131.0 — The activity feed says when Vyact acted on its own *(2026-10-25)*
+
+Ships with admin v1.5.0 (Track Q, part 3b); see `admin/CHANGELOG.md`.
+
+- **An entry with no actor reads "Vyact (automatic)"**, not "System". This is a bill posted or an EMI recorded on
+  its schedule. Since v10.130.0 a WhatsApp entry names the person who sent it (INT-TXN-14).
+- **Tests:**
+  - The consumer suite's default timeout is 15 seconds, replacing v10.130.0's two per-file timeouts. Several
+    design, docs and privacy cases read the whole tree from disk, and on a loaded Windows machine those passed
+    5 seconds.
+  - The deploy-skip tests expect the admin app's preview rule (ADM-09) in front of the shared skip, and run it.
 
 ## v10.130.0 — Budgets stay in their household, staff changes are recorded, and the activity log names who did it *(2026-10-20)*
 

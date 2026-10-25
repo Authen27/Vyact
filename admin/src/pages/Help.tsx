@@ -18,25 +18,25 @@ const SECTIONS: Section[] = [
   { q: 'How do I get admin access?', audience: ['super','roles','content'],
     a: 'Admin access is granted server-side via the public.admin_roles table. A Super Admin must add your user id with the appropriate role (super / roles / content). Sign in with the same email/password as the consumer app — your role is loaded automatically on sign-in.' },
   { q: 'What are the three role tiers?', audience: ['super','roles','content'],
-    a: 'Super Admin sees everything and can grant/revoke admin access. Roles Admin manages users, households, and reads the audit log. Content Admin manages the article library only. Each role has scoped routes — attempting to navigate to a forbidden page returns 403.' },
+    a: 'Super Admin sees everything and changes staff roles. Roles Admin opens the Dashboard, Users, Households and the household Audit Log. Content Admin opens Content and AI Intelligence and lands on Content. Each page is offered only to the tiers whose data it can read; opening another one returns 403.' },
   { q: 'Why is the role switcher disabled for me?', audience: ['roles','content'],
     a: 'Only Super Admins can preview lower tiers from the sidebar role switcher. For Roles and Content admins, the role is locked to whatever the server says. This prevents privilege escalation via localStorage tampering.' },
 
   // ─── Super admin ─────────────────────────────────────────────
   { q: 'How do I grant another user admin access?', audience: ['super'],
-    a: 'Run an INSERT against public.admin_roles in the SQL editor: INSERT INTO admin_roles (user_id, role, granted_by) VALUES (\'<their-uuid>\', \'content\', auth.uid()). Their next sign-in picks up the new privilege.' },
+    a: 'On Users, use the Staff role control on their row and confirm. Removing a role works the same way. Vyact always keeps one super admin: grant another before removing the last. Every change is recorded in Audit Log → Staff actions. Their next sign-in picks up the new role.' },
   { q: 'How do I monitor product health?', audience: ['super'],
-    a: 'The Dashboard shows the NorthStar metric (Active Households per Week) plus 12 KPIs and three trend charts (signups, MRR, NPS). Numbers are green/red based on target thresholds defined per the v7 PRD §08. Single-user households count as 0.5 toward AHpW.' },
+    a: 'The Dashboard shows live counts from the production database (people, households, activity, content) and the weekly trend. Revenue (MRR) is shown per currency, never added across currencies. Metrics that need event tracking show as not wired yet.' },
   { q: 'How do I read the Audit Log?', audience: ['super','roles'],
-    a: 'The Audit Log is household activity, newest first: who acted (a user id), when, what they did (created, updated, deleted, invited…) and the kind of record. It never shows amounts, names or descriptions. Search by action, record type or actor id, or export the list as CSV. It records what households did, not what admins did.' },
+    a: 'Household activity is newest first: who acted (a user id), when, what they did (created, updated, deleted, invited…) and the kind of record. It never shows amounts, names or descriptions. An entry Vyact wrote on a schedule shows "Vyact (automatic)"; one sent from WhatsApp names its sender. Search by action, record type or actor id, or export the list as CSV. Super admins also see Staff actions: what Vyact staff changed.' },
 
   // ─── Roles admin ─────────────────────────────────────────────
   { q: 'How do I help a user who can\'t sign in?', audience: ['super','roles'],
     a: 'Search them in Users. Check status (active/invited/suspended/churned). Confirm email is verified — Settings shows a "Verification pending" pill if not. For password issues, direct them to /auth/reset on the consumer app; never collect or set their password yourself.' },
   { q: 'Can I impersonate a user to debug their account?', audience: ['super','roles'],
-    a: 'No, and this is intentional. Per the security posture in PRD §07, the admin app does not store or transmit user passwords, and impersonation is disabled. Use the user\'s pulse score, household composition, and audit trail to reproduce issues.' },
+    a: 'No, and this is intentional. The admin app does not store or transmit user passwords, and impersonation is disabled. Use their household composition and the household Audit Log to reproduce issues.' },
   { q: 'How do I suspend a problematic account?', audience: ['super','roles'],
-    a: 'In the Users list, open the user and choose Suspend. This sets their status but does not delete data. They will see a "your account is suspended" screen on next sign-in. Always log a reason in the audit comment field.' },
+    a: 'The console has no suspend. A person can delete their own account in the app (Settings), which removes their data. For abuse, escalate to engineering with the user id; do not change data by hand.' },
 
   // ─── Content admin ───────────────────────────────────────────
   { q: 'How do I create a new article?', audience: ['super','content'],
@@ -53,8 +53,8 @@ const SECTIONS: Section[] = [
   // ─── Operational ─────────────────────────────────────────────
   { q: 'Where is the production deployment?', audience: ['super','roles','content'],
     a: 'Consumer at https://vyact.app · Admin at https://admin.vyact.app. Both apps read their public URL from a committed VITE_APP_URL in react/.env.production / admin/.env.production, not a GitHub Actions secret. Both deploy on push to main via .github/workflows/deploy.yml.' },
-  { q: 'How do I check what an admin did?', audience: ['super','roles'],
-    a: 'The console has no record of admin actions yet. The Audit Log shows household activity only, without values. Role grants are made in SQL against public.admin_roles.' },
+  { q: 'How do I check what an admin did?', audience: ['super'],
+    a: 'Audit Log → Staff actions (super admins): every staff role granted or removed, every Learn content change (which fields, never the text), every needs/wants change and every AI model setting change, with who and when. It cannot be edited or deleted. A change made in the Supabase dashboard shows as "Dashboard or migration".' },
   { q: 'What if I see an error or unexpected behavior?', audience: ['super','roles','content'],
     a: 'Open the browser console (F12) and capture the error. For data anomalies, check Supabase logs (api/auth/postgres). Report to engineering with the deployment ID from the footer and a screenshot.' },
 ];

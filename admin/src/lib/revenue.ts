@@ -24,3 +24,13 @@ export function revenueLabel(list: CurrencyRevenue[], pick: 'mrr' | 'arr'): stri
   if (!list.length) return '—';
   return list.map(r => `${r.currency} ${r[pick].toLocaleString('en-US', { maximumFractionDigits: 2 })}`).join(' · ');
 }
+
+/** v1.5.0 (ADM-14): the dashboard's per-currency MRR (admin_dashboard_kpis().mrrByCurrency) as the same list. */
+export function revenueFromMap(byCurrency: Record<string, number> | null | undefined): CurrencyRevenue[] {
+  return Object.entries(byCurrency ?? {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([currency, n]) => {
+      const mrr = Math.round(Number(n || 0) * 100) / 100;
+      return { currency, mrr, arr: Math.round(mrr * 12 * 100) / 100 };
+    });
+}

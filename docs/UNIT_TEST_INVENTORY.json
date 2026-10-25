@@ -55,6 +55,25 @@
     },
     {
       "app": "admin",
+      "file": "admin/src/lib/__tests__/q3bAdminPages.test.ts",
+      "feature": "Admin pages on the server tiers (Q3b)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "admin v1.5.0 (ADM-04, ADM-07, ADM-08, ADM-09, ADM-10, ADM-14, INT-HH-14, OPS-05): one page-to-tier table for sidebar and routes; paged lists and server counts; super-only role changes and Staff actions; MRR per currency; infographic checks; previews never reach production; Help as the console is",
+      "count": 8,
+      "tests": [
+        "admin v1.5.0 (Q3b) Q3B-ADM-001 · one page-to-tier table, read by the sidebar and the routes (ADM-07)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-002 · the lists page on the server, with server counts (ADM-08, INT-HH-14)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-003 · staff roles change through the RPCs, by a real super admin only (ADM-04)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-004 · Staff actions name the actor and the change, never the text; household entries name Vyact",
+        "admin v1.5.0 (Q3b) Q3B-ADM-005 · MRR is shown per currency, never summed or labelled USD (ADM-14)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-006 · an infographic is checked before upload: PNG, JPEG or WebP, at most 5 MB (ADM-10)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-007 · admin previews never reach production (ADM-09, OPS-05)",
+        "admin v1.5.0 (Q3b) Q3B-ADM-008 · Help says what the console does today"
+      ]
+    },
+    {
+      "app": "admin",
       "file": "admin/src/lib/__tests__/roleGating.test.ts",
       "feature": "Admin content and permissions",
       "availability": "conditional",
@@ -62,10 +81,10 @@
       "owner": "rowToArticle / slugify / canAccessPage",
       "count": 4,
       "tests": [
-        "admin route gating (audit 7.5) CON-UNIT-ADM-001 · a content-admin reaches content/intelligence/dashboard/help only",
-        "admin route gating (audit 7.5) CON-UNIT-ADM-002 · a roles-admin reaches user-mgmt pages but never content/subscriptions/settings",
-        "admin route gating (audit 7.5) CON-UNIT-ADM-003 · no role (null) reaches nothing but help — direct-URL access is denied",
-        "admin route gating (audit 7.5) CON-UNIT-ADM-004 · super reaches everything (the only role that may)"
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-001 · a content admin reaches Content and AI Intelligence (and Help), and lands on Content",
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-002 · a roles admin reaches the Dashboard and the people pages, never content, AI, subscriptions or settings",
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-003 · no role (null) reaches nothing but help — direct-URL access is denied",
+        "admin route gating (audit 7.5, ADM-07) CON-UNIT-ADM-004 · super reaches everything (the only role that may)"
       ]
     },
     {
@@ -2613,6 +2632,18 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/q3bActivityActor.test.ts",
+      "feature": "Activity feed actor (Q3b)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "INT-TXN-14: an entry with no actor reads \"Vyact (automatic)\"; a member is named; a delete reads as one",
+      "count": 1,
+      "tests": [
+        "the activity log names who acted (INT-TXN-14) Q3B-001 · no actor is Vyact on a schedule; a member is named; a delete reads as one"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/ratios.test.ts",
       "feature": "Money screen ratios and liabilities (W6)",
       "availability": "available",
@@ -3283,8 +3314,9 @@
       "availability": "available",
       "layer": "contract-unit",
       "owner": "audit W7b: Vercel skip vs last deployed commit, no source maps + postbuild gate, dead config/deps removed, Learn read timeout + uncached empty library, pre-render cloud rule + $-safe insertions",
-      "count": 6,
+      "count": 7,
       "tests": [
+        "W7b · public site and build config Q3B-PUB-001 · every vercel.json command fits Vercel's 256-character limit (a longer one fails every deployment)",
         "W7b · public site and build config W7b-GATE03-001 · production builds publish no source maps, and the build gate catches one (GATE-03)",
         "W7b · public site and build config W7b-PLT11-001 · no stale root vercel.json, self-dependency, @supabase/ssr or Next.js scaffold (FE-PLT-11)",
         "W7b · public site and build config W7b-PUB03-001 · the Learn read times out, and an empty library is a 503 that is not cached (FE-PUB-03)",

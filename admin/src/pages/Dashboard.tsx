@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { Users, Activity, FileText, Heart, RefreshCw } from 'lucide-react';
 import { fetchDashboardKpis, fetchWeeklyTrend, type DashboardKpis, type WeeklyTrendRow } from '../lib/adminApi';
+import { revenueFromMap, revenueLabel } from '../lib/revenue';
 
 const hsl = (v: string) => `hsl(var(--${v}))`;
 
@@ -123,7 +124,7 @@ export default function Dashboard() {
         <Kpi  label="Published articles" value={kpis?.publishedArticles} loading={loading} icon={FileText} />
         <Kpi  label="Content favorites"  value={kpis?.contentFavorites} loading={loading} icon={Heart} />
         <Kpi  label="Paid subscriptions" value={kpis?.paidSubscriptions} loading={loading} />
-        <Kpi  label="MRR (USD)"          value={kpis?.mrr}              loading={loading} prefix="$" />
+        <Kpi  label="MRR (by currency)"  value={kpis ? revenueLabel(revenueFromMap(kpis.mrrByCurrency), 'mrr') : undefined} loading={loading} />
       </div>
 
       {/* Aspirational metrics — explicit unavailable state */}
@@ -195,7 +196,7 @@ export default function Dashboard() {
 
 interface KpiProps {
   label:   string;
-  value?:  number | null;
+  value?:  number | string | null;   // v1.5.0: a text figure (MRR per currency) shows as given
   loading: boolean;
   prefix?: string;
   suffix?: string;
