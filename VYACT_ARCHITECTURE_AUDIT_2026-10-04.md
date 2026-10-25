@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 25 Oct 2026):** 208 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 25 Oct 2026):** 209 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -66,16 +66,16 @@ Two developers did the work:
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 31 | 22 | 5 | 4 | 0 | 0 | 0 | 0 |
 | Medium | 102 | 93 | 6 | 3 | 0 | 0 | 0 | 0 |
-| Low | 77 | 70 | 4 | 2 | 1 | 0 | 0 | 0 |
+| Low | 77 | 71 | 4 | 2 | 0 | 0 | 0 | 0 |
 | Info | 5 | 5 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **Total** | **218** | **192** | **16** | **9** | **1** | **0** | **0** | **0** |
+| **Total** | **218** | **193** | **16** | **9** | **0** | **0** | **0** | **0** |
 
-**208 of 218 are resolved (95%): all 3 critical and 27 of 31 high.** The other 10 fall into four groups:
+**209 of 218 are resolved (96%): all 3 critical and 27 of 31 high.** The other 9 fall into four groups:
 
-| What the 10 need | Count |
+| What the 9 need | Count |
 |---|---:|
 | Work planned in a Track Q stage (any owner step is named in Appendix C) | 1 |
-| An owner action or decision (0 waiting only on a decision; 9 partly done, with the rest waiting on an owner action) | 9 |
+| An owner action or decision (0 waiting only on a decision; 8 partly done, with the rest waiting on an owner action) | 8 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (answered 20 Oct) | 0 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 0 |
 
@@ -157,7 +157,7 @@ Two developers did the work:
 | #245 | v10.133.0 | Track Q5: amounts in either separator convention; onboarding re-runs in place; dialogs keep focus; household exit purge; per-person language; one free-to-spend; archive at zero; card in credit; dead import gone (owner, 20 Oct) | FE-UIC-10, FE-UIC-12, FE-UIS-03, FE-UIS-07, INT-HH-08, FE-MNY-12, FE-MNY-13, FE-SYN-13, INT-HH-13 | — |
 | #246 | v10.134.0 | Track Q6: a split takes the whole bill from the paying account; Owed to you in Net Worth; repayments into a chosen account (money model revised, owner, 20 Oct) | FE-MNY-08 | — |
 | #247 | v10.135.0 | Track Q7: Pip's limits (per person, per minute, off-topic cool-down, a global ceiling, closed without its row), nudges raised on the server and pushed on opt-in, remembered answer length and language, the test relay retired | OPS-11, BE-PIP-06 | — |
-| #248 | v10.136.0 | Track Q8: the dormant ingestion pipeline parked outside the deploy and the default tests, the Deno router test run in CI, the retired flag module deleted, stale doc lines corrected | XC-ARC-05, BE-PIP-04, XC-ARC-07 | — |
+| #248 | v10.136.0 | Track Q8: the dormant ingestion pipeline parked outside the deploy and the default tests, the Deno router test run in CI, the retired flag module deleted, stale doc lines corrected | XC-ARC-05, BE-PIP-04, XC-ARC-07, XC-ARC-15 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -228,8 +228,8 @@ Plus **R1** (high, new): see §0.3.
 - *Ready to do (no decision):* FE-PLT-04.
 - *Owner decision:* OPS-05, XC-PRV-11.
 
-**Low and info (3)**
-- *Owner decision:* BE-FN-11, OPS-07, XC-ARC-15.
+**Low and info (2)**
+- *Owner decision:* BE-FN-11, OPS-07.
 
 ### 0.6 Action plan
 
@@ -974,7 +974,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-ARC-10 | LOW | Cross-cutting | Store actions write pre-await snapshots back to state, without a household guard | confirmed-with-caveats (adversarial: partial) | 2026-09 audit section 9 (code-style priorities 2 and 3; still open) | Closed | v10.121.0 |
 | XC-ARC-12 | LOW | Cross-cutting | Money model lives in CHECKs and prose; domain types and adapter generics do not encode it | confirmed-with-caveats (adversarial: partial) | 2026-09 audit sections 8.3/8.4 (still open) | Closed (decision) | — |
 | XC-ARC-14 | LOW | Cross-cutting | Release cadence outpaces stabilisation: 40 minor releases in 27 days, AI-heavy, one maintainer | confirmed-with-caveats (adversarial: partial) | TD-25 (resolved; regressed), TD-28 | Closed (decision) | — |
-| XC-ARC-15 | LOW | Cross-cutting | Repo carries 82 tracked binaries, duplicated handoffs and a 9.7k-line migration concat | not independently verified (low/info) | TD-41 (related) | Open | — |
+| XC-ARC-15 | LOW | Cross-cutting | Repo carries 82 tracked binaries, duplicated handoffs and a 9.7k-line migration concat | not independently verified (low/info) | TD-41 (related) | Closed | v10.136.0 |
 | XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  | Closed | #189, v10.125.0 |
 | BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  | Closed | v10.126.0 |
 | DB-OPS-16 | INFO | Database | pg_trgm sits in public but nothing uses it; TD-34's stated blocker does not exist in the repo | not independently verified (low/info) | TD-34 | Closed | v10.130.0 |
@@ -1278,7 +1278,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.136.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (10)
+### C.1 Unresolved (9)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1291,7 +1291,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.136.
 | XC-PRV-11 | medium | Partly | #165, #166, #167, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): Privacy adds the DPDP section (rights, nomination, Grievance Officer, Data Protection Board), a processor list with regions, withdrawal of optional processing in Settings (analytics), §10 breach and §12 18+ only (no child accounts; Terms too). SECURITY.md has the breach runbook (DPDP Board, 72 hours, GDPR). POLICY_VERSION bumped with re-consent (XC-PRV-09). T4B-006… | Owner: legal entity, address, Grievance Officer, Supabase region | M |
 | BE-FN-11 | low | Partly | #165, v10.123.0, v10.126.0, v10.128.0 | v10.126.0 (T4c) built the snapshot and the drift check; v10.128.0 (Q1) recorded the 29 live values with the owner's decisions (Q-AUTH-01..04). Left: --strict once the dashboard matches (Q-AUTH-01/02). | Owner: Q-AUTH-01/02 in the dashboard, then --strict | S |
 | OPS-07 | low | Partly | #189 | `permissions: contents: read` is on every workflow. Left: a separate Supabase token or environment for vyact-test deploys (owner). | Owner: separate token | XS |
-| XC-ARC-15 | low | Open | — | Q8 found Authen27/Vyact public, though CLAUDE.md says private: a "repo-assets" release would publish the 43 business and design files (investor decks, business plans, design feedback) in a new public place, and they are already readable in the tree and its history. Archives were built and checked, not uploaded. db/schema.sql stays: three gates read it (db-migrations-check, validate-new-migrations, eraseHouseholdSql). | Owner: the repository is PUBLIC (25 Oct 2026), so a release would publish the files; choose where they go | S |
 
 ### C.2 Resolved, but to be confirmed in production (16)
 
@@ -1314,7 +1313,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.136.
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (123)
+### C.3 Resolved, with a residual note (124)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1432,6 +1431,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.136.
 | XC-ARC-10 | low | Closed | v10.121.0 | v10.121.0 (Track T5b; owner, 19 Oct 2026: "queue it" for splits marked paid): store/landIn.ts: `commit(householdId, update)` lands a post-await write only if that household is still open, in every household-scoped action of the crud, data, recurring and notify slices (38 writes), plus the role, household invitations a… |
 | XC-ARC-12 | low | Closed (decision) | — | Owner, 20 Oct 2026: not planned. The money model is held by the database CHECKs and the money-model test suite. Closed by decision. |
 | XC-ARC-14 | low | Closed (decision) | — | Owner, 20 Oct 2026: a process observation, not a code defect; the gates added since (T5, Q1) cover the risk. Closed by decision. |
+| XC-ARC-15 | low | Closed | v10.136.0 | v10.136.0 (Track Q8; owner decision 25 Oct 2026: "remove, store privately"; the repository was found PUBLIC, so a release would have published the files): the older design handoff Vyact-handoff/ (104 files, superseded by Vyact Redesign/design_handoff_vyact_aurora) and the five business binaries in Vyact App/ are remov… |
 | XC-PRV-14 | low | Closed | #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): the work email in react/CHANGELOG.md and the migration comment became manu@example.com (schema.sql regenerated); home.html is gitignored; W8d-PRV14-001 fails on any address outside the example and Vyact domains across the docs, schema.sql and every migration. The his… |
 | BE-FN-12 | info | Closed | v10.126.0 | v10.126.0 (Track T4c; owner decisions 19 Oct 2026) ("show by default, and hide via settings"): Settings → Notifications → "Show details on the lock screen", per device and on by default (NotificationPrefs.lockScreenDetails, sent in the push prefs). Off, the pushed payload (payloadFor) and the open app's popup (deviceN… |
 | DB-OPS-16 | info | Closed | v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): pg_trgm is dropped when no index or function in the database uses it, else kept with a notice; a drop the deploy role does not own logs a notice instead of failing. Q3A-015 runs both ways. |
