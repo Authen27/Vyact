@@ -52,8 +52,11 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
     await networth.goto();
 
     await networth.openAddAsset();
+    // v10.133.0 (Q5, FE-UIC-12): Cash, Checking and Savings are accounts, never offered as asset types; a liquid
+    // asset is another type marked liquid (here a receivable you expect this week).
+    await expect(page.getByRole('main', { name: /add asset/i }).getByLabel('Type').locator('option[value="checking"]')).toHaveCount(0);
     let dialog = await fillAssetModal(page, {
-      type: 'checking',
+      type: 'receivable',
       liquidity: 'liquid',
       name: 'ASSET-FC-001 Liquid',
       value: 1250,

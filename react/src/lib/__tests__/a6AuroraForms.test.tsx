@@ -113,7 +113,8 @@ describe('A6 · forms and onboarding', () => {
     const s = read('components/accounts/ReconcileSheet.tsx');
     expect(s).toMatch(/data-testid="reconcile-compare"/);
     expect(s).toMatch(/>In Vyact<\/div>/);
-    expect(s).toMatch(/\{isCash \? 'Cash counted' : 'On your statement'\}/);
+    // v10.133.0 (Q5, FE-MNY-13): a card in credit is reconciled against the credit its statement shows.
+    expect(s).toMatch(/\{isCash \? 'Cash counted' : isCard && inCredit \? 'Credit on your statement' : 'On your statement'\}/);
     expect(s).toMatch(/✓ Balances match/);
     expect(s).toMatch(/const cta = !hasDrift \? 'Mark reconciled'/);
     // The money path is untouched (W7a): the stated figure is normalised, the toast reports what posted.

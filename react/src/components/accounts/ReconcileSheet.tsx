@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FormPage from '../ui/FormPage';
+import SegmentedControl from '../ui/SegmentedControl';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
 import { fmt, fmtNet } from '../../lib/format';
@@ -42,8 +43,12 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
   const isCard = account?.kind === 'credit_card';
   const isCash = account?.kind === 'cash';
   const balance = account ? computeAccountBalance(account, transactions, baseCurrency, rates) : 0;
+  // v10.133.0 (Track Q5; audit FE-MNY-13): a card's statement says what you owe, or that the card is in credit
+  // (overpaid). Which one is chosen here, never read from the sign of what was typed.
+  const [inCredit, setInCredit] = useState(false);
+  const cardSign = isCard && inCredit ? 1 : -1;
   // What Vyact says, in the statement's own terms.
-  const vyactSays = isCard ? round2(Math.max(0, -balance)) : balance;
+  const vyactSays = isCard ? round2(Math.max(0, cardSign * balance)) : balance;
 
   const [stated, setStated] = useState('');
   const [choice, setChoice] = useState<'adjust' | 'find'>('adjust');
@@ -54,7 +59,9 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
   // change while the sheet is open — that would wipe what they typed.
   useEffect(() => {
     if (!open) return;
-    setStated(String(vyactSays));
+    const credit = isCard && balance > 0.005;
+    setInCredit(credit);
+    setStated(String(isCard ? round2(Math.max(0, (credit ? 1 : -1) * balance)) : vyactSays));
     setChoice('adjust');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, account?.id]);
@@ -71,7 +78,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
   const statementNoun = isCard ? 'statement outstanding' : 'statement balance';
   // W4d (FE-UIC-04): a card is stated as what it owes (shown negative; a card in credit, positive);
   // a bank keeps its own sign, so an overdraft reads as one.
-  const signed = (n: number) => fmtNet(isCard ? -n : n, baseCurrency);
+  const signed = (n: number) => fmtNet(isCard ? cardSign * n : n, baseCurrency);
 
   async function submit() {
     if (!account || statedValue === null) return;
@@ -89,9 +96,9 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
     }
     setBusy(true);
     try {
-      // A card's balance is what it owes, negated.
-      const statedBalance = isCard ? -statedValue : statedValue;
-      const posted = await reconcileAccount(account, hasDrift ? statedBalance : balance);
+      // A card's balance is what it owes, negated; a card in credit holds the credit (FE-MNY-13).
+      const statedBalance = isCard ? cardSign * statedValue : statedValue;
+      const posted = await reconcileAccount(account, hasDrift ? statedBalance : balance, { cardInCredit: isCard && inCredit });
       // The toast reports the delta the engine actually wrote (W7a, FE-UIC-14), not the sheet's estimate.
       toast(posted !== 0
         ? `Reconcile adjustment of ${fmt(Math.abs(posted), baseCurrency)} posted — spend totals unchanged`
@@ -126,6 +133,13 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
 
       {/* Aurora 4.0 RC1 — one card: "In Vyact" and "On your statement" side by side (the statement side
           is the field you type in), the gap underneath. Was three blocks: a balance card, the field, a gap row. */}
+      {isCard && (
+        <div className="mb-3">
+          <SegmentedControl label="The statement says" value={inCredit ? 'credit' : 'owe'}
+            onChange={v => setInCredit(v === 'credit')}
+            options={[{ value: 'owe', label: 'I owe' }, { value: 'credit', label: 'In credit', testId: 'recon-in-credit' }]} />
+        </div>
+      )}
       <div className="card-raised px-4 py-4 mb-4" data-testid="reconcile-compare" style={{
         boxShadow: `var(--neu), 0 0 0 1.5px color-mix(in srgb, hsl(var(${hasDrift ? '--honey' : '--sage'})) ${hasDrift ? 45 : 40}%, transparent)`,
       }}>
@@ -136,7 +150,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
           </div>
           <div className="min-w-0">
             <label className="block ui-label mb-1.5" htmlFor="recon-stated">
-              {isCash ? 'Cash counted' : 'On your statement'}
+              {isCash ? 'Cash counted' : isCard && inCredit ? 'Credit on your statement' : 'On your statement'}
             </label>
             <div className="well flex items-center gap-1.5 min-h-[44px] px-3">
               <span className="text-[15px] text-ink-dim" aria-hidden>{symbol}</span>
@@ -157,7 +171,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
             </>
           ) : (
             <span className="text-ink-mid">
-              A <strong className="num" style={{ color: 'var(--warn-text)' }}>{fmt(Math.abs(drift), baseCurrency)}</strong> gap — {drift > 0 === isCard ? 'most likely a spend that never got logged.' : 'most likely income or a refund that never got logged.'}
+              A <strong className="num" style={{ color: 'var(--warn-text)' }}>{fmt(Math.abs(drift), baseCurrency)}</strong> gap — {(isCard ? cardSign * drift : drift) < 0 ? 'most likely a spend that never got logged.' : 'most likely income or a refund that never got logged.'}
             </span>
           )}
         </div>
@@ -183,7 +197,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
         style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
         {isCash
           ? 'Confirm the cash you counted. Any adjustment is recorded in the cash ledger, not as spending or income.'
-          : 'A bank is reconciled against its statement balance; a card against its statement outstanding.'}
+          : 'A bank is reconciled against its statement balance; a card against its statement outstanding, or the credit it shows when you overpaid. A credit is a refund the card owes you: it counts in Net Worth, never as money to spend.'}
       </p>
     </FormPage>
   );

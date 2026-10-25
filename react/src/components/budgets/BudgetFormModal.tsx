@@ -340,7 +340,7 @@ export default function BudgetFormModal(props: Props) {
         <div className="space-y-1.5">
           {EXPENSE_CATEGORIES.map((cc) => {
             const value = amountFor(cc.id);
-            const filled = (parseFloat(value) || 0) > 0;
+            const filled = (parseAmount(value) || 0) > 0;
             return (
               <div key={cc.id}
                 className="flex items-center gap-2.5 px-3 py-2 rounded-r2"

@@ -12,6 +12,7 @@ import { ChevronDown, ChevronRight, Plus, Trash2, AlertTriangle, Check } from 'l
 import type { AccountOption } from '../../lib/accounts';
 import type { AccountSplit } from '../../types';
 import { Select } from '../ui/Input';
+import { parseAmount } from '../../lib/amountInput';
 
 export interface AccountDrawerProps {
   total: number;
@@ -90,7 +91,7 @@ export function AccountDrawer({
                 step="0.01"
                 min="0"
                 value={Number.isFinite(row.amount) ? row.amount : ''}
-                onChange={e => setRow(i, { amount: parseFloat(e.target.value) || 0 })}
+                onChange={e => setRow(i, { amount: parseAmount(e.target.value) || 0 })}
                 className="input w-28"
                 aria-label={`Amount ${i + 1}`}
               />

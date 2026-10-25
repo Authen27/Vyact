@@ -296,7 +296,7 @@ export default function SplitFormModal(props: Props) {
       toast(`Choose an account this was ${isIncome ? 'paid into' : 'paid with'}`, 'error'); return;
     }
     const parts = form.participants
-      .map(p => ({ ...p, shareNum: parseFloat(p.share) }))
+      .map(p => ({ ...p, shareNum: parseAmount(p.share) }))
       .filter(p => (p.isYou || idOf(p)) && !isNaN(p.shareNum) && p.shareNum >= 0);
     const you = parts.find(p => p.isYou);
     if (!you) { toast('A split needs your share', 'error'); return; }
@@ -427,7 +427,7 @@ export default function SplitFormModal(props: Props) {
     </div>
   );
 
-  const sharesSum = form.participants.reduce((s, p) => s + (parseFloat(p.share) || 0), 0);
+  const sharesSum = form.participants.reduce((s, p) => s + (parseAmount(p.share) || 0), 0);
   const bill = parseAmount(form.amount) || 0;
   const sharesOk = Math.abs(sharesSum - bill) < 0.01 && bill > 0;
 
@@ -542,7 +542,7 @@ export default function SplitFormModal(props: Props) {
                   )}
                   {form.auto ? (
                     <span className="num w-24 text-right text-ink flex-shrink-0" aria-label={`${p.isYou ? 'Your' : `${p.name || p.email || 'Their'}`} share`}>
-                      {p.share ? fmt(parseFloat(p.share) || 0, form.currency) : '—'}
+                      {p.share ? fmt(parseAmount(p.share) || 0, form.currency) : '—'}
                     </span>
                   ) : (
                     <input className="input w-24 py-1.5 text-right" type="number" min="0" step="0.01" value={p.share}

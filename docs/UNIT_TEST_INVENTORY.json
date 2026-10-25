@@ -379,7 +379,7 @@
         "Accounts R2 — delete guard history may only move within its group, never to itself or an archived account",
         "Accounts R2 — delete guard itemises history the way the RPC does: count, total, date range, busiest groups first",
         "Accounts R2 — grouping and Spendable now Bank holds bank and Cash in Hand; cards group alone; loans and investments live elsewhere",
-        "Accounts R2 — grouping and Spendable now archived accounts, loans and investments never reach the summary; an overpaid card is not cash",
+        "Accounts R2 — grouping and Spendable now loans and investments never reach the summary; an overpaid card is not cash; archived accounts count (Q5)",
         "Accounts R2 — grouping and Spendable now the design example: ₹1,31,400 in the bank, ₹18,400 on cards → ₹1,13,000 spendable",
         "Accounts R2 — statement window and due date a cycle day past the end of a short month clamps to its last day",
         "Accounts R2 — statement window and due date cycle on the 11th: before the 11th the window started last month",
@@ -1773,7 +1773,7 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 40,
+      "count": 41,
       "tests": [
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be archived either — it would vanish from every picker",
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be deleted, and the refusal changes nothing",
@@ -1801,6 +1801,7 @@
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account does not use is dropped, and the money still posts",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account uses is kept, and the balance moves exactly as without one",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number an investment never carries a mode",
+        "an account is archived at zero (v10.133.0, Q5; FE-MNY-12) Q5-012 · the store refuses to archive an account that holds money, says why, and archives it once it is at zero",
         "base currency change (v10.54.0) relabels the open session's accounts, as the DB trigger does, so a balance is never converted twice",
         "ledger persisted happy paths 'expense' create, edit and delete persist correct account effects and reporting",
         "ledger persisted happy paths 'income' create, edit and delete persist correct account effects and reporting",
@@ -2704,6 +2705,43 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/q5AppCorrectness.test.ts",
+      "feature": "App correctness (Q5)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "FE-UIC-10, FE-UIS-03, FE-UIS-07, INT-HH-13, INT-HH-08, FE-UIC-12, FE-MNY-12, FE-MNY-13, FE-SYN-13: amounts in either separator convention and rates; onboarding re-runs update in place; Radix dialogs and the focus trap; one free-to-spend for Accounts, Net Worth and Pip; no cash/checking/savings assets; archive at zero; a card in credit; household exit purge; per-person language and owner-only settings; the dead import gone",
+      "count": 11,
+      "tests": [
+        "amounts read as typed (FE-UIC-10) Q5-001 · the last separator with one or two digits is the decimal mark; three digits are grouping; anything else is not an amount",
+        "amounts read as typed (FE-UIC-10) Q5-002 · every typed amount goes through parseAmount, an interest rate through parseRate",
+        "dialogs keep focus (FE-UIS-07) Q5-004 · every dialog of the app frame traps focus and returns it; none pulls Radix into the first paint",
+        "households (INT-HH-13, INT-HH-08) Q5-009 · leaving or deleting a household clears its cache, cursors and copies from the device, and nothing else",
+        "households (INT-HH-13, INT-HH-08) Q5-010 · a person's language is theirs (the household's until they pick one); the household's settings are the owner's",
+        "onboarding can run twice (FE-UIS-03) Q5-003 · a re-run updates the schedules the last run made, keeps their dates, and never adds a second",
+        "one \"free to spend\" (FE-UIC-12, FE-MNY-12) Q5-005 · Accounts, Net Worth and Pip say the same free-to-spend, archived accounts included",
+        "one \"free to spend\" (FE-UIC-12, FE-MNY-12) Q5-006 · Net Worth no longer offers cash, checking or savings as an asset type",
+        "one \"free to spend\" (FE-UIC-12, FE-MNY-12) Q5-007 · an account that holds money or owes cannot be archived; the app says why before writing",
+        "one \"free to spend\" (FE-UIC-12, FE-MNY-12) Q5-008 · a card reconciled \"in credit\" holds the credit: outstanding 0, short, never liquid; \"I owe\" is unchanged (INV-11)",
+        "the dead import is gone (FE-SYN-13) Q5-011 · lib/migration.ts and its call are deleted; the sign-in purge is the only thing that meets anonymous data"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/q5ArchiveSql.test.ts",
+      "feature": "Archive at zero (Q5)",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "FE-MNY-12: account_ledger_balance is the app fold (your share of a split, deleted entries out); from the app a bank account or card archives only at zero, a reconcile and the archive in one write pass, loans and jobs are not held to it, Cash in Hand is still refused",
+      "count": 4,
+      "tests": [
+        "from the app, a bank account or card is archived at zero (FE-MNY-12) Q5-SQL-002 · an account holding money, or a card that owes, is refused: account_has_balance (23514)",
+        "from the app, a bank account or card is archived at zero (FE-MNY-12) Q5-SQL-003 · at zero it archives, including a reconcile to zero and the archive in one write",
+        "from the app, a bank account or card is archived at zero (FE-MNY-12) Q5-SQL-004 · loans are archived by the loan functions, and jobs and migrations are not held to it",
+        "the server folds an account as the app does (FE-MNY-12) Q5-SQL-001 · opening + offset + what arrived − what left; a split at your share; deleted entries out"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/ratios.test.ts",
       "feature": "Money screen ratios and liabilities (W6)",
       "availability": "available",
@@ -2931,7 +2969,7 @@
       "count": 2,
       "tests": [
         "Settings: household fields and the profile email (W6, audit FE-UIS-06) W6-UIS06-001 · only the owner edits the household row in cloud mode (RLS \"owners update household\"); local-only has one user",
-        "Settings: household fields and the profile email (W6, audit FE-UIS-06) W6-UIS06-002 · currency, language, payoff strategy and extra payment are read-only for others; the email is shown, never saved"
+        "Settings: household fields and the profile email (W6, audit FE-UIS-06) W6-UIS06-002 · currency, payoff strategy and extra payment are read-only for others; the email is shown, never saved"
       ]
     },
     {

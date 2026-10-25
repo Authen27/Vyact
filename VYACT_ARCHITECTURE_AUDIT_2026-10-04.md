@@ -6,6 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
+**Remediation status (updated 25 Oct 2026):** 202 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 25 Oct 2026):** 193 of 218 resolved, including all 3 critical and 27 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 25 Oct 2026):** 189 of 218 resolved, including all 3 critical and 26 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 **Remediation status (updated 25 Oct 2026):** 183 of 218 resolved, including all 3 critical and 26 of 31 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
@@ -67,6 +68,17 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 31 | 22 | 5 | 4 | 0 | 0 | 0 | 0 |
+| Medium | 102 | 90 | 6 | 4 | 2 | 0 | 0 | 0 |
+| Low | 77 | 67 | 4 | 3 | 3 | 0 | 0 | 0 |
+| Info | 5 | 5 | 0 | 0 | 0 | 0 | 0 | 0 |
+| **Total** | **218** | **186** | **16** | **11** | **5** | **0** | **0** | **0** |
+
+**202 of 218 are resolved (93%): all 3 critical and 27 of 31 high.** The other 16 fall into four groups:
+
+| What the 16 need | Count |
+|---|---:|
+| Work planned in a Track Q stage (any owner step is named in Appendix C) | 8 |
+| An owner action or decision (0 waiting only on a decision; 8 partly done, with the rest waiting on an owner action) | 8 |
 | Medium | 102 | 85 | 6 | 8 | 3 | 0 | 0 | 0 |
 | Low | 77 | 63 | 4 | 4 | 6 | 0 | 0 | 0 |
 | Info | 5 | 5 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -122,7 +134,7 @@ Two developers did the work:
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07, XC-PRV-08 | XC-PRV-11 |
 | #168 | v10.64.0 | W1c abuse limits | FE-PIP-09, BE-FN-06, BE-FN-09, BE-PIP-02, BE-PIP-03, FE-PIP-18 | OPS-11 |
 | #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05, INT-PAR-11 | — |
-| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08, INT-PAR-11 | FE-UIS-03 |
+| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, FE-UIS-03, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08, INT-PAR-11 | — |
 | #171 | v10.67.0 | W3c lost edits | FE-SYN-01, FE-SYN-03, INT-TXN-08 | — |
 | #172 | v10.68.0 | W3d recurrence schema | FE-MNY-01, INT-TXN-05 | — |
 | #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02, XC-ARC-06, INT-PAR-11 | — |
@@ -130,15 +142,17 @@ Two developers did the work:
 | #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
 | #176 | v10.72.0 | W4c split edit | FE-PIP-03, INT-TXN-01, FE-UIC-09 | — |
 | #177 | v10.73.0 | W4d bell + signs | FE-UIS-04, FE-UIC-04 | — |
-| #178 | v10.74.0 | W4e loan schema | FE-MNY-04, INT-TXN-07, FE-UIC-06, OPS-08 | FE-UIC-12 |
-| #179 | v10.75.0 | W4f loan app | FE-MNY-04, INT-TXN-07, FE-UIC-06, FE-UIC-09 | FE-UIC-12 |
+| #178 | v10.74.0 | W4e loan schema | FE-MNY-04, INT-TXN-07, FE-UIC-06, FE-UIC-12, OPS-08 | — |
+| #179 | v10.75.0 | W4f loan app | FE-MNY-04, INT-TXN-07, FE-UIC-06, FE-UIC-09, FE-UIC-12 | — |
 | #180 | v10.76.0 | W4g loan automation | INT-TXN-07, FE-UIC-09 | — |
 | #181 | v10.77.0 | W4h budget suggest | FE-MNY-16 | — |
 | #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-06, FE-PIP-08, FE-PIP-12 | — |
+| #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-10, FE-UIS-11, FE-UIS-12, FE-UIS-13, INT-HH-08, FE-MNY-11, FE-PUB-11 | — |
+| #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, XC-PRV-08, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05, INT-HH-13 | — |
 | #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-10, FE-UIS-11, FE-UIS-12, FE-UIS-13, FE-MNY-11, FE-PUB-11 | INT-HH-08 |
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, XC-PRV-08, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
-| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, INT-HH-09, INT-PAR-05, XC-PRV-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10 |
+| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, FE-UIC-10, INT-HH-09, INT-PAR-05, XC-PRV-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | — |
 | #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-WA-06, BE-WA-09, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-12, BE-WA-13, INT-PAR-10 | BE-PIP-04 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-10, ADM-11, ADM-12, ADM-13, ADM-14, INT-CON-06, INT-HH-14, GATE-03 | FE-PLT-04 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-10, ADM-11, ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-14, INT-HH-14 |
@@ -177,6 +191,10 @@ Two developers did the work:
 | #238 | v10.127.0 | Track T4d: lock-screen push for the Android app through FCM, server side (owner, 19 Oct) | — | — |
 | #239 | v10.128.0 | Track Q1: the app goes live last (promote after migrations + Edge); migrations in order; deployed engine checked; auth settings recorded (owner D8, 20 Oct) | INT-PAR-08, OPS-03, Q-DOC-01 | OPS-01, BE-FN-11, Q-AUTH-01, Q-AUTH-02 |
 | #240 | v10.129.0 | Track Q2: every migration replayed on an empty database on each PR; a role × household authz matrix over every table and API function (owner D10, 20 Oct) | ADM-07, DB-SEC-10, OPS-02, OPS-08, XC-ARC-13 | — |
+| #242 | v10.130.0 | Track Q3a: budgets stay in their household; production-only objects codified; staff audit trail and tiers; paged admin lists; public content columns; WhatsApp account choice and log actor; money checks; indexes (owner D4 + Q3 answers, 20 Oct) | DB-SEC-03, ADM-04, ADM-06, DB-INT-13, DB-OPS-03, INT-HH-08, INT-TXN-12, FE-PUB-08, ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, DB-INT-14, DB-OPS-09, INT-HH-14, INT-TXN-14, DB-OPS-16 | — |
+| #243 | v10.131.0 / admin v1.5.0 | Track Q3b: admin pages on the server tiers; paged lists and server counts; staff roles and Staff actions; MRR per currency; infographic checks; previews never reach production (owner, 20 Oct) | ADM-04, ADM-07, ADM-09, ADM-08, ADM-14, INT-HH-14 | OPS-05 |
+| #244 | v10.132.0 / admin v1.6.0 | Track Q4: job runs recorded, job_health and the hourly owner email, admin Health; Sentry (EU, scrubbed, no SDK); Privacy names Sentry; the weekly WhatsApp summary under insights; Userback off on localhost and the demo (owner, 20 Oct; D9) | OPS-06, FE-UIS-12, DB-OPS-08, Q-WA-01 | XC-PRV-03 |
+| #245 | v10.133.0 | Track Q5: amounts in either separator convention; onboarding re-runs in place; dialogs keep focus; household exit purge; per-person language; one free-to-spend; archive at zero; card in credit; dead import gone (owner, 20 Oct) | FE-UIC-10, FE-UIC-12, FE-UIS-03, FE-UIS-07, INT-HH-08, FE-MNY-12, FE-MNY-13, FE-SYN-13, INT-HH-13 | — |
 | #242 | v10.130.0 | Track Q3a: budgets stay in their household; production-only objects codified; staff audit trail and tiers; paged admin lists; public content columns; WhatsApp account choice and log actor; money checks; indexes (owner D4 + Q3 answers, 20 Oct) | DB-SEC-03, ADM-04, ADM-06, DB-INT-13, DB-OPS-03, INT-TXN-12, FE-PUB-08, ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, DB-INT-14, DB-OPS-09, INT-HH-14, INT-TXN-14, DB-OPS-16 | INT-HH-08 |
 | #243 | v10.131.0 / admin v1.5.0 | Track Q3b: admin pages on the server tiers; paged lists and server counts; staff roles and Staff actions; MRR per currency; infographic checks; previews never reach production (owner, 20 Oct) | ADM-04, ADM-07, ADM-09, ADM-08, ADM-14, INT-HH-14 | OPS-05 |
 | #244 | v10.132.0 / admin v1.6.0 | Track Q4: job runs recorded, job_health and the hourly owner email, admin Health; Sentry (EU, scrubbed, no SDK); Privacy names Sentry; the weekly WhatsApp summary under insights; Userback off on localhost and the demo (owner, 20 Oct; D9) | OPS-06, FE-UIS-12, DB-OPS-08, Q-WA-01 | XC-PRV-03 |
@@ -249,6 +267,12 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
+**Medium (6)**
+- *Ready to do (no decision):* FE-MNY-08, FE-PLT-04, OPS-11, XC-ARC-05.
+- *Owner decision:* OPS-05, XC-PRV-11.
+
+**Low and info (6)**
+- *Ready to do (no decision):* BE-PIP-04, BE-PIP-06, XC-ARC-07, XC-ARC-15.
 **Medium (11)**
 - *Ready to do (no decision):* FE-MNY-08, FE-PLT-04, FE-UIC-10, FE-UIC-12, FE-UIS-03, FE-UIS-07, INT-HH-08, OPS-11, XC-ARC-05.
 - *Owner decision:* OPS-05, XC-PRV-11.
@@ -864,12 +888,12 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-UIC-07 | MEDIUM | Frontend | DTI and 'Kept this month' ratios use all-time income and a fake 1 when income is zero | confirmed (adversarial: confirmed) |  | Closed | #183 |
 | FE-UIC-08 | MEDIUM | Frontend | Three screens compute 'budget left/over' on different bases | confirmed (adversarial: confirmed) | 2026-09 audit F5 (related; allocation consistency) | Closed | v10.99.0 |
 | FE-UIC-09 | MEDIUM | Frontend | Edit forms rebuild rows from form fields, erasing loan tenure, payment log and links | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F7 (still open for Debt/Split/Asset forms; transactions now carry updated_at) | Closed | #176, #179, #180, #186 |
-| FE-UIC-10 | MEDIUM | Frontend | Amount inputs strip the decimal comma: '12,50' is saved as 1250 | confirmed (adversarial: confirmed) |  | Partly | #186 |
-| FE-UIC-12 | MEDIUM | Frontend | Net Worth and Debts forms invite re-entering Accounts money; spendable figures diverge | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F3 (structural remainder) | Partly | #178, #179 |
+| FE-UIC-10 | MEDIUM | Frontend | Amount inputs strip the decimal comma: '12,50' is saved as 1250 | confirmed (adversarial: confirmed) |  | Closed | #186, v10.133.0 |
+| FE-UIC-12 | MEDIUM | Frontend | Net Worth and Debts forms invite re-entering Accounts money; spendable figures diverge | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F3 (structural remainder) | Closed | #178, #179, v10.133.0 |
 | FE-UIC-13 | MEDIUM | Frontend | Recurring Save has no in-flight guard or error handling; a double tap duplicates schedules | confirmed (adversarial: confirmed) |  | Closed | #173, #183 |
-| FE-UIS-03 | MEDIUM | Frontend | Re-running onboarding relabels household currency, duplicates bill schedules, and half-commits on error | confirmed-with-caveats (adversarial: partial) |  | Partly | #170 |
+| FE-UIS-03 | MEDIUM | Frontend | Re-running onboarding relabels household currency, duplicates bill schedules, and half-commits on error | confirmed-with-caveats (adversarial: partial) |  | Closed | #170, v10.133.0 |
 | FE-UIS-06 | MEDIUM | Frontend | Settings saves household settings optimistically for non-owners; values revert, profile email is never saved | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
-| FE-UIS-07 | MEDIUM | Frontend | Notifications, household switcher, account menu and ⌘K are modal dialogs without focus trap or focus return | confirmed (adversarial: confirmed) |  | Open | — |
+| FE-UIS-07 | MEDIUM | Frontend | Notifications, household switcher, account menu and ⌘K are modal dialogs without focus trap or focus return | confirmed (adversarial: confirmed) |  | Closed | v10.133.0 |
 | FE-UIS-08 | MEDIUM | Frontend | Toasts are silent to screen readers and vanish in 3.2s; bottom banners cover the tab bar and Save | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
 | FE-UIS-09 | MEDIUM | Frontend | Aurora secondary text and status colours fail WCAG AA contrast, most in light theme | confirmed (adversarial: confirmed) |  | Closed (decision) | #190 |
 | FE-UIS-10 | MEDIUM | Frontend | Single-key shortcuts n/b/d/a ignore modifiers (hijack Cmd+A, Ctrl+D) and cannot be turned off | confirmed (adversarial: confirmed) |  | Closed | #183, v10.91.0 |
@@ -909,6 +933,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | DB-SEC-09 | MEDIUM | Database | Tenant-consistency triggers (S3) skip asset_id, initiated_by, schedule and account links | confirmed (adversarial: confirmed) | 2026-09 audit S3 | Closed | v10.117.0 |
 | DB-SEC-10 | MEDIUM | Database | No database authorization test suite: RLS and RPC role/tenant matrix untested | confirmed (adversarial: confirmed) |  | Closed | v10.129.0 |
 | INT-HH-07 | MEDIUM | Integration | Owners and admins can add any user to a household without consent and read their profile | confirmed (adversarial: confirmed) | 2026-09 audit S2 ('whether user identity and household linkage can change' still open) | Closed | v10.114.0 |
+| INT-HH-08 | MEDIUM | Integration | Household settings permissions disagree with RLS; partial writes and unhandled errors | confirmed-with-caveats (adversarial: partial) |  | Closed | #183, v10.130.0, v10.133.0 |
 | INT-HH-08 | MEDIUM | Integration | Household settings permissions disagree with RLS; partial writes and unhandled errors | confirmed-with-caveats (adversarial: partial) |  | Partly | #183, v10.130.0 |
 | INT-HH-09 | MEDIUM | Integration | Invite acceptance is not atomic or single-use; stale tokens and legacy RPCs linger | confirmed (adversarial: confirmed) |  | Closed | #186, v10.114.0 |
 | INT-HH-12 | MEDIUM | Integration | 'Child (own data only)' invite role can read the whole household's finances | confirmed (adversarial: confirmed) |  | Closed (decision) | #166 |
@@ -945,8 +970,8 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-PRV-11 | MEDIUM | Cross-cutting | Privacy notice lacks DPDP/GDPR basics: controller, grievance contact, breach process, child accounts | confirmed-with-caveats (adversarial: partial) |  | Partly | #165, #166, #167, v10.125.0 |
 | XC-PRV-12 | MEDIUM | Cross-cutting | resolve_participant_names lets any signed-up user bulk-test emails and learn real names | confirmed (adversarial: confirmed) |  | Closed | v10.114.0 |
 | FE-MNY-11 | LOW | Frontend | CSV export writes user and WhatsApp-sourced text without neutralising formulas (CSV injection) | confirmed (adversarial: confirmed) |  | Closed | #183 |
-| FE-MNY-12 | LOW | Frontend | Archived accounts with a balance count in net worth and Pip's liquid figure but drop out of 'Spendable now' | not independently verified (low/info) |  | Open | — |
-| FE-MNY-13 | LOW | Frontend | Card reconcile forces every stated value negative, so an overpaid (credit) card cannot be recorded | not independently verified (low/info) |  | Open | — |
+| FE-MNY-12 | LOW | Frontend | Archived accounts with a balance count in net worth and Pip's liquid figure but drop out of 'Spendable now' | not independently verified (low/info) |  | Closed | v10.133.0 |
+| FE-MNY-13 | LOW | Frontend | Card reconcile forces every stated value negative, so an overpaid (credit) card cannot be recorded | not independently verified (low/info) |  | Closed | v10.133.0 |
 | FE-MNY-14 | LOW | Frontend | Planner 'income varies' rule includes the partial current month and flags stable earners early each month | not independently verified (low/info) |  | Closed | #184 |
 | FE-MNY-15 | LOW | Frontend | 'Full backup' omits accounts, allocations and recurring schedules, so balances cannot be rebuilt from it | not independently verified (low/info) | TD-16 (exports, different aspect) | Closed | #184 |
 | FE-MNY-16 | LOW | Frontend | Budget suggestion and forecast sum mixed currencies, inactive schedules and receivables | not independently verified (low/info) |  | Closed | #170, #181, #186, v10.91.0 |
@@ -970,7 +995,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-SYN-10 | LOW | Frontend | Switching user without signing out keeps the previous user's ledger loaded and never purges | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S5 ('Switching users on the same browser' not handled) | Closed | #186 |
 | FE-SYN-11 | LOW | Frontend | Outbox flush polls every 100 ms while an entity's first op waits out a backoff | not independently verified (low/info) |  | Closed | #186 |
 | FE-SYN-12 | LOW | Frontend | A failed cache read becomes [] and the next write saves it back, truncating the cache | not independently verified (low/info) |  | Closed | #186 |
-| FE-SYN-13 | LOW | Frontend | Anonymous to cloud import is dead: the sign-in purge deletes the local data it would import | not independently verified (low/info) |  | Open | — |
+| FE-SYN-13 | LOW | Frontend | Anonymous to cloud import is dead: the sign-in purge deletes the local data it would import | not independently verified (low/info) |  | Closed | v10.133.0 |
 | FE-UIC-14 | LOW | Frontend | Reconcile sheet announces adjustments the reconcile engine silently changes | not independently verified (low/info) |  | Closed | #184 |
 | FE-UIC-15 | LOW | Frontend | Account ledger running balance ignores when reconcile offsets were applied | not independently verified (low/info) |  | Closed | #186 |
 | FE-UIC-16 | LOW | Frontend | Transaction rows label first-class accounts 'Linked account' or 'Credit card' | not independently verified (low/info) |  | Closed | #184 |
@@ -1005,6 +1030,8 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-CON-06 | LOW | Integration | Admin app household-type enum omits 'couple' and keeps retired multi_biz/shared | not independently verified (low/info) |  | Closed | #188 |
 | INT-CON-07 | LOW | Integration | leave_household shares the same NULL-role guard idiom as transfer_ownership | not independently verified (low/info) |  | Closed | v10.114.0 |
 | INT-HH-06 | LOW | Integration | Owner continuity not enforced: households can be left with no owner | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S2 (owner continuity still open) | Closed | #166, v10.114.0 |
+| INT-HH-13 | LOW | Integration | After leaving or deleting a household, the app stays on a household the user is no longer in | not independently verified (low/info) |  | Closed | #184, v10.133.0 |
+| INT-HH-14 | LOW | Integration | Admin Households page has a stale type list and member counts that cap at 1,000 rows | not independently verified (low/info) |  | Closed | #188, v10.130.0, v10.131.0 |
 | INT-HH-13 | LOW | Integration | After leaving or deleting a household, the app stays on a household the user is no longer in | not independently verified (low/info) |  | Partly | #184 |
 | INT-HH-14 | LOW | Integration | Admin Households page has a stale type list and member counts that cap at 1,000 rows | not independently verified (low/info) |  | Closed | #188, v10.130.0, v10.131.0 |
 | INT-HH-14 | LOW | Integration | Admin Households page has a stale type list and member counts that cap at 1,000 rows | not independently verified (low/info) |  | Partly | #188, v10.130.0 |
@@ -1322,6 +1349,9 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 25 Oct 2026)
 
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.133.0. See §0 for the method, the summary, the conflicts and the action plan.
+
+### C.1 Unresolved (16)
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.132.0. See §0 for the method, the summary, the conflicts and the action plan.
 
 ### C.1 Unresolved (25)
@@ -1338,6 +1368,15 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.130.
 | XC-PRV-03 | high | Partly | #165, #189, v10.125.0, v10.132.0 | v10.125.0 asked first for GA4; v10.132.0 / admin v1.6.0 (Track Q4; owner decision D9, 20 Oct 2026): Userback never loads on localhost, a .test host or the demo (on in the Android app). Left for the owner: confirm in Userback that session replay, console capture and auto-screenshot are off. | Owner: confirm the Userback settings (replay, console capture, auto-screenshot off) | M |
 | Q-AUTH-01 | high | Partly | v10.128.0 | v10.128.0 records the target (site_url https://vyact.app; allow-list vyact.app/**, www.vyact.app/**, vyact://auth-callback) in supabase/auth-config.json; each Deploy warns until it is live. Left: the owner changes it in the Supabase dashboard, then the check goes --strict. | Owner: Supabase Auth URL configuration | XS |
 | Q-AUTH-02 | high | Partly | v10.128.0 | Recorded target: a real SMTP sender (MailerSend or Resend, as split email uses) at 30 an hour. Left: the owner sets custom SMTP in the dashboard; smtp_host is recorded once chosen. | Owner: custom SMTP | XS |
+| FE-PLT-04 | medium | Partly | #188, #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026) ("collect reports, then enforce"): vyact.app's report-only policy now reports to /api/csp-report (report-uri + Reporting-Endpoints), which logs the directive, the blocked host and the page path only. T4B-008. Left: switch to an enforced Content-Security-Policy after about a week of clean reports. | Track Q8: enforce after the report week (from 26 Oct) | XS |
+| OPS-05 | medium | Partly | #189, v10.131.0 | v10.84.0 fenced consumer previews; admin v1.5.0 / v10.131.0 (Track Q3b; owner decisions 20 Oct 2026) fences admin previews (ADM-09). Left for the owner: scope vyact-admin's production Supabase env to Production and give Preview the vyact-test values. | Owner: scope the vyact-admin Vercel env (Production / Preview) | XS |
+| OPS-11 | medium | Partly | #168 | The per-user cap now fails closed (parseDailyCallCap: only "off" disables it). A global LLM spend ceiling is backlog (owner: not now). | Track Q7: global daily ceiling (owner brought it in from backlog) | S |
+| XC-PRV-11 | medium | Partly | #165, #166, #167, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026): Privacy adds the DPDP section (rights, nomination, Grievance Officer, Data Protection Board), a processor list with regions, withdrawal of optional processing in Settings (analytics), §10 breach and §12 18+ only (no child accounts; Terms too). SECURITY.md has the breach runbook (DPDP Board, 72 hours, GDPR). POLICY_VERSION bumped with re-consent (XC-PRV-09). T4B-006… | Owner: legal entity, address, Grievance Officer, Supabase region | M |
+| FE-MNY-08 | medium | Open | — | Decide the split money model: (a) the paying account drops by the full bill; (b) the others' shares become a receivable, and the owner chooses where it shows (Net Worth, Pip, free-to-spend); (c) settling moves money back into a named account. Then implement it with a money-model invariant (an account drops by the full amount; settling restores the share) and update the golden file deliberately. | Track Q6: full debit + Owed to you (owner) | L |
+| XC-ARC-05 | medium | Open | — | Restructure CLAUDE.md and freeze old docs? (W8 §3) | Track Q8: fix the stale lines, then close (owner) | S |
+| BE-FN-11 | low | Partly | #165, v10.123.0, v10.126.0, v10.128.0 | v10.126.0 (T4c) built the snapshot and the drift check; v10.128.0 (Q1) recorded the 29 live values with the owner's decisions (Q-AUTH-01..04). Left: --strict once the dashboard matches (Q-AUTH-01/02). | Owner: Q-AUTH-01/02 in the dashboard, then --strict | S |
+| BE-PIP-04 | low | Partly | #187 | A learned recipe is deterministic only when trusted (#187). No confirmation or promotion flow was built; the pipeline is not connected to any entrypoint, so nothing is exposed today. | Track Q8 (parked with XC-ARC-07) | S |
+| OPS-07 | low | Partly | #189 | `permissions: contents: read` is on every workflow. Left: a separate Supabase token or environment for vyact-test deploys (owner). | Owner: separate token | XS |
 | OPS-06 | high | Open | — | Production error reporting and alerting. | Track Q4: Sentry (EU, errors only) + job_runs (owner creates the Sentry project) | M |
 | FE-PLT-04 | medium | Partly | #188, #189, v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026) ("collect reports, then enforce"): vyact.app's report-only policy now reports to /api/csp-report (report-uri + Reporting-Endpoints), which logs the directive, the blocked host and the page path only. T4B-008. Left: switch to an enforced Content-Security-Policy after about a week of clean reports. | Track Q8: enforce after the report week (from 26 Oct) | XS |
 | FE-UIC-10 | medium | Partly | #186 | Dot-grouped, comma-decimal input ('1.234,56', '1.234') is still read about 1000x too small. This is silent in the account opening balance, card limit and reconcile fields. The parser does not use the locale or the household currency's convention, which the audit recommended (Intl.NumberFormat parts). Add the audit's '1.234,56' test case. | Track Q5 | S |
@@ -1405,6 +1444,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.130.
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
+### C.3 Resolved, with a residual note (117)
 ### C.3 Resolved, with a residual note (108)
 ### C.3 Resolved, with a residual note (104)
 ### C.3 Resolved, with a residual note (98)
@@ -1439,6 +1479,10 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.130.
 | FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
 | FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
 | FE-UIC-08 | medium | Closed | v10.99.0 | v10.99.0 (Track E, E5; owner decisions E-6 and 14 Oct 2026): one budget-progress function, lib/budgetProgress.ts, read by the Budgets page (hero, pace chart and cards), the Dashboard (pace banner and Budget progress panel), Reports' budget vs actual and Pip. A total counts all spending in its own period (an annual tot… |
+| FE-UIC-10 | medium | Closed | #186, v10.133.0 | W8a fixed "12,50"; v10.133.0 (Track Q5; owner decisions 20 Oct 2026): one separator rule for every typed amount (lib/amountInput.ts parseAmount: the last . or , with 1–2 digits is the decimal mark, exactly 3 is grouping, anything else NaN), so "1.234,56" is 1234.56 and "1.234" is 1234; rates through parseRate; no pars… |
+| FE-UIC-12 | medium | Closed | #178, #179, v10.133.0 | v10.133.0 (Track Q5; owner decisions 20 Oct 2026): Net Worth never offers cash/checking/savings asset types (stored ones keep theirs); one free-to-spend: the Accounts summary counts archived accounts as Net Worth and Pip do, and says so. Fixture test Accounts = Net Worth = Pip (Q5-005/006). |
+| FE-UIS-03 | medium | Closed | #170, v10.133.0 | The currency part was fixed earlier; v10.133.0 (Track Q5; owner decisions 20 Oct 2026): onboarding's schedules have ids of their household and kind (onboardingScheduleId), so a re-run updates them in place (dates kept) and finishes a half-done run instead of duplicating it. Q5-003. |
+| FE-UIS-07 | medium | Closed | v10.133.0 | v10.133.0 (Track Q5; owner decisions 20 Oct 2026): PullDownSheet (notifications, household switcher, phone account menu), the ⌘K palette and the desktop account menu are Radix dialogs with focus return; the policy sheet and the two reels use useFocusTrap. Q5-004. |
 | FE-UIS-09 | medium | Closed (decision) | #190 | Owner, 20 Oct 2026: keep the look (no darker secondary text). Closed by decision. |
 | FE-UIS-10 | medium | Closed | #183, v10.91.0 | v10.91.0: the single-key n/b/d/a shortcuts are removed (owner decision), so there is nothing to switch off. Transactions' "/" (focus only) and Cmd/Ctrl+K stay. |
 | FE-UIS-12 | medium | Closed | #183, #190, v10.132.0 | #183 fixed chunk recovery and the e2e route, #190 the crash screen; v10.132.0 / admin v1.6.0 (Track Q4; owner decision D9, 20 Oct 2026): a crash the ErrorBoundary catches (through faults.unexpected), and any uncaught error from the app's scripts, is reported to Sentry, scrubbed. Q4-005..007. |
@@ -1465,6 +1509,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.130.
 | DB-SEC-09 | medium | Closed | v10.117.0 | v10.117.0 (Track T2c; owner decisions 18 Oct 2026, T2 reopens Batch E): assert_txn_tenant_consistency (now SECURITY DEFINER) also checks asset_id on every write and initiated_by / recurring_schedule_id when set or changed; new assert_account_tenant_consistency (asset_id, debt_id) and assert_recurring_tenant_consistenc… |
 | DB-SEC-10 | medium | Closed | v10.129.0 | v10.129.0 (Track Q2; owner decision D10, 20 Oct 2026: "replay every migration, and an authz matrix"): authzMatrixSql runs nine personas (signed out, an outsider, owner, admin, member, viewer, super / roles / content staff) against every table with a policy, the views, the infographics bucket and every household, split… |
 | INT-HH-07 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the client INSERT policy on memberships is dropped, so people join only through the definer accepts and handle_new_household; memberships_keep_identity refuses changing a membership's user or household; the legacy profile phone copies are cleared… |
+| INT-HH-08 | medium | Closed | #183, v10.130.0, v10.133.0 | v10.130.0 made profiles.language nullable; v10.133.0 (Track Q5; owner decisions 20 Oct 2026): the app reads and writes the person's own language; household name, type, currency and payoff are the owner's alone (admins read-only, "Only the household owner can change this"). Q5-010. |
 | INT-HH-09 | medium | Closed | #186, v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): accept_invitation_link and accept_invitation_by_id lock the invitation and then the household and claim it only where accepted_at is null (row_count checked); an existing member opening a link leaves it usable; the legacy accept_invitation(text/uu… |
 | INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
 | INT-PAR-05 | medium | Closed | #186, v10.122.0 | v10.122.0 (Track T5c; owner, 19 Oct 2026: "timed turns only; admin counts read only the server's rows"): the WhatsApp stale-balance nudge counts with serverEngine.staleAccountCount (staleAccounts over mapped rows; the dispatcher reads whole account rows). T5C-005 is the audit's test: one fixture, the same count from "… |
@@ -1485,10 +1530,13 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.130.
 | XC-PRV-10 | medium | Closed | v10.125.0 | v10.125.0 (Track T4b; owner decisions 19 Oct 2026) ("Name both; OpenRouter keeps no data"): router.ts sends provider: { data_collection: 'deny' } on every openrouter.ai request, after params.extra so no config row can change it (fallbacks stay allowed, but only to providers that keep no data). Privacy §5/§11 name AWS… |
 | XC-PRV-12 | medium | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decision 18 Oct 2026: "known emails only"): resolve_participant_names answers only for emails on a split the caller owns or takes part in, or of members of their households, at most 200 per call; everyone else gets no answer. The Split form confirms a new person by email with neutral wordin… |
 | FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
+| FE-MNY-12 | low | Closed | v10.133.0 | v10.133.0 (Track Q5; owner decisions 20 Oct 2026): a bank account or card is archived at zero: accounts_guard_lifecycle account_has_balance over account_ledger_balance (the app fold on the server), the store refuses first and says why, the delete sheet offers move instead. Q5-007, Q5-012, Q5-SQL-001..004. |
+| FE-MNY-13 | low | Closed | v10.133.0 | v10.133.0 (Track Q5; owner decisions 20 Oct 2026): card reconcile has "I owe / In credit"; in credit gives balance +X, outstanding 0, liquidity short (reconcileAccount cardInCredit); "I owe" unchanged (INV-11). Q5-008. |
 | FE-MNY-15 | low | Closed | #184 | Nothing for the export. There is still no restore (the owner-only 'Restore from backup' is in the plan's backlog), so the round-trip test from the recommendation has nothing to run against. |
 | FE-MNY-16 | low | Closed | #170, #181, #186, v10.91.0 | v10.91.0: the forecast counts each bill's real dates in the period through ruleOf/expandRRule, as the bill calendar does (owner decision); the unused _shared port is deleted. Suggest still proposes a monthly average, by design. |
 | FE-PIP-14 | low | Closed (decision) | #170 | Moot under D14: one currency per household, nothing converted. |
 | FE-PUB-08 | low | Closed | v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): signed out, content_items is readable in 16 public columns only (author ids hidden); Q3A-013 fails when a react/api query asks for a column that is not granted. |
+| FE-SYN-13 | low | Closed | v10.133.0 | v10.133.0 (Track Q5; owner decisions 20 Oct 2026) (owner: delete the dead import): lib/migration.ts and its init call are removed. Q5-011. |
 | FE-UIS-15 | low | Closed | #184, #186 | Owner decision: non-English options are labelled "Preview: navigation only". |
 | FE-UIS-16 | low | Closed | #184 | Expired invitations no longer count toward the member limit (migration 20261007120000:62). The recommendation's optional dirty-form confirm was not added. |
 | ADM-05 | low | Closed | v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): only super admins write category_classifications; a category must look like an app id (lowercase, NOT VALID check: no fourth copy of the category list); changes are in the staff audit trail. A parity test against NEEDS_WANTS_MAP cannot see production's rows; the owne… |
@@ -1505,6 +1553,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.130.
 | DB-OPS-09 | low | Closed | v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): 14 indexes on lookups that had none, 3 duplicate indexes dropped (Q3A-016). The policy rewrite to a per-request household list was declined by the owner ("indexes only"); the Q2 matrix will guard it if it is ever done. |
 | INT-CON-07 | low | Closed | v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): leave_household reads the caller's role null-safely: a non-member leaves nothing, the last owner cannot leave. JOIN-007. |
 | INT-HH-06 | low | Closed | #166, v10.114.0 | v10.114.0 (Track T2a; owner decisions 18 Oct 2026, T2 reopens Batch E): the unique (household_id, user_id) index is in place (with the merge); the W1a deferred owner trigger already guards continuity. The owner's read-only check for households left ownerless before that trigger is listed in the PR. |
+| INT-HH-13 | low | Closed | #184, v10.133.0 | W7a moved the app to a household still held; v10.133.0 (Track Q5; owner decisions 20 Oct 2026): leaving or deleting one clears its cache, cursors, chat and copies from the device (purgeHouseholdCache; the write queue stays), and with none left the app goes to the local placeholder. Q5-009. |
 | INT-HH-14 | low | Closed | #188, v10.130.0, v10.131.0 | admin v1.5.0 / v10.131.0 (Track Q3b; owner decisions 20 Oct 2026): member counts and type counts come from the server; the page shows the four current types. Q3B-ADM-002. |
 | INT-TXN-14 | low | Closed | v10.130.0 | v10.130.0 (Track Q3a; owner decisions 20 Oct 2026): the activity log's actor is auth.uid(), else the transaction-local vyact.actor that each of the 10 WhatsApp writers sets to the sender; scheduled jobs have none ("Vyact (automatic)", the label in Q3b). Setting deleted_at logs 'deleted'. Q3A-008/009. |
 | GATE-03 | low | Closed | #185, #188 | Live-verified 12 Oct: no .map is served for the vyact.app or admin entry chunks. |

@@ -27,6 +27,15 @@ import type { Asset } from '../../types';
 import { fmt } from '../../lib/format';
 import { confirmSheet } from '../../lib/confirmSheet';
 import { deleteAssetRequest } from '../../lib/confirmCopy';
+import { parseAmount } from '../../lib/amountInput';
+import { BANK_ASSET_TYPES } from '../../lib/accounts';
+
+// v10.133.0 (Track Q5; audit FE-UIC-12, owner 20 Oct 2026): money in a bank account or in cash is an ACCOUNT, where
+// every entry moves it. The asset form offered Cash, Checking and Savings too, so the same money was typed twice, and
+// Net Worth and Pip counted it while Accounts did not. They are never offered for a new asset; an asset already
+// saved with one keeps it (and shows it) until it is changed or removed.
+const OFFERED = (current?: string) => Object.entries(ASSET_TYPES)
+  .filter(([k]) => !(BANK_ASSET_TYPES as readonly string[]).includes(k) || k === current);
 
 interface Props {
   open?: boolean;
@@ -44,16 +53,16 @@ interface FormState {
 }
 
 const blank = (currency: string): FormState => ({
-  type: 'savings',
+  type: 'investment',
   name: '',
   value: '',
   currency,
-  liquidity: 'liquid',
+  liquidity: ASSET_TYPES.investment.liquidity,
   note: '',
 });
 
 const LIQUIDITIES: { key: Asset['liquidity']; label: string; desc: string }[] = [
-  { key: 'liquid', label: 'Liquid',     desc: 'Cash, checking, savings' },
+  { key: 'liquid', label: 'Liquid',     desc: 'Spendable within days' },
   { key: 'short',  label: 'Short-term', desc: 'Investments, receivables' },
   { key: 'long',   label: 'Long-term',  desc: 'Real estate, retirement' },
 ];
@@ -66,6 +75,7 @@ export default function AssetFormModal(props: Props) {
   const transactions     = useStore(s => s.transactions);
   const rates            = useStore(s => s.rates);
   const toast            = useStore(s => s.toast);
+  const openAddAccount   = useStore(s => s.openAddAccount);
 
   const open         = props.open ?? true;
   const initial      = props.initial ?? null;
@@ -106,7 +116,7 @@ export default function AssetFormModal(props: Props) {
   }, [open, initial, profile.baseCurrency]);
 
   async function save() {
-    const value = parseFloat(form.value);
+    const value = parseAmount(form.value);
     if (!form.name.trim()) { toast('Name is required', 'error'); return; }
     if (isNaN(value) || value < 0) { toast('Enter a valid value', 'error'); return; }
 
@@ -206,11 +216,18 @@ export default function AssetFormModal(props: Props) {
             const type = e.target.value;
             setForm(f => ({ ...f, type, liquidity: ASSET_TYPES[type]?.liquidity ?? f.liquidity }));
           }}>
-          {Object.entries(ASSET_TYPES).map(([k, v]) => (
+          {OFFERED(initial?.type).map(([k, v]) => (
             <option key={k} value={k}>{v.icon} {v.label}</option>
           ))}
         </Select>
       </Field>
+      {!initial && (
+        <p className="text-[0.78rem] text-ink-dim -mt-1 mb-3">
+          Money in a bank account or in cash belongs in Accounts, where every entry moves it.{' '}
+          <button type="button" className="font-medium underline underline-offset-2 min-h-[44px] align-middle"
+            style={{ color: 'var(--accent-text)' }} onClick={() => openAddAccount()}>Add an account</button>
+        </p>
+      )}
       {changeLiquidity && (
         <Field label="Liquidity" hint="How quickly this could become cash. Net Worth groups assets by it.">
           <Select
@@ -229,7 +246,7 @@ export default function AssetFormModal(props: Props) {
           autoFocus
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          placeholder={form.type === 'investment' ? 'e.g. Nifty 50 index fund' : 'e.g. Chase Savings'}
+          placeholder={form.type === 'investment' ? 'e.g. Nifty 50 index fund' : 'e.g. Flat in Pune'}
         />
       </Field>
 

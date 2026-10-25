@@ -19,7 +19,8 @@ import { Select } from '../ui/Input';
 import { Pick } from './ReconcileSheet';
 import { useStore } from '../../store';
 import { fmt } from '../../lib/format';
-import { hasDependencies, moveDestinations } from '../../lib/accountsView';
+import { archiveBlockedByBalance, hasDependencies, moveDestinations } from '../../lib/accountsView';
+import { computeAccountBalance } from '../../lib/accountBalance';
 import type { Account, AccountDependencies } from '../../types';
 
 interface Props {
@@ -43,6 +44,8 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
   const moveAccountAndDelete     = useStore(s => s.moveAccountAndDelete);
   const upsertAccount            = useStore(s => s.upsertAccount);
   const toast                    = useStore(s => s.toast);
+  const transactions             = useStore(s => s.transactions);
+  const rates                    = useStore(s => s.rates);
 
   const [deps, setDeps]       = useState<AccountDependencies | null>(null);
   const [loadError, setError] = useState<string | null>(null);
@@ -74,7 +77,10 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
   const recordingLoans = deps?.loans ?? [];
   const loansBlockArchive = recordingLoans.length > 0;
   const loanNames = recordingLoans.map(l => l.name).join(', ');
-  const effectiveChoice = loansBlockArchive ? 'move' : choice;
+  // v10.133.0 (Q5, FE-MNY-12): an account archives at zero; one that holds money (or owes) moves its history instead.
+  const balanceBlock = archiveBlockedByBalance(account, computeAccountBalance(account, transactions, baseCurrency, rates), baseCurrency);
+  const archiveBlocked = loansBlockArchive || !!balanceBlock;
+  const effectiveChoice = archiveBlocked ? 'move' : choice;
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -224,8 +230,8 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
             <div className="font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-2">What should happen to them?</div>
             <div className="flex flex-col gap-2.5 mb-3" role="radiogroup" aria-label="What should happen to this account's history">
               <Pick on={effectiveChoice === 'archive'} onSelect={() => setChoice('archive')} title="Archive instead"
-                badge={loansBlockArchive ? undefined : 'recommended'} disabled={loansBlockArchive}>
-                {loansBlockArchive
+                badge={archiveBlocked ? undefined : 'recommended'} disabled={archiveBlocked}>
+                {balanceBlock && !loansBlockArchive ? balanceBlock : loansBlockArchive
                   ? `${loanNames} would stop recording ${recordingLoans.length === 1 ? 'its' : 'their'} EMIs. Change ${recordingLoans.length === 1 ? 'its' : 'their'} paying account in Debts first, or move this account's history (the ${recordingLoans.length === 1 ? 'loan moves' : 'loans move'} with it).`
                   : <>All {plural(tx.count, 'transaction')} stay where they are, history intact. The account leaves your list and
                     stops appearing in Add Transaction.</>}

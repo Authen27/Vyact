@@ -17,7 +17,6 @@ import { isCloudEnabled, supabase } from '../../lib/supabase';
 import {
   loanView, loanAccountOf, loanOutstanding, planLoanPayment, latestLoanPayment, loanDueFromView, LoanPaymentRefused,
 } from '../../lib/loanSchedule';
-import { autoMigrateAnonToHousehold } from '../../lib/migration';
 import { uid, setNumberSystem, nowMonthKey, today } from '../../lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
 import {
@@ -30,6 +29,7 @@ import { expected, unexpected, failedWrite } from '../../lib/faults';
 import { keepLocalChanges, withRow, withoutRow } from '../../lib/rowMerge';
 import { computeNetWorth } from '../../lib/netWorth';
 import { nextHouseholdAfterExit } from '../../lib/householdTypes';
+import { purgeHouseholdCache } from '../../lib/cacheInvalidation';
 import {
   hasPositionData, mergeSnapshot, shouldRecordSnapshot, snapshotFromProjection, type NetWorthSnapshot,
 } from '../../lib/netWorthSnapshots';
@@ -247,20 +247,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       try { setLocalString(DEMO_SEEDED_KEY, active); } catch { /* fault-ok: device storage is optional (private mode, quota); only a demo household is marked */ }
       await get().refresh();
     }
-    // v6.4: One-shot anon → cloud migration when the user signs in for the
-    // first time on this device and lands on an empty cloud household.
-    if (cloudEnabled && active !== 'local') {
-      try {
-        const result = await autoMigrateAnonToHousehold(adapter, active);
-        if (result.ran && result.counts) {
-          const total = Object.values(result.counts).reduce((s, n) => s + n, 0);
-          get().toast(`Imported ${total} item${total === 1 ? '' : 's'} from local data`, 'success');
-          await get().refresh();
-        }
-      } catch (e) {
-        if (typeof console !== 'undefined') console.warn('[Vyact] auto-migration failed', e);
-      }
-    }
+    // v10.133.0 (Track Q5; audit FE-SYN-13, owner 20 Oct 2026): the v6.4 "anonymous → cloud" import is gone
+    // (lib/migration.ts). It could never run: the sign-in purge (cacheInvalidation) clears the local copy it would
+    // have read, and since v4.1 nobody has data from before their account.
     // v8.9 — the pre-cloud recurring list joins the household (store/legacyRecurring.ts; since T5b a
     // schedule that fails to store is kept and tried again, never dropped).
     try {
@@ -515,8 +504,10 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     await adapter.deleteHousehold(id);
 
     // W7a (INT-HH-13): land on a household the person is still in, not the local placeholder.
+    // v10.133.0 (Q5): and the deleted household's cache leaves the device first (purgeHouseholdCache).
     const households = await get().adapter.listHouseholds();
     set({ households });
+    await purgeHouseholdCache(id);
     if (id === currentHouseholdId) await get().switchHousehold(nextHouseholdAfterExit(households, id) ?? 'local');
     get().toast('Profile deleted', 'warning');
   },

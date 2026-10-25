@@ -2,7 +2,11 @@
 // centre and the household switcher. A glass panel drawn from the top edge,
 // full-width on mobile, a centered 720px column on desktop. Dismiss via
 // swipe-up, scrim tap, Esc, or the grabber.
-import { type ReactNode, useEffect } from 'react';
+// v10.133.0 (Track Q5; audit FE-UIS-07): focus moves into the sheet, Tab stays inside it, and closing returns focus
+// to whatever opened it (useFocusTrap). A keyboard user used to tab straight out of the notifications, the household
+// switcher and the phone's account menu into the page behind.
+import { type ReactNode, useEffect, useRef } from 'react';
+import { useFocusTrap } from '../../lib/focusTrap';
 import { AnimatePresence, motion } from 'framer-motion';
 import { scrim, sheetDown } from '../../lib/motion';
 
@@ -18,6 +22,8 @@ interface Props {
 }
 
 export default function PullDownSheet({ open, onClose, ariaLabel, header, footer, children }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -38,8 +44,9 @@ export default function PullDownSheet({ open, onClose, ariaLabel, header, footer
           variants={scrim} initial="hidden" animate="visible" exit="exit"
         >
           <motion.div
+            ref={dialogRef} tabIndex={-1}
             role="dialog" aria-modal="true" aria-label={ariaLabel}
-            className="glass-panel w-full sm:max-w-[720px] max-h-[92dvh] flex flex-col rounded-b-r4"
+            className="glass-panel w-full sm:max-w-[720px] max-h-[92dvh] flex flex-col rounded-b-r4 outline-none"
             style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
             variants={sheetDown} initial="hidden" animate="visible" exit="exit"
           >

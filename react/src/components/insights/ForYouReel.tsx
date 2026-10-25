@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { X, ArrowRight, BookOpen, ChevronUp } from 'lucide-react';
 import type { FeedCard } from '../../lib/insightsFeed';
 import EstimatedTag from '../ui/EstimatedTag';
+import { useFocusTrap } from '../../lib/focusTrap';
 
 interface Props {
   cards: FeedCard[];
@@ -28,6 +29,9 @@ const toneBg: Record<FeedCard['tone'], string> = {
 export default function ForYouReel({ cards, startIndex = 0, onClose, onOpenLearn }: Props) {
   const navigate = useNavigate();
   const scroller = useRef<HTMLDivElement>(null);
+  // v10.133.0 (Q5, FE-UIS-07): Tab stays in the reel, and closing it returns focus to the card that opened it.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
   const [active, setActive] = useState(startIndex);
 
   // Lock body scroll while the reel owns the screen; restore on unmount.
@@ -72,7 +76,7 @@ export default function ForYouReel({ cards, startIndex = 0, onClose, onOpenLearn
   // establishes its own stacking context via z-index, trapping any descendant
   // z-index (however high) below true siblings of <main> like MobileTabBar.
   return createPortal(
-    <div className="fixed inset-0 z-[200] bg-bg" role="dialog" aria-label="Your insights" aria-modal="true">
+    <div ref={dialogRef} tabIndex={-1} className="fixed inset-0 z-[200] bg-bg outline-none" role="dialog" aria-label="Your insights" aria-modal="true">
       {/* Cancel — always reachable */}
       <button
         onClick={onClose}

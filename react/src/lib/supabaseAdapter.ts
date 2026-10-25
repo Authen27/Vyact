@@ -644,7 +644,9 @@ export function profileFromRows(prof: ProfileRowCols, hh: HouseholdRowCols, emai
     name: prof.display_name || '',
     email,
     baseCurrency: hh.base_currency || prof.default_currency || 'USD',
-    language: hh.language || prof.language || 'en',
+    // v10.133.0 (Track Q5; INT-HH-08, owner 20 Oct 2026): the person's own language; until they pick one (null,
+    // since v10.130.0), the household's.
+    language: prof.language || hh.language || 'en',
     household: normalizeHouseholdType(hh.type),
     dateFormat: (prof.date_format as Profile['dateFormat']) || 'us',
     payoffStrategy: (hh.payoff_strategy as Profile['payoffStrategy']) || 'avalanche',
@@ -828,7 +830,6 @@ export class SupabaseAdapter implements DataAdapter {
     const hhPatch: Record<string, unknown> = {};
     if (patch.baseCurrency   !== undefined) hhPatch.base_currency = patch.baseCurrency;
     if (patch.household      !== undefined) hhPatch.type = patch.household;
-    if (patch.language       !== undefined) hhPatch.language = patch.language;
     if (patch.payoffStrategy !== undefined) hhPatch.payoff_strategy = patch.payoffStrategy;
     if (patch.extraPayment   !== undefined) hhPatch.extra_payment = patch.extraPayment;
     if (Object.keys(hhPatch).length) {

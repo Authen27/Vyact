@@ -1,7 +1,9 @@
 // ⌘K command palette (Aurora v10, handoff §6.4) — the guarantee that every
 // route stays reachable under the new top-bar navigation. Glass modal;
 // fuzzy-filters quick actions + all routes; full keyboard support.
+// v10.133.0 (Track Q5; audit FE-UIS-07): Tab stays inside the palette and closing returns focus (useFocusTrap).
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusTrap } from '../../lib/focusTrap';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Wallet, Sparkles, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../store';
@@ -26,6 +28,8 @@ export default function CommandPalette({ open, onClose }: Props) {
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
 
   useEffect(() => {
     if (open) { setQ(''); setSel(0); setTimeout(() => inputRef.current?.focus(), 30); }
@@ -77,8 +81,9 @@ export default function CommandPalette({ open, onClose }: Props) {
       role="dialog" aria-modal="true" aria-label="Command palette"
     >
       <div
+        ref={dialogRef} tabIndex={-1}
         onMouseDown={e => e.stopPropagation()}
-        className="glass-panel w-full max-w-[600px] rounded-r3 overflow-hidden"
+        className="glass-panel w-full max-w-[600px] rounded-r3 overflow-hidden outline-none"
       >
         <div className="flex items-center gap-3 px-4 py-4 border-b border-line">
           <Search size={17} className="text-ink-dim flex-shrink-0" />
