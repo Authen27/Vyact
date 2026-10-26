@@ -2,11 +2,16 @@ version: 2
 # Monthly, not weekly (30 Sep 2026): each version-update PR runs CI, and the private
 # repo now pays for that from the 2,000 free Actions minutes. Security updates are
 # not bound by this schedule; they still open as soon as an advisory lands.
+#
+# Cooldown (v10.137.0, owner decision 26 Oct 2026): a new version is proposed only once it is 7 days old. The 2026 npm
+# worms published malicious releases that were pulled within hours; a week lets the registry and advisories catch them.
+# Security updates ignore the cooldown.
 updates:
   # Consumer app
   - package-ecosystem: npm
     directory: /react
     schedule: { interval: monthly }
+    cooldown: { default-days: 7 }
     open-pull-requests-limit: 5
     groups:
       react: { patterns: ['react', 'react-*', '@types/react*'] }
@@ -18,6 +23,7 @@ updates:
   - package-ecosystem: npm
     directory: /admin
     schedule: { interval: monthly }
+    cooldown: { default-days: 7 }
     open-pull-requests-limit: 5
     groups:
       react: { patterns: ['react', 'react-*', '@types/react*'] }
@@ -28,4 +34,5 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
+    cooldown: { default-days: 7 }
     labels: ['dependencies', 'ci']

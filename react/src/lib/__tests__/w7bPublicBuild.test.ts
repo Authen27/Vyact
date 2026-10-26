@@ -45,7 +45,8 @@ describe('W7b · public site and build config', () => {
 
   it('W7b-GATE03-001 · production builds publish no source maps, and the build gate catches one (GATE-03)', () => {
     expect(read('react/vite.config.ts')).toMatch(/outDir: 'dist', sourcemap: false,/);
-    expect(JSON.parse(read('react/package.json')).scripts.postbuild).toMatch(/node scripts\/assert-no-sourcemaps\.mjs/);
+    // v10.137.0: a step of scripts/build.mjs (npm skips hooks under .npmrc ignore-scripts), no longer a postbuild hook.
+    expect(read('react/scripts/build.mjs')).toMatch(/\['node', \['scripts\/assert-no-sourcemaps\.mjs'\]\]/);
     const dist = mkdtempSync(join(tmpdir(), 'w7b-dist-'));
     mkdirSync(join(dist, 'assets'));
     writeFileSync(join(dist, 'assets', 'index-a1.js'), 'console.log(1);\n');

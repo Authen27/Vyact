@@ -34,8 +34,8 @@ jobs:
     env:
       TEST_PROJECT_REF: xdbfzwltqocyljbgztmv
     steps:
-      - uses: actions/checkout@v7
-      - uses: supabase/setup-cli@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with: { version: 1.226.4 }
       - name: Normalise SUPABASE_ACCESS_TOKEN
         env:

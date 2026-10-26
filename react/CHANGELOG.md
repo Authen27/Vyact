@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.136.0`** (consumer)
+> **Current production version: `v10.137.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,23 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.137.0 — The tools that build and ship Vyact are pinned *(2026-10-26)*
+
+Supply-chain hardening (owner decision 26 Oct 2026), after Node.js's 21 Oct security release and the 2026 npm worm
+waves. Nothing changes in the app. Ships with admin v1.6.2.
+
+- **One Node, patched, everywhere.** `.nvmrc` names Node 22.23.4 (the release with the October fixes) and every
+  workflow reads it. CI had been on 22.20.0, and yesterday's Deploy on 22.23.3.
+- **No package runs an install script** on a developer's machine, in CI or on Vercel (`.npmrc` in react/ and admin/):
+  the worms spread that way. The landing pre-render and the build's checks now run inside `npm run build`
+  (`scripts/build.mjs`), because npm skips hooks under that setting; the build and `npm run build -- --mode test` are
+  unchanged.
+- **Every GitHub Action is pinned to a commit**, not a tag someone could move.
+- **Dependabot waits a week** before proposing a new version of anything.
+- **The lockfiles are checked for known-malicious packages** (OSV) whenever they change and every Monday. Today: 808
+  versions checked, none malicious.
+- The repository-files check from v10.136.0 now runs in CI too (it ran only locally).
 
 ## v10.136.0 — Housekeeping: the unused ingestion pipeline parked, an unrun test now runs, stale docs corrected *(2026-10-25)*
 
