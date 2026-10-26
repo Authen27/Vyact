@@ -93,6 +93,11 @@ const gates = [
   // T4c: the auth-settings drift check. Q1 (OPS-01, OPS-03): the app promotion and the migration order.
   { id: 'deploy-tooling',      name: 'Deploy tooling (project_url, auth settings, app promotion, migration order)', cwd: '.',
     cmd: 'node --test scripts/__tests__/store-project-url.test.mjs scripts/__tests__/auth-config-check.test.mjs scripts/__tests__/promote-app.test.mjs scripts/__tests__/migration-order-check.test.mjs scripts/__tests__/deploy-workflow.test.mjs' },
+  // v10.137.0 (supply-chain hardening, owner 26 Oct 2026): one Node from .nvmrc, Actions pinned to commits, no install
+  // scripts and no hooks relying on them, the Dependabot cooldown, the lockfile malware check's own tests, and (Q8,
+  // XC-ARC-15) no business or design files in the repository. The malware check itself calls OSV: deps.yml runs it.
+  { id: 'supply-chain',        name: 'Supply chain and repository files', cwd: '.',
+    cmd: 'node --test scripts/__tests__/supply-chain.test.mjs scripts/__tests__/dependency-malware-check.test.mjs scripts/__tests__/repo-files.test.mjs' },
   { id: 'db-migrations',       name: 'DB migrations (naming + schema.sql snapshot in sync + newer than the base)', cwd: '.',
     cmd: 'node scripts/db-migrations-check.mjs && node scripts/migration-order-check.mjs' },
   { id: 'version-drift',       name: 'Version drift (README/VERSIONS/CHANGELOG vs package.json)', cwd: '.',

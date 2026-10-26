@@ -1,0 +1,37 @@
+name: Dependency malware check
+
+# v10.137.0 (supply-chain hardening; owner decision 26 Oct 2026). Every version pinned in the npm lockfiles is looked up
+# in OSV's malicious-packages feed (scripts/dependency-malware-check.mjs); a known-malicious one fails the run, and so
+# does an OSV that cannot be read. It runs when a lockfile changes, and every Monday, because a version locked last
+# month can be reported malicious today. No install and no secrets: well under a minute.
+on:
+  pull_request:
+    paths:
+      - '**/package-lock.json'
+      - 'scripts/dependency-malware-check.mjs'
+      - '.github/workflows/deps.yml'
+  push:
+    branches: [main]
+    paths:
+      - '**/package-lock.json'
+      - 'scripts/dependency-malware-check.mjs'
+      - '.github/workflows/deps.yml'
+  schedule:
+    - cron: '30 3 * * 1'   # Mondays, 03:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  osv:
+    name: Known-malicious package versions (OSV)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+      - name: Check every locked version
+        run: node scripts/dependency-malware-check.mjs

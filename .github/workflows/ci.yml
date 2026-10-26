@@ -64,10 +64,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15   # normally ~2 min
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22.20.0'
+          node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
       - name: Install consumer deps
@@ -90,7 +90,7 @@ jobs:
       # shorter, and the two app builds (largest; Vercel builds its own) upload only on failure.
       - name: Upload generated test inventory
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         continue-on-error: true
         with:
           name: deterministic-test-inventory
@@ -101,7 +101,7 @@ jobs:
           retention-days: 14
       - name: Upload automation run report (governance evidence)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         continue-on-error: true
         with:
           name: automation-run-report
@@ -109,7 +109,7 @@ jobs:
           retention-days: 30
       - name: Upload consumer build
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         continue-on-error: true
         with:
           name: consumer-dist
@@ -117,7 +117,7 @@ jobs:
           retention-days: 7
       - name: Upload admin build
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         continue-on-error: true
         with:
           name: admin-dist
@@ -133,10 +133,10 @@ jobs:
     timeout-minutes: 15   # normally ~3 min; a hang used to run to 30
     defaults: { run: { working-directory: react } }
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22.20.0'   # W8d (OPS-13): the same Node as every other job
+          node-version-file: '.nvmrc'   # W8d (OPS-13); v10.137.0: every job reads one Node from .nvmrc
           cache: 'npm'
           cache-dependency-path: react/package-lock.json
       - run: npm ci
@@ -146,7 +146,7 @@ jobs:
         run: npm run e2e
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         continue-on-error: true
         with:
           name: playwright-report
@@ -174,8 +174,8 @@ jobs:
     timeout-minutes: 10   # normally ~1 min
     defaults: { run: { working-directory: react } }
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           # 22, not 20: Lane B builds a real supabase-js client, and
           # @supabase/realtime-js throws "Node.js 20 detected without native
@@ -183,7 +183,7 @@ jobs:
           # runs. This surfaced the first time Lane B actually executed
           # (the secret was only set on 2026-09-09); all 10 specs failed
           # identically at e2e/lane-b/fixtures.ts:32. Matches the gate job.
-          node-version: '22.20.0'
+          node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: react/package-lock.json
       - name: Is Lane B configured?
@@ -206,7 +206,7 @@ jobs:
         run: npm run e2e:lane-b
       - name: Upload Lane B report
         if: ${{ steps.cfg.outputs.configured == 'true' && !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         continue-on-error: true
         with:
           name: playwright-report-lane-b

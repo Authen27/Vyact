@@ -74,11 +74,11 @@ jobs:
     # this job and the Edge deploy succeed, so a failed migration keeps the
     # previous app live.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
       # API to look up the latest release and gets rate-limited on shared
       # runners. Pin a specific CLI version and bump it deliberately.
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with: { version: 1.226.4 }
       - name: Validate migrations directory (CI-style gate)
         run: node scripts/db-migrations-check.mjs
@@ -150,19 +150,19 @@ jobs:
     environment: production-database
     # Gated with db-migrations (v10.20.5) — see the note on that job.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Q1 (audit INT-PAR-08): the bundled engine the Edge Functions run must be the app's code at this
       # commit. CI checks it on PRs; this checks it again on what is about to be deployed.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
           cache: npm
           cache-dependency-path: react/package-lock.json
       - name: Install the app's dependencies (the engine bundler)
         run: npm ci --prefix react --ignore-scripts
       - name: The engine bundle matches the app code
         run: node scripts/build-agent-engine.mjs --check
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with: { version: 1.226.4 }
       # Same normalisation as the db-migrations job — see the note there.
       - name: Normalise SUPABASE_ACCESS_TOKEN
@@ -239,9 +239,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version-file: '.nvmrc' }
       - name: Promote this commit's production builds
         env:
           VERCEL_PROMOTE_TOKEN: ${{ secrets.VERCEL_PROMOTE_TOKEN }}

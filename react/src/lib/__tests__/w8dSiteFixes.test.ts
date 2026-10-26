@@ -110,7 +110,7 @@ describe('W8d · site, platform and docs', { timeout: 20_000 }, () => {
     expect(findProdRef(dist)).toEqual([]);
     writeFileSync(join(dist, 'assets', 'b.js'), 'const u="https://dmxqkvploojokffuhxnz.supabase.co"');
     expect(findProdRef(dist)).toEqual([join('assets', 'b.js')]);
-    expect(JSON.parse(read('react/package.json')).scripts.postbuild).toMatch(/node scripts\/assert-preview-isolated\.mjs/);
+    expect(read('react/scripts/build.mjs')).toMatch(/\['node', \['scripts\/assert-preview-isolated\.mjs'\]\]/);   // v10.137.0: a build step
   });
 
   it('W8d-GATE05-001 · runtime advisories of high and above fail CI; moderate ones are triaged (GATE-05)', () => {
@@ -128,7 +128,7 @@ describe('W8d · site, platform and docs', { timeout: 20_000 }, () => {
     expect(entryScript('<script type="module" crossorigin src="/assets/index-Abc.js"></script>')).toBe('/assets/index-Abc.js');
     expect(entryScript('<html></html>')).toBeNull();
     expect(ENTRY_BUDGET_KB).toBe(350);
-    expect(JSON.parse(read('react/package.json')).scripts.postbuild).toMatch(/node scripts\/assert-bundle-budget\.mjs$/);
+    expect(read('react/scripts/build.mjs')).toMatch(/\['node', \['scripts\/assert-bundle-budget\.mjs'\]\],\n {2}\];/);   // v10.137.0: the last build step
   });
 
   it('W8d-OPS09-001 · the runbooks describe the live pipeline (OPS-09, DB-OPS-14, DB-OPS-12)', () => {

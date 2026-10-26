@@ -4,8 +4,16 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.6.1`**
+> **Current production version: `v1.6.2`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.6.2 — Installs run no package scripts *(2026-10-26)*
+
+Ships with consumer v10.137.0 (supply-chain hardening; owner decision 26 Oct 2026). `admin/.npmrc` sets
+`ignore-scripts=true`, so no package runs an install script on a developer's machine, in CI or on Vercel. Nothing
+changes in the console.
 
 ---
 

@@ -13,11 +13,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.136.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.137.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.6.1**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.6.2**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -1291,6 +1291,19 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   `scripts/__tests__/repo-files.test.mjs` (in `test:ci`) refuses documents, archives, media and design files anywhere,
   and images outside `react/public` / `admin/public`. Whatever is committed is readable by everyone who can read the
   repository, and stays in its history. Keep decks, plans and handoffs somewhere private.
+- **The supply chain is pinned (v10.137.0; owner decision 26 Oct 2026, after Node's 21 Oct security release and the
+  2026 npm worms). `scripts/__tests__/supply-chain.test.mjs` (CI gate "Supply chain and repository files") holds it.**
+  - One Node everywhere: `.nvmrc` (an exact 22 release, at least 22.23.4), read by every workflow
+    (`node-version-file`). Vercel runs 22.x from `engines` and patches it itself. When Node ships a security release,
+    bump `.nvmrc`; developers use it too (`nvs auto` / `nvm use`).
+  - Every GitHub Action is pinned to a commit, with its version as a comment; Dependabot updates both. Never a bare tag.
+  - `react/.npmrc` and `admin/.npmrc` set `ignore-scripts=true`: no package runs an install script on a developer's
+    machine, in CI or on Vercel. npm then skips our own pre/post hooks too, so there are none: the consumer build's steps
+    are `react/scripts/build.mjs` (arguments after `--` reach `vite build` only). Never add a hook.
+  - Dependabot proposes a new version only once it is 7 days old (`cooldown`); security updates are not held back.
+  - `deps.yml` looks every locked version up in OSV's malicious-packages feed when a lockfile changes and every Monday,
+    and fails closed (`scripts/dependency-malware-check.mjs`). A hit means: remove it, rebuild from a clean lockfile, and
+    rotate whatever the machine or runner held.
 - **Brand entity (v10.56.0, owner 2 Oct 2026).**
   - Vyact is "the family budget app"; the logo tagline is "Family budget app".
   - The only alias is "Vyact app"; no other alias, ever.
