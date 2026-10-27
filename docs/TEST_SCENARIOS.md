@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1515 passing deterministic cases in 187 files. Zero failed, skipped or TODO cases at generation.**
+**1521 passing deterministic cases in 187 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -33,7 +33,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | available | 22 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 131 |
-| react | contract-unit | conditional | 131 |
+| react | contract-unit | conditional | 137 |
 | react | handler-integration | conditional | 110 |
 | react | sql-integration | conditional | 196 |
 | react | storage-integration | available | 28 |
@@ -230,7 +230,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/whatsappDispatch.test.ts](../react/src/lib/__tests__/whatsappDispatch.test.ts) | WhatsApp dispatch | contract-unit | conditional | 17 |
 | [react/src/lib/__tests__/whatsappFollowups.test.ts](../react/src/lib/__tests__/whatsappFollowups.test.ts) | WhatsApp dispatch | contract-unit | conditional | 8 |
 | [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 34 |
-| [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 16 |
+| [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 22 |
 | [react/src/lib/__tests__/whatsappTemplateSenders.test.ts](../react/src/lib/__tests__/whatsappTemplateSenders.test.ts) | WhatsApp dispatch | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateValidation.test.ts](../react/src/lib/__tests__/whatsappTemplateValidation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 5 |
 | [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 73 |

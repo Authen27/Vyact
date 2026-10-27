@@ -28,7 +28,7 @@ describe('W8b · Edge robustness', () => {
     // A ₹20,000 dinner split, our share ₹8,000: under a ₹10,000 threshold, so no "large spend" alert.
     const split = txn({ extras: { split: { isSplit: true, yourShare: 8000, participants: [] } } });
     expect(largeSpendAlerts({ household, txns: [split], members, thresholds: {}, accountNames: { a: 'HDFC' } })).toEqual([]);
-    expect(largeSpendAlerts({ household, txns: [txn({})], members, thresholds: {}, accountNames: { a: 'HDFC' } })[0].values).toEqual(['20,000', 'HDFC']);
+    expect(largeSpendAlerts({ household, txns: [txn({})], members, thresholds: {}, accountNames: { a: 'HDFC' } })[0].values).toEqual(['₹20,000', 'HDFC']);
     // Budget 80%: the threshold reads the raw share (79.6% is not 80%), the figure is rounded like the bell.
     const budgets = [{ id: 'b', currency: 'INR', period_start: '2026-10-01', period_end: '2026-10-31' }];
     const allocations = [{ budget_id: 'b', category: 'food_dining', amount: 1000 }];
