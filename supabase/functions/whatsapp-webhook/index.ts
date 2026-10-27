@@ -41,7 +41,7 @@ import {
 } from '../_shared/whatsapp-template-replies.ts';
 import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import {
-  parsePaidReply, reminderFromAudit, matchReminders, moneyText, dueDayText, amountText, type SentReminder,
+  parsePaidReply, reminderFromAudit, matchReminders, moneyText, dueDayText, templateMoney, type SentReminder,
 } from '../_shared/whatsapp-dispatch-rules.ts';
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
 import {
@@ -1551,10 +1551,12 @@ async function partnerSplitButton(
 /**
  * "1200 dinner shared" → after the entry is logged, ask its logger how to split it
  * (partner_split_prompt, {{1}} = "You"). Only with a usual split partner to split
- * with, and only in INR (the body says ₹). Never blocks the log itself.
+ * with, in the entry's currency (v10.138.0; INR only until its `_v2` is approved, as the original says ₹).
+ * Never blocks the log itself.
  */
 async function promptSplit(supabase: SupabaseClient, fromPhone: string, profile: Profile, r: any, tx: ParsedTx): Promise<void> {
-  if (tx.transaction_type !== 'expense' || !r?.transaction_id || String(r.currency ?? tx.currency).trim() !== 'INR') return;
+  const cur = String(r?.currency ?? tx.currency ?? '').trim();
+  if (tx.transaction_type !== 'expense' || !r?.transaction_id || !cur) return;
   if (!(await usualSplitPartner(supabase, profile.id))) {
     await reply(fromPhone, SPLIT_REFUSED.no_partner);
     return;
@@ -1563,7 +1565,8 @@ async function promptSplit(supabase: SupabaseClient, fromPhone: string, profile:
   await guardedSend(supabase, {
     def: TEMPLATES.partner_split_prompt, event: 'partner_split_prompt',
     householdId: profile.whatsapp_household_id!, toProfileId: profile.id,
-    values: ['You', amountText(Number(r.amount ?? tx.amount)), what], dedupeKey: `ps:${r.transaction_id}`, caller: 'webhook',
+    values: ['You', templateMoney(Number(r.amount ?? tx.amount), cur), what], currency: cur,
+    dedupeKey: `ps:${r.transaction_id}`, caller: 'webhook',
   });
 }
 
@@ -1576,14 +1579,17 @@ async function affordabilityCard(
   supabase: SupabaseClient, profile: Profile, rows: { profile?: { display_name?: string | null }; household?: { base_currency?: string | null } },
   amounts: Record<string, number>,
 ): Promise<boolean> {
-  if (String(rows.household?.base_currency ?? '').trim() !== 'INR') return false;
+  // v10.138.0: any currency; until the `_v2` is approved the original (₹ in its text) goes to INR only, and a
+  // send that does not go out is answered as text.
+  const cur = String(rows.household?.base_currency ?? '').trim();
+  if (!cur) return false;
   const first = String(rows.profile?.display_name ?? '').trim().split(/\s+/)[0];
   const { purchase, cushion, floor } = amounts;
   if (!first || !(purchase > 0) || !(cushion >= 0) || !(floor >= 0)) return false;
   const res = await guardedSend(supabase, {
     def: TEMPLATES.affordability_reply, event: 'affordability_reply',
     householdId: profile.whatsapp_household_id!, toProfileId: profile.id,
-    values: [first, amountText(purchase), amountText(cushion), amountText(floor)],
+    values: [first, templateMoney(purchase, cur), templateMoney(cushion, cur), templateMoney(floor, cur)], currency: cur,
     dedupeKey: `aff:${purchase}:${Date.now().toString(36)}`, caller: 'webhook',
   });
   return res.status === 'sent';

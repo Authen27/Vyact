@@ -13,7 +13,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.137.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.138.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -687,6 +687,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   template through the old body-only `sendTemplate`: Meta needs the header image on every send
   (`sendTemplateMessage`). A template Meta flagged as marketing is treated as marketing. Never run
   `templates-submit.mjs --apply` yourself; submitting is the owner's action with the owner's token.
+  **Redesigned copy is a `_v2` template beside the original, never an edit of it (v10.138.0; owner, 27 Oct 2026).**
+  - A `_v2` (`TEMPLATES_V2`, `family` = the original) keeps the original's values in order, its header, footer,
+    buttons and category; only the body differs. Consent, mutes, dedupe and button payloads use the original's name.
+  - `guardedSend` sends the `_v2` only when its name is on `WHATSAPP_APPROVED_TEMPLATES`, else the original
+    (`versionToSend`); taking the `_v2` name off rolls back. Editing an approved template in place puts it back in review.
+  - Every amount value carries its currency symbol (`templateMoney`, the app's `fmt`, in the household's currency). An
+    original's "₹{{n}}" value is sent without it, and only to INR households (`currency_needs_v2`); a `_v2` has no
+    currency in its text, so it suits any household. A send names its `currency`.
+  - Meta's pre-check files a Utility body with a "Tap below …" line or 🎉 / ✅ as Marketing; keep them out of Utility.
   **v10.42.0 (W2a): every proactive send goes through `guardedSend` (`_shared/whatsapp-send.ts`)** —
   notify and the `whatsapp-dispatch` scheduler alike. Consent lives in `whatsapp_preferences`
   (marketing and insights OFF until given in the app; `START` in chat never grants it). **The weekly summary is an
@@ -699,8 +708,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   (`budgetLinesOnServer` → `budgetThresholdLines`, the 80% band only), and the stale-balance nudge counts with
   `staleAccountCount` (`staleAccounts`). The dispatcher reads whole rows (`select *`) so the app's mappers see
   every column. Never give a WhatsApp rule its own threshold, period or staleness cut. A rule
-  SKIPS a household it cannot state truly (₹ templates for non-INR households; since v10.66.0
-  a row's own currency label no longer matters — face value). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
+  SKIPS a household it cannot state truly (since v10.138.0 every rule plans in the household's currency and
+  `guardedSend` holds a ₹ original back from a non-INR household; since v10.66.0 a row's own currency label no longer
+  matters — face value). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
   `whatsapp_approve_recurring`**, which posts the app's own row (deterministic id; since v10.69.0 the
   row and the next date come from the bundled engine's `approveOccurrenceOnServer`, parity-tested
   against `generateTransaction` + `txnToRow` + `advanceSchedule`) AND advances the

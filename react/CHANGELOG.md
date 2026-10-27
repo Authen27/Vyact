@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.137.0`** (consumer)
+> **Current production version: `v10.138.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.138.0 — Friendlier WhatsApp messages, in any household's currency *(2026-10-27)*
+
+The owner asked for the WhatsApp templates to be easier to read (the design board's redesign, 27 Oct 2026). Nothing
+changes in the app itself.
+
+- **19 redesigned templates submitted to Meta** as `<name>_v2`, beside the approved originals: one fact per line
+  behind a neutral emoji, a blank line before the explanation, the one key amount in bold. Each keeps its original's
+  values in the same order, its header image, footer, buttons and category, so consent, mutes, de-duplication and
+  button taps work as before. The bodies are in `docs/WHATSAPP_TEMPLATES.md`.
+- **No gap while Meta reviews them.** A `_v2` is sent only once its name is on `WHATSAPP_APPROVED_TEMPLATES`; until
+  then the original goes. Taking the `_v2` name off the list rolls back at once (`versionToSend`).
+- **Amounts carry their own currency.** Every amount a template sends is written by the app's `fmt` in the
+  household's currency ("₹1,540", "$64", "64 €"), and the `_v2` bodies have no ₹ of their own. Once approved, the
+  alerts, digests and summaries reach households in any currency; they were INR-only. The originals' text says ₹, so
+  until then they go to INR households only, as before.
+- **Three templates keep their current copy.** Meta's pre-check files every redesign of `weekly_summary`,
+  `affordability_reply` and `whatsapp_welcome` as Marketing, and Meta rejects a template submitted against it. The
+  same check is why the Utility redesigns have no "Tap below" line and no 🎉 / ✅.
+- `whatsapp-notify` takes amounts with their symbol and an optional `currency` (else it reads the household's). The
+  owner scripts (`templates-status.mjs`, `templates-submit.mjs`) know the `_v2` templates too.
 
 ## v10.137.0 — The tools that build and ship Vyact are pinned *(2026-10-26)*
 

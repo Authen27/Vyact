@@ -20,6 +20,299 @@ header component before any template below is added to `WHATSAPP_APPROVED_TEMPLA
 fails. The 11 header images are in
 `WhatsApp & Ask Vyact Message Templates/Vyact/vyact-templates/media/` (1200×628 PNG).
 
+## Redesigned copy: the `_v2` templates (submitted 27 Oct 2026)
+
+The owner asked for friendlier messages that are easier to scan (the design board's redesign, 27 Oct 2026): one fact per
+line behind a neutral emoji marker, a blank line before the explanation, the one key amount in bold, and 🎉 / ✅ only for
+good news. The design report's "current" column was out of date (it predates the 26 Sep – 4 Oct edits), so the redesign
+was applied to the LIVE wording below. Each `_v2` keeps its original's values in the same order, its header image, footer,
+buttons and category. Only the body changes.
+
+- **No `_v2` body names a currency.** Each amount value carries its own symbol ("₹1,540", "$64"), written by the app's
+  `fmt` in the household's currency, so a `_v2` suits a household anywhere. The samples Meta reviews carry ₹.
+- **The switch-over has no gap.** The code sends a `_v2` only once its name is on `WHATSAPP_APPROVED_TEMPLATES`. Until
+  then it sends the original: the amounts that follow its literal ₹ lose their symbol, and only INR households get it.
+  Consent, mutes, the dedupe slot and the button payloads keep the original's name, so a tap is routed as before.
+- **To switch on:** once WhatsApp Manager shows a `_v2` as Active, add its name to the secret. Keep the original's name
+  there too. Taking the `_v2` name off rolls back to the original at once.
+
+- **Meta's pre-check shaped the Utility copy.** A Utility body with a "Tap below …" line or a 🎉 / ✅ was filed as
+  Marketing, and Meta rejects a template submitted against its pre-check. Those lines and emoji were dropped from the
+  Utility `_v2`s. Three originals have no `_v2`, because every redesign of them was filed as Marketing:
+  - `weekly_summary`: Filed as Marketing by the pre-check with or without the "Tap below" line; Marketing would need marketing consent.
+  - `affordability_reply`: Filed as Marketing by the pre-check, with and without the emoji.
+  - `whatsapp_welcome`: Filed as Marketing by the pre-check, with and without the emoji.
+
+| `_v2` template | Replaces | Category | Status |
+|---|---|---|---|
+| `bill_due_reminder_v2` | `bill_due_reminder` | Utility | In review (submitted 27 Oct) |
+| `split_settled_v2` | `split_settled` | Utility | In review (submitted 27 Oct) |
+| `reengagement_nudge_v2` | `reengagement_nudge` | Marketing | In review (submitted 27 Oct) |
+| `large_transaction_alert_v2` | `large_transaction_alert` | Utility | In review (submitted 27 Oct) |
+| `budget_threshold_alert_v2` | `budget_threshold_alert` | Utility | In review (submitted 27 Oct) |
+| `partner_split_prompt_v2` | `partner_split_prompt` | Utility | In review (submitted 27 Oct) |
+| `split_shared_with_you_v2` | `split_shared_with_you` | Utility | In review (submitted 27 Oct) |
+| `recurring_auto_logged_v2` | `recurring_auto_logged` | Utility | In review (submitted 27 Oct) |
+| `payday_headroom_v2` | `payday_headroom` | Utility | In review (submitted 27 Oct) |
+| `household_daily_digest_v2` | `household_daily_digest` | Utility | In review (submitted 27 Oct) |
+| `runway_shift_alert_v2` | `runway_shift_alert` | Marketing | In review (submitted 27 Oct) |
+| `month_close_summary_v2` | `month_close_summary` | Utility | In review (submitted 27 Oct) |
+| `budget_setup_reminder_v2` | `budget_setup_reminder` | Marketing | In review (submitted 27 Oct) |
+| `balance_stale_nudge_v2` | `balance_stale_nudge` | Marketing | In review (submitted 27 Oct) |
+| `bill_overdue_reminder_v2` | `bill_overdue_reminder` | Utility | In review (submitted 27 Oct) |
+| `payday_headroom_variable_v2` | `payday_headroom_variable` | Utility | In review (submitted 27 Oct) |
+| `reengagement_nudge_quiet_v2` | `reengagement_nudge_quiet` | Marketing | In review (submitted 27 Oct) |
+| `runway_recovered_alert_v2` | `runway_recovered_alert` | Marketing | In review (submitted 27 Oct) |
+| `daily_nothing_logged_v2` | `daily_nothing_logged` | Utility | In review (submitted 27 Oct) |
+
+### `bill_due_reminder_v2`
+
+Values: {{1}} biller ("Rent"), {{2}} amount ("₹25,000"), {{3}} dueDate ("5 Aug"), {{4}} replyWord ("Rent").
+
+```text
+🧾 Bill reminder
+
+📌 {{1}}
+💰 *{{2}}*
+📅 Due on {{3}}
+
+Reply "paid {{4}}" once it's paid and I'll log it.
+```
+
+### `split_settled_v2`
+
+Values: {{1}} person ("Priya"), {{2}} amount ("₹600"), {{3}} what ("Dinner at Olive").
+
+```text
+Settled ✅
+
+🤝 {{1}} paid their *{{2}}* share of "{{3}}"
+⚖️ You're all square now.
+```
+
+### `reengagement_nudge_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} unnamedTotal ("₹6,850"), {{3}} unnamedCount ("four").
+
+```text
+Hi {{1}} 👋
+
+🔍 *{{2}}* of this month's spending has no category yet
+🧾 That's {{3}} entries
+
+Until they're named, your category totals are guessing. Tap *Name them here* and we'll sort them in this chat, one line each.
+```
+
+### `large_transaction_alert_v2`
+
+Values: {{1}} amount ("₹18,000"), {{2}} account ("HDFC card").
+
+```text
+Heads-up 🔔
+
+💳 *{{1}}* just went out on your {{2}}
+
+If that was you, there's nothing to do. If it wasn't, tap *Flag it* and I'll mark it for review.
+```
+
+### `budget_threshold_alert_v2`
+
+Values: {{1}} category ("Dining"), {{2}} percentUsed ("78"), {{3}} daysLeft ("18"), {{4}} remaining ("₹1,540").
+
+```text
+Budget heads-up: {{1}} 📌
+
+📊 {{2}}% of the budget used
+📅 {{3}} days to go
+💰 *{{4}}* still in the pot
+```
+
+### `partner_split_prompt_v2`
+
+Values: {{1}} person ("Priya"), {{2}} amount ("₹1,200"), {{3}} what ("Dinner at Olive").
+
+```text
+New shared expense 🧾
+
+👤 {{1}} logged *{{2}}*
+📝 For "{{3}}"
+
+How should it split? Nothing changes until you pick.
+```
+
+### `split_shared_with_you_v2`
+
+Values: {{1}} person ("Priya"), {{2}} total ("₹2,400"), {{3}} what ("Dinner at Olive"), {{4}} yourShare ("₹800").
+
+```text
+New split from {{1}} on Vyact 🤝
+
+🧾 {{2}} for "{{3}}"
+💰 Your share: *{{4}}*
+
+Settle it in the app whenever you're ready.
+```
+
+### `recurring_auto_logged_v2`
+
+Values: {{1}} schedule ("Netflix"), {{2}} amount ("₹649"), {{3}} date ("1 Aug").
+
+```text
+Logged as scheduled 🔁
+
+📌 {{1}}
+💰 *{{2}}*
+📅 {{3}}
+
+If it didn't go out this time, tap *Undo* within 15 minutes.
+```
+
+### `payday_headroom_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} income ("₹92,000"), {{3}} headroom ("₹56,900"), {{4}} fixedBillCount ("five"), {{5}} fixedBillTotal ("₹35,100").
+
+```text
+Payday's in, {{1}} 💼
+
+💰 {{2}} landed today
+🧮 About *{{3}}* of room this month, after your usual bills
+
+📌 Assumes your {{4}} fixed bills at last month's amounts, {{5}} together.
+```
+
+### `household_daily_digest_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} dayTotal ("₹5,410"), {{3}} entryCount ("4"), {{4}} perMember ("Priya ₹3,200 · you ₹2,210").
+
+```text
+Evening, {{1}} 🌙
+
+🏠 Your household spent *{{2}}* today
+🧾 {{3}} entries
+👥 Who spent: {{4}}
+
+One message a day, never one per spend.
+```
+
+### `runway_shift_alert_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} coverNow ("4.2"), {{3}} coverBefore ("5.1").
+
+```text
+Heads-up, {{1}} 📌
+
+🧭 At this month's pace, your savings would cover about *{{2}} months*
+📉 Down from {{3}}
+ℹ️ Assumes your recent spending continues
+
+Nothing's wrong, and nothing needs doing today. Better to see it now than in three months.
+```
+
+### `month_close_summary_v2`
+
+Values: {{1}} month ("September"), {{2}} firstName ("Rohan"), {{3}} spent ("₹64,180"), {{4}} comparison ("₹2,900 less than August"), {{5}} biggestSlice ("Dining ₹12,400"), {{6}} daysLogged ("24 of 30").
+
+```text
+Your {{1}} summary is ready, {{2}} 📊
+
+💸 Spent: *{{3}}*
+⚖️ Compared with last month: {{4}}
+🏷️ Biggest slice: {{5}}
+✍️ Something logged on {{6}} days
+```
+
+### `budget_setup_reminder_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} month ("October"), {{3}} categoryCount ("7").
+
+```text
+Next month starts in two days, {{1}} 🗓️
+
+📅 That's {{2}}
+🎯 I can suggest a limit for each of your {{3}} categories, from what you actually spent this month
+
+You adjust anything before it goes live. Nothing locks in without you.
+```
+
+### `balance_stale_nudge_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} staleCount ("four").
+
+```text
+Quick one, {{1}} 👋
+
+🏦 Balances not updated in a month: {{2}}
+ℹ️ Your net worth is drifting from what's actually there
+
+A couple of minutes in Vyact brings it back in line.
+```
+
+### `bill_overdue_reminder_v2`
+
+Values: {{1}} biller ("BESCOM"), {{2}} dueWhen ("3 days ago"), {{3}} amount ("₹3,200"), {{4}} replyWord ("BESCOM").
+
+```text
+Overdue bill ⚠️
+
+🧾 {{1}}, due {{2}}
+💰 Amount: *{{3}}*
+
+If you've already paid it, tap *Already paid* or reply "paid {{4}}" and I'll close it off. If not, it's worth paying before a late fee lands.
+```
+
+### `payday_headroom_variable_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} income ("₹92,000"), {{3}} versusUsual ("₹8,400 more"), {{4}} headroom ("₹56,900"), {{5}} fixedBillCount ("five"), {{6}} fixedBillTotal ("₹35,100").
+
+```text
+Money's in, {{1}} 💼
+
+💰 {{2}} landed, {{3}} than your usual month
+🧮 About *{{4}}* of room after your bills
+
+📌 Assumes your {{5}} fixed bills at last month's amounts, {{6}} together.
+```
+
+### `reengagement_nudge_quiet_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} daysQuiet ("11").
+
+```text
+Hi {{1}} 👋
+
+📅 It's been {{2}} days since anything was logged
+ℹ️ This month's picture is going stale
+
+A week of logging is usually enough for a forecast worth trusting. Reply *LOG* and we'll do today's in one line.
+```
+
+### `runway_recovered_alert_v2`
+
+Values: {{1}} firstName ("Rohan"), {{2}} coverNow ("5.1"), {{3}} coverBefore ("4.2"), {{4}} mainDriver ("A quieter month on dining").
+
+```text
+Good news, {{1}} 🎉
+
+🧭 Your savings would now cover about *{{2}} months*
+📈 Up from {{3}}
+💡 What moved it: {{4}}
+
+Assumes your recent spending continues.
+```
+
+### `daily_nothing_logged_v2`
+
+Values: {{1}} firstName ("Rohan").
+
+```text
+Evening, {{1}} 🌙
+
+📝 Nothing has been logged in Vyact today
+💬 Spent anything? Reply here with it, like "450 groceries", and I'll add it for you
+
+One message a day, never one per spend.
+```
+
 ## Checked in WhatsApp Manager (23 Oct 2026)
 
 All 22 Vyact templates in the manifest are **Active – Quality pending** (approved) in WABA 1887272231954080; none is paused, rejected or in appeal. The manifest set and the Meta set match exactly. Meta counts 23 active templates in the account (the 22 above, plus Meta's hello_world sample).

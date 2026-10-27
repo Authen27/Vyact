@@ -130,7 +130,8 @@ export function buildTemplateMessage(
   }
   (def.buttons ?? []).forEach((b, index) => {
     if (b.type !== 'quick_reply') return;   // static URL buttons take no send-time value
-    const payload = `${def.name}:${index}:${cleanParam(opts.context ?? '', 60)}`.slice(0, MAX_PAYLOAD);
+    // v10.138.0: a redesigned `_v2` carries its original's name, so a tap is routed as before.
+    const payload = `${def.family ?? def.name}:${index}:${cleanParam(opts.context ?? '', 60)}`.slice(0, MAX_PAYLOAD);
     components.push({ type: 'button', sub_type: 'quick_reply', index: String(index), parameters: [{ type: 'payload', payload }] });
   });
   return { name: def.name, language: { code: def.language }, components };

@@ -1035,7 +1035,7 @@ function convert(amount, from, to, _rates) {
 	if (!amount || from === to) return amount;
 	return fromDinero(convertViaUsdRates(toDinero(amount, from), to));
 }
-function fmt$1(amount, currency = "USD") {
+function fmt(amount, currency = "USD") {
 	const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
 	const n = Math.abs(amount || 0);
 	const factor = 10 ** cur.decimals;
@@ -1097,7 +1097,7 @@ function toUTC(d) {
 	const [y, m, day] = d.split("-").map(Number);
 	return new Date(Date.UTC(y, m - 1, day));
 }
-function fmt(dt) {
+function fmt$1(dt) {
 	return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
 }
 function addDays(dt, n) {
@@ -1140,7 +1140,7 @@ function expandRRule(rule, dtstart, from, to, opts = {}) {
 		if (seen.has(dt.getTime())) return true;
 		seen.add(dt.getTime());
 		produced++;
-		if (dt >= windowStart && dt <= hardEnd) out.push(fmt(dt));
+		if (dt >= windowStart && dt <= hardEnd) out.push(fmt$1(dt));
 		return true;
 	};
 	if (rule.freq === "DAILY") {
@@ -1223,7 +1223,7 @@ function expandRRule(rule, dtstart, from, to, opts = {}) {
 	}
 	return out;
 }
-const shiftDays = (iso, n) => fmt(addDays(toUTC(iso), n));
+const shiftDays = (iso, n) => fmt$1(addDays(toUTC(iso), n));
 /**
 * W3e — the first occurrence strictly AFTER `after` (YYYY-MM-DD), honouring COUNT and UNTIL counted
 * from `dtstart`; null when the rule has no further occurrence (it is finished). Looks ahead in
@@ -3468,7 +3468,7 @@ function isAskVyactBucketEnabled(bucket) {
 //#endregion
 //#region react/src/lib/askVyactBackend.ts
 const cur = (ctx) => ctx.baseCurrency;
-const money = (n, ctx) => fmt$1(Math.round(n), cur(ctx));
+const money = (n, ctx) => fmt(Math.round(n), cur(ctx));
 /**
 * W5 (P2, audit FE-PIP-04) — an AMOUNT that can be below zero (net worth, liquid savings, a
 * holding): the minus kept, and said in words, because `money()` prints the magnitude only.
@@ -6040,7 +6040,7 @@ function recurringDueNotifs(schedules, prefs, existing, ctx) {
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_due_confirm", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt$1(amt, ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
+			title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Auto-approve is off for this schedule",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -6068,7 +6068,7 @@ function recurringReminderNotifs(schedules, prefs, existing, ctx) {
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_reminder", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt$1(amt, ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
+			title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Upcoming recurring charge",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -6163,7 +6163,7 @@ function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx,
 			...base("budget_threshold", key, ctx),
 			tint: line.threshold === 100 ? "var(--crit)" : "var(--warn)",
 			title: `${getCat(line.category).label} at ${Math.round(line.share * 100)}% of the ${line.period} budget`,
-			body: line.spent > line.limit ? `${fmt$1(line.spent - line.limit, cur)} over` : `${fmt$1(remaining, cur)} left`,
+			body: line.spent > line.limit ? `${fmt(line.spent - line.limit, cur)} over` : `${fmt(remaining, cur)} left`,
 			budgetId: line.budgetId,
 			amountRef: remaining,
 			deepLink: `/budgets?budgetId=${line.budgetId}`,
@@ -6185,7 +6185,7 @@ function debtDueNotifs(debts, prefs, existing, ctx) {
 		const amt = d.minimumPayment ?? 0;
 		out.push({
 			...base("debt_payment_due", key, ctx),
-			title: `${d.name} payment · ${fmt$1(amt, ctx.baseCurrency)} — due ${relDate(d.dueDate, ctx.tz)}`,
+			title: `${d.name} payment · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(d.dueDate, ctx.tz)}`,
 			body: d.autoRecord ? "Vyact records this EMI on the day" : "EMI coming up",
 			dueAt: d.dueDate,
 			amountRef: amt,
@@ -6207,7 +6207,7 @@ function incomeLandedNotifs(txns, prefs, existing, ctx) {
 		if (existing.some((n) => n.dedupeKey === key)) continue;
 		out.push({
 			...base("income_landed", key, ctx),
-			title: `${t.description || "Income"} landed — +${fmt$1(t.amount, ctx.baseCurrency)}`,
+			title: `${t.description || "Income"} landed — +${fmt(t.amount, ctx.baseCurrency)}`,
 			body: "Money in",
 			amountRef: t.amount,
 			txnId: t.id,
@@ -6278,7 +6278,7 @@ function categoryTrendNudge(txns, existing, ctx, now) {
 	return {
 		...base("trend_alert", `${PIP_NUDGE_PREFIX}trend:${best.category}:${month}`, ctx),
 		title: `${label} is already above a usual month`,
-		body: `${fmt$1(Math.round(best.spent), ctx.baseCurrency)} so far, against ${fmt$1(Math.round(best.usual), ctx.baseCurrency)} in a usual month`,
+		body: `${fmt(Math.round(best.spent), ctx.baseCurrency)} so far, against ${fmt(Math.round(best.usual), ctx.baseCurrency)} in a usual month`,
 		amountRef: Math.round(best.spent),
 		deepLink: askPip(`Why is my ${label.toLowerCase()} spending so high?`),
 		actions: [A("ask_pip", "Ask Pip why", "primary")]
@@ -6725,4 +6725,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, budgetLinesOnServer, cleanOffending, contextFromRows, countSpendEntries, effectiveAmount, lockScreenTextOnServer, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendEntryKey, spendRows, staleAccountCount, systemPromptFor, txnsFromRows };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, budgetLinesOnServer, cleanOffending, contextFromRows, countSpendEntries, effectiveAmount, fmt, lockScreenTextOnServer, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendEntryKey, spendRows, staleAccountCount, systemPromptFor, txnsFromRows };

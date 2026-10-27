@@ -52,6 +52,10 @@ export { systemPromptFor, cleanOffending } from './askVyactLlm';
 // row mapping, which dropped `emi_split`; a change to what counts as spending now reaches them at once.
 export { spendRows, spendByCategoryInRange, effectiveAmount, spendEntryKey, countSpendEntries } from './calculations';
 
+// v10.138.0 — WhatsApp's redesigned templates carry the currency symbol in the amount, so a household in any
+// currency can be told its figures. They are written the way the app writes them: one formatter, `fmt`.
+export { fmt } from './format';
+
 /** `transactions` rows → the app's Transactions, with the adapter's own mapper. */
 export function txnsFromRows(rows: readonly unknown[]): Transaction[] {
   return rows.map((r) => mapCloudRow('transactions', r) as Transaction);

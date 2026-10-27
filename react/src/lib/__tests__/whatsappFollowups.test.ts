@@ -181,13 +181,14 @@ describe('the nudges that open these conversations (W6)', () => {
   it('CON-UNIT-W6-008 · quiet for 7+ days → the quiet nudge; else unnamed spending ≥ 2 entries and ₹500 → "Name them here"', () => {
     const base = { household: HH, member, weekKey: '2026-W39', today: '2026-09-26' };
     expect(reengagementNudge({ ...base, lastLoggedDay: '2026-09-15', unnamed: [] }))
-      .toEqual({ template: 'reengagement_nudge_quiet', householdId: 'h', toProfileId: 'alice', values: ['Rohan', '11'], dedupeKey: 'nudge:2026-W39' });
+      .toEqual({ template: 'reengagement_nudge_quiet', householdId: 'h', currency: 'INR', toProfileId: 'alice', values: ['Rohan', '11'], dedupeKey: 'nudge:2026-W39' });
     const unnamed = [row(2400), row(1850), row(50000, { excluded: true }), row(900, { excluded: true, created_by: 'alice' })];
     expect(reengagementNudge({ ...base, lastLoggedDay: '2026-09-25', unnamed }))
-      .toEqual({ template: 'reengagement_nudge', householdId: 'h', toProfileId: 'alice', values: ['Rohan', '5,150', 'three'], dedupeKey: 'nudge:2026-W39' });
+      .toEqual({ template: 'reengagement_nudge', householdId: 'h', currency: 'INR', toProfileId: 'alice', values: ['Rohan', '₹5,150', 'three'], dedupeKey: 'nudge:2026-W39' });
     expect(reengagementNudge({ ...base, lastLoggedDay: '2026-09-25', unnamed: [row(2400)] })).toBeNull();          // one entry
     expect(reengagementNudge({ ...base, lastLoggedDay: '2026-09-25', unnamed: [row(200), row(250)] })).toBeNull(); // under ₹500
-    expect(reengagementNudge({ ...base, household: { id: 'h', base_currency: 'USD' }, lastLoggedDay: '2026-09-25', unnamed })).toBeNull();
+    // v10.138.0: a household in another currency is nudged in its own.
+    expect(reengagementNudge({ ...base, household: { id: 'h', base_currency: 'USD' }, lastLoggedDay: '2026-09-25', unnamed })?.values[1]).toBe('$5,150');
     expect(reengagementNudge({ ...base, member: { ...member, first_name: null }, lastLoggedDay: '2026-09-01', unnamed })).toBeNull();
   });
 });

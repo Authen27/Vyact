@@ -7,7 +7,10 @@
 // `WHATSAPP_APPROVED_TEMPLATES`. So "activation" is setting two secrets once Meta
 // approves — no code change, no accidental sends while templates are in review.
 //
-// Body: { event, householdId, toProfileId, params?: string[], dedupeKey?: string }
+// Body: { event, householdId, toProfileId, params?: string[], dedupeKey?: string, currency?: string }
+//
+// v10.138.0: every amount in `params` carries its currency symbol ("₹1,540"), as the scheduler's do;
+// `currency` names it (else the household's is read). The redesigned `_v2` template goes once approved.
 //
 // v10.118.0 (T2d, audit BE-WA-07): the SERVICE key only. A signed-in member could call
 // it with any template, any text and any button payload, and it went out from Vyact's
@@ -19,9 +22,9 @@
 // path the scheduler uses: linked recipient, consent and mutes from the person's own
 // preferences, approval gate, daily cap, dedupe slot, audit row.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, json, corsHeaders } from '../_shared/whatsapp.ts';
-import { templateForEvent } from '../_shared/whatsapp-templates.ts';
+import { templateForEvent, rupeeParams } from '../_shared/whatsapp-templates.ts';
 import { guardedSend } from '../_shared/whatsapp-send.ts';
 import { isServiceCaller } from '../_shared/service-auth.ts';
 
@@ -33,7 +36,7 @@ Deno.serve(async (req: Request) => {
   if (!(await isServiceCaller(bearer))) return json({ error: 'service_only' }, 403);
   const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
 
-  const { event, householdId, toProfileId, params, dedupeKey } = await req.json().catch(() => ({}));
+  const { event, householdId, toProfileId, params, dedupeKey, currency } = await req.json().catch(() => ({}));
   const def = templateForEvent(String(event ?? ''));
   if (!def) return json({ error: 'unknown_event' }, 400);
   if (!householdId || !toProfileId) return json({ error: 'missing_target' }, 400);
@@ -44,8 +47,11 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'param_count', expected: def.params.map((p) => p.name), got: values.length }, 400);
   }
 
+  // Read only when it matters: an original whose text says ₹ goes to an INR household only.
+  const cur = typeof currency === 'string' && currency.trim() ? currency.trim()
+    : rupeeParams(def).length ? await householdCurrency(admin, String(householdId)) : undefined;
   const result = await guardedSend(admin, {
-    def, event: String(event), householdId, toProfileId, values, dedupeKey, caller: 'service',
+    def, event: String(event), householdId, toProfileId, values, currency: cur, dedupeKey, caller: 'service',
   });
   if (result.status === 'failed') {
     return result.reason === 'audit_failed'
@@ -54,3 +60,10 @@ Deno.serve(async (req: Request) => {
   }
   return json(result);
 });
+
+/** The household's currency, or undefined when it cannot be read (a ₹ template is then not sent). */
+async function householdCurrency(admin: SupabaseClient, householdId: string): Promise<string | undefined> {
+  const { data } = await admin.from('households').select('base_currency').eq('id', householdId).maybeSingle();
+  const cur = String((data as { base_currency?: string | null } | null)?.base_currency ?? '').trim();
+  return cur || undefined;
+}

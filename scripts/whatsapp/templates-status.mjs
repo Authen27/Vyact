@@ -12,7 +12,7 @@
 // buttons). Exits 1 when anything drifted, so a send can never be built from a
 // manifest that no longer matches the approved template.
 
-import { TEMPLATES } from '../../supabase/functions/_shared/whatsapp-templates.ts';
+import { ALL_TEMPLATES as TEMPLATES } from '../../supabase/functions/_shared/whatsapp-templates.ts';
 
 const GRAPH = `https://graph.facebook.com/${process.env.WHATSAPP_GRAPH_VERSION || 'v21.0'}`;
 const token = process.env.WHATSAPP_ACCESS_TOKEN;

@@ -104,11 +104,14 @@ describe('what the scheduler sends', () => {
       ],
     });
     expect(sends).toEqual([
-      { template: 'large_transaction_alert', householdId: 'h', toProfileId: 'bob', values: ['18,000', 'HDFC card'], dedupeKey: 'txn:big' },
-      { template: 'large_transaction_alert', householdId: 'h', toProfileId: 'bob', values: ['20,000', 'HDFC card'], dedupeKey: 'txn:usd' },
+      { template: 'large_transaction_alert', householdId: 'h', currency: 'INR', toProfileId: 'bob', values: ['₹18,000', 'HDFC card'], dedupeKey: 'txn:big' },
+      { template: 'large_transaction_alert', householdId: 'h', currency: 'INR', toProfileId: 'bob', values: ['₹20,000', 'HDFC card'], dedupeKey: 'txn:usd' },
     ]);
-    expect(largeSpendAlerts({ household: { id: 'h', base_currency: 'USD' }, members: MEMBERS, thresholds: {},
-      accountNames: { 'acc-1': 'x' }, txns: [txn({ amount: 99999, created_by: 'zed' })] })).toEqual([]);   // ₹ in the text
+    // v10.138.0: a household in another currency is told in its own (the `_v2` template has no ₹ of its own).
+    const usd = largeSpendAlerts({ household: { id: 'h', base_currency: 'USD' }, members: MEMBERS, thresholds: {},
+      accountNames: { 'acc-1': 'x' }, txns: [txn({ amount: 99999, created_by: 'zed' })] });
+    expect(usd.length).toBe(MEMBERS.length);
+    expect(usd.map((s) => [s.currency, s.values[0]])).toEqual(MEMBERS.map(() => ['USD', '$99,999']));
   });
 
   it('CON-UNIT-WA-D-007 · a budget line at 80–99% alerts once per period, with the Budgets screen’s own spend figure', () => {
@@ -127,8 +130,8 @@ describe('what the scheduler sends', () => {
     // The client's own function over the same rows gives the same spend.
     const client = clientSpend(txns.map(rowToTxn) as unknown as ClientTxn[], '2026-09-01', '2026-09-30', 'INR', {});
     expect(client.food_dining).toBe(4000);
-    expect(sends).toEqual([{ template: 'budget_threshold_alert', householdId: 'h', toProfileId: 'alice',
-      values: ['Food & Dining', '80', '9', '1,000'], dedupeKey: 'budget:b-9:food_dining:80' }]);   // groceries is at 100%: no "still in the pot"
+    expect(sends).toEqual([{ template: 'budget_threshold_alert', householdId: 'h', currency: 'INR', toProfileId: 'alice',
+      values: ['Food & Dining', '80', '9', '₹1,000'], dedupeKey: 'budget:b-9:food_dining:80' }]);   // groceries is at 100%: no "still in the pot"
   });
 
   it('CON-UNIT-WA-D-008 · W3b: a row still labelled in another currency counts at face value; it no longer silences the alert', () => {
@@ -141,7 +144,7 @@ describe('what the scheduler sends', () => {
     });
     expect(sends).toHaveLength(1);
     expect(sends[0].dedupeKey).toBe('budget:b:food_dining:80');
-    expect(sends[0].values.at(-1)).toBe('490');   // 5,000 − (4,500 + 10)
+    expect(sends[0].values.at(-1)).toBe('₹490');   // 5,000 − (4,500 + 10)
   });
 
   it('CON-UNIT-WA-D-009 · split settled, weekly summary and stale balances', () => {
@@ -187,7 +190,7 @@ describe('bill reminders and "paid X" (W2b)', () => {
       sched({ id: 'pay', txn_template: { type: 'income', amount: 92000, currency: 'INR', description: 'Salary', category: 'salary' } }),
       sched({ id: 'later', next_due_date: '2026-09-26' }),
     ] });
-    expect(sends).toEqual([{ template: 'bill_due_reminder', householdId: 'h', toProfileId: 'alice',
+    expect(sends).toEqual([{ template: 'bill_due_reminder', householdId: 'h', currency: 'INR', toProfileId: 'alice',
       values: ['Rent', '₹25,000', '25 Sep', 'Rent'], dedupeKey: 'bill:44444444-4444-4444-8444-444444444444:2026-09-25' }]);
   });
 
@@ -197,7 +200,7 @@ describe('bill reminders and "paid X" (W2b)', () => {
       sched({ id: 'fresh', next_due_date: '2026-09-27' }),             // 1 day: not yet
       sched({ id: 'auto', next_due_date: '2026-09-25', auto_confirm: true }),
     ] });
-    expect(sends).toEqual([{ template: 'bill_overdue_reminder', householdId: 'h', toProfileId: 'alice',
+    expect(sends).toEqual([{ template: 'bill_overdue_reminder', householdId: 'h', currency: 'INR', toProfileId: 'alice',
       values: ['Rent', 'three days ago', '₹25,000', 'Rent'], dedupeKey: 'bill:44444444-4444-4444-8444-444444444444:2026-09-25' }]);
     // The same occurrence's due-day reminder and overdue reminder are different events, so both can go.
     expect(billReminders({ today: '2026-09-25', approvers: [MEMBERS[0]], schedules: [sched({ next_due_date: '2026-09-25' })] })[0].dedupeKey)

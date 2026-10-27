@@ -74,8 +74,8 @@ describe('WhatsApp\'s scheduled nudges say what the bell says (T5c)', () => {
 
     const whatsapp = budgetAlerts({ household: HH, today: TODAY, budgets, allocations, txns: transactions, members: MEMBERS });
     expect(whatsapp.map(s => [s.values, s.dedupeKey])).toEqual([
-      [['Food & Dining', '86', '11', '1,400'], `budget:${B1}:food_dining:80`],
-      [['Utilities', '92', '11', '80'], `budget:${B2}:utilities:80`],   // 11 days to the 30th, the month's real end
+      [['Food & Dining', '86', '11', '₹1,400'], `budget:${B1}:food_dining:80`],
+      [['Utilities', '92', '11', '₹80'], `budget:${B2}:utilities:80`],   // 11 days to the 30th, the month's real end
     ]);
     // Every WhatsApp alert is a line the bell raised, at the same percentage.
     for (const s of whatsapp) {

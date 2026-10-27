@@ -11,12 +11,15 @@
 //   • W3b (v10.66.0; owner decision D14): a household has ONE currency and nothing is
 //     converted — a row still labelled with an older currency counts at face value, so it
 //     no longer silences a rule (it used to skip the whole household);
-//   • templates with "₹" in the approved text go only to INR households;
+//   • v10.138.0: every amount a template carries is written in the household's own currency
+//     (`templateMoney`, the app's `fmt`). The redesigned `_v2` templates have no symbol of their own, so
+//     they suit any household; until one is approved, `guardedSend` sends the original, whose "₹" text
+//     goes to INR households only (`versionToSend` in `whatsapp-templates.ts`);
 //   • a private (excluded) transaction is never announced to anyone.
 
 import {
   txnsFromRows, spendRows, spendByCategoryInRange, effectiveAmount, spendEntryKey, countSpendEntries, type EngineTxn,
-  budgetLinesOnServer, staleAccountCount,
+  budgetLinesOnServer, staleAccountCount, fmt,
 } from './agent/engine.ts';
 import { zoneParts } from './localTime.ts';
 
@@ -33,6 +36,8 @@ export const EXPENSE_LABEL: Record<string, string> = {
 export interface PlannedSend {
   template: string;
   householdId: string;
+  /** The currency its amounts are written in (`guardedSend` picks the template version by it). */
+  currency: string;
   toProfileId: string;
   values: string[];
   dedupeKey: string;
@@ -52,12 +57,16 @@ export function rowToTxn(r: TxnRow): EngineTxn {
   return txnsFromRows([r])[0];
 }
 
-/** "18,000" / "1,540.50" — en-IN grouping, no symbol (for templates with ₹ in the text). */
-export function amountText(n: number): string {
-  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: Number.isInteger(n) ? 0 : 2 }).format(n);
+/**
+ * v10.138.0 — an amount for a template value, as the app writes it, symbol included: "₹1,540.50", "$64",
+ * "64 €". Every amount a rule sends goes through this, in the household's currency. Never negative here: a
+ * difference is sent as its size, with "more" or "less".
+ */
+export function templateMoney(n: number, currency: string): string {
+  return fmt(n, currency.trim());
 }
 
-/** "₹600" — with the currency's own symbol (for params whose note says WITH the symbol). */
+/** "₹600" — with the currency's own symbol (session replies). */
 export function moneyText(n: number, currency: string): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency', currency, maximumFractionDigits: 2, minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
@@ -113,7 +122,7 @@ export function largeSpendAlerts(input: {
   thresholds: Record<string, number>; accountNames: Record<string, string>;
 }): PlannedSend[] {
   const { household } = input;
-  if (household.base_currency.trim() !== 'INR') return [];
+  const cur = household.base_currency.trim();
   const out: PlannedSend[] = [];
   // Track E: the rows the app counts as spending (reportable, not private), one alert per ENTRY: a loan
   // payment's interest and principal are one payment (owner decision E-10: it alerts like any big spend).
@@ -135,8 +144,8 @@ export function largeSpendAlerts(input: {
       if (m.profile_id === t.created_by) continue;
       if (amount < (input.thresholds[m.profile_id] ?? 10000)) continue;
       out.push({
-        template: 'large_transaction_alert', householdId: household.id, toProfileId: m.profile_id,
-        values: [amountText(amount), account], dedupeKey: `txn:${key}`,
+        template: 'large_transaction_alert', householdId: household.id, currency: cur, toProfileId: m.profile_id,
+        values: [templateMoney(amount, cur), account], dedupeKey: `txn:${key}`,
       });
     }
   }
@@ -156,14 +165,13 @@ export const BUDGET_ALERT_AT = 80;
  * T5c (v10.122.0; audit XC-ARC-06): the lines are the APP's (`budgetLinesOnServer` → the bell's
  * `budgetThresholdLines`), so WhatsApp, the bell and push name the same lines at the same percentage.
  * This rule kept its own copy until then, which skipped a single-category budget the bell checks.
- * WhatsApp sends the 80% band only: at 100% the template's "₹… is still in the pot" would be untrue.
+ * WhatsApp sends the 80% band only: at 100% the template's "… is still in the pot" would be untrue.
  */
 export function budgetAlerts(input: {
   household: Household; today: string; budgets: BudgetRow[]; allocations: AllocationRow[];
   txns: TxnRow[]; members: Member[];
 }): PlannedSend[] {
   const base = input.household.base_currency.trim();
-  if (base !== 'INR') return [];
   const out: PlannedSend[] = [];
   const lines = budgetLinesOnServer(
     { budgets: input.budgets, budgetAllocations: input.allocations, transactions: input.txns }, base, input.today,
@@ -177,8 +185,8 @@ export function budgetAlerts(input: {
     const pct = Math.round(line.share * 100);
     for (const m of input.members) {
       out.push({
-        template: 'budget_threshold_alert', householdId: input.household.id, toProfileId: m.profile_id,
-        values: [label, String(pct), String(daysLeft), amountText(Math.round((line.limit - line.spent) * 100) / 100)],
+        template: 'budget_threshold_alert', householdId: input.household.id, currency: base, toProfileId: m.profile_id,
+        values: [label, String(pct), String(daysLeft), templateMoney(Math.round((line.limit - line.spent) * 100) / 100, base)],
         dedupeKey: `budget:${line.budgetId}:${line.category}:${BUDGET_ALERT_AT}`,
       });
     }
@@ -198,8 +206,8 @@ export function splitSettledAlerts(shares: SettledShare[]): PlannedSend[] {
   return shares
     .filter((s) => s.payer_name.trim() && s.split_description.trim())
     .map((s) => ({
-      template: 'split_settled', householdId: s.owner_household_id, toProfileId: s.owner_profile_id,
-      values: [s.payer_name.trim(), moneyText(Number(s.share), String(s.split_currency).trim()), s.split_description.trim()],
+      template: 'split_settled', householdId: s.owner_household_id, currency: String(s.split_currency).trim(), toProfileId: s.owner_profile_id,
+      values: [s.payer_name.trim(), templateMoney(Number(s.share), String(s.split_currency)), s.split_description.trim()],
       dedupeKey: `split:${s.share_id}`,
     }));
 }
@@ -221,8 +229,8 @@ export function weeklySummary(input: {
   if (!entries || !cats.length) return null;
   const total = Math.round(Object.values(spend).reduce((s, v) => s + v, 0) * 100) / 100;
   return {
-    template: 'weekly_summary', householdId: input.household.id, toProfileId: input.member.profile_id,
-    values: [moneyText(total, base), String(entries), EXPENSE_LABEL[cats[0][0]]],
+    template: 'weekly_summary', householdId: input.household.id, currency: base, toProfileId: input.member.profile_id,
+    values: [templateMoney(total, base), String(entries), EXPENSE_LABEL[cats[0][0]]],
     dedupeKey: `weekly:${input.weekKey}`,
   };
 }
@@ -242,7 +250,7 @@ export function staleBalanceNudge(input: {
   const stale = staleAccountCount(input.accounts, input.now.getTime());
   if (!stale || !input.member.first_name) return null;
   return {
-    template: 'balance_stale_nudge', householdId: input.household.id, toProfileId: input.member.profile_id,
+    template: 'balance_stale_nudge', householdId: input.household.id, currency: input.household.base_currency.trim(), toProfileId: input.member.profile_id,
     values: [input.member.first_name, countWord(stale)], dedupeKey: `balances:${input.weekKey}`,
   };
 }
@@ -253,7 +261,7 @@ export interface UnnamedRow { amount: number | string; currency: string; created
 
 /** Nothing logged for this many days = quiet. */
 export const QUIET_AFTER_DAYS = 7;
-/** Unnamed spending worth a nudge: at least two entries and ₹500 together. */
+/** Unnamed spending worth a nudge: at least two entries and 500 together, in the household's currency. */
 export const UNNAMED_MIN_COUNT = 2;
 export const UNNAMED_MIN_TOTAL = 500;
 
@@ -261,7 +269,7 @@ export const UNNAMED_MIN_TOTAL = 500;
  * At most one re-engagement nudge a week per opted-in member (marketing):
  *   • quiet — nothing logged for 7+ days (the household has logged before):
  *     reengagement_nudge_quiet, answered by LOG;
- *   • otherwise unnamed spending this month (≥ 2 entries, ≥ ₹500, INR households;
+ *   • otherwise unnamed spending this month (≥ 2 entries, ≥ 500 together;
  *     another member's private entry is not theirs to name): reengagement_nudge,
  *     answered by "Name them here".
  */
@@ -271,16 +279,16 @@ export function reengagementNudge(input: {
 }): PlannedSend | null {
   const first = input.member.first_name;
   if (!first) return null;
-  const base = { householdId: input.household.id, toProfileId: input.member.profile_id, dedupeKey: `nudge:${input.weekKey}` };
+  const cur = input.household.base_currency.trim();
+  const base = { householdId: input.household.id, currency: cur, toProfileId: input.member.profile_id, dedupeKey: `nudge:${input.weekKey}` };
   if (input.lastLoggedDay) {
     const quiet = daysBetween(input.lastLoggedDay, input.today);
     if (quiet >= QUIET_AFTER_DAYS) return { ...base, template: 'reengagement_nudge_quiet', values: [first, String(quiet)] };
   }
-  if (input.household.base_currency.trim() !== 'INR') return null;   // the body says ₹
   const mine = input.unnamed.filter((r) => !r.extras?.excluded || r.created_by === input.member.profile_id);
   const total = Math.round(mine.reduce((s, r) => s + Number(r.amount), 0) * 100) / 100;
   if (mine.length < UNNAMED_MIN_COUNT || total < UNNAMED_MIN_TOTAL) return null;
-  return { ...base, template: 'reengagement_nudge', values: [first, amountText(total), countWord(mine.length)] };
+  return { ...base, template: 'reengagement_nudge', values: [first, templateMoney(total, cur), countWord(mine.length)] };
 }
 
 // ── Bill reminders (W2b) ────────────────────────────────────────────────────
@@ -315,8 +323,8 @@ export function billReminders(input: { today: string; schedules: BillSchedule[];
     if (!name || !(amount > 0) || !cur) continue;
     for (const m of input.approvers.filter((a) => a.household_id === s.household_id)) {
       out.push({
-        template: 'bill_due_reminder', householdId: s.household_id, toProfileId: m.profile_id,
-        values: [name, moneyText(amount, cur), dueDayText(s.next_due_date), name],
+        template: 'bill_due_reminder', householdId: s.household_id, currency: cur, toProfileId: m.profile_id,
+        values: [name, templateMoney(amount, cur), dueDayText(s.next_due_date), name],
         dedupeKey: `bill:${s.id}:${s.next_due_date}`,
       });
     }
@@ -348,8 +356,8 @@ export function billsTomorrow(input: { today: string; schedules: BillSchedule[];
     if (!name || !(amount > 0) || !cur) continue;
     for (const m of input.members.filter((a) => a.household_id === s.household_id)) {
       out.push({
-        template: 'bill_due_reminder', householdId: s.household_id, toProfileId: m.profile_id,
-        values: [name, moneyText(amount, cur), dueDayText(s.next_due_date), name],
+        template: 'bill_due_reminder', householdId: s.household_id, currency: cur, toProfileId: m.profile_id,
+        values: [name, templateMoney(amount, cur), dueDayText(s.next_due_date), name],
         dedupeKey: `bill:${s.id}:${s.next_due_date}`,
       });
     }
@@ -379,8 +387,8 @@ export function overdueBillReminders(input: { today: string; schedules: BillSche
     if (!name || !(amount > 0) || !cur) continue;
     for (const m of input.approvers.filter((a) => a.household_id === s.household_id)) {
       out.push({
-        template: 'bill_overdue_reminder', householdId: s.household_id, toProfileId: m.profile_id,
-        values: [name, `${countWord(OVERDUE_AFTER_DAYS)} days ago`, moneyText(amount, cur), name],
+        template: 'bill_overdue_reminder', householdId: s.household_id, currency: cur, toProfileId: m.profile_id,
+        values: [name, `${countWord(OVERDUE_AFTER_DAYS)} days ago`, templateMoney(amount, cur), name],
         dedupeKey: `bill:${s.id}:${s.next_due_date}`,
       });
     }
@@ -435,9 +443,8 @@ export function isoWeek(day: string): string {
 // ── W6b (v10.47.0) — senders for the approved templates that had none ────────────
 //
 // Each rule is pure and states its trigger in one line. Every one sends only what it
-// can state truly: ₹ templates go to INR only, a household with any foreign-currency
-// row in the figures is skipped, and a private (excluded) entry is never counted or
-// announced. guardedSend then applies consent (insights / marketing), mutes, the
+// can state truly, in the household's currency (v10.138.0; until then ₹ templates went to
+// INR households only), and a private (excluded) entry is never counted or announced. guardedSend then applies consent (insights / marketing), mutes, the
 // approval list, the daily cap and the dedupe slot.
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -456,19 +463,17 @@ function addMonths(ym: string, n: number): string {
   return d.toISOString().slice(0, 7);
 }
 
-function isInr(c: string | null | undefined): boolean { return String(c ?? '').trim() === 'INR'; }
-
 // ── split_shared_with_you: a split someone shared with you (alerts job) ──────────
 export interface ShareRecipientRow {
   share_id: string; share: number | string; split_id: string; description: string; currency: string;
   total_amount: number | string; owner_user_id: string; recipient_profile_id: string; recipient_household_id: string;
 }
 
-/** Each new share of an INR split → the participant whose number is linked. */
+/** Each new share of a split → the participant whose number is linked, in the split's currency. */
 export function splitSharedAlerts(rows: ShareRecipientRow[], ownerNames: Record<string, string>): PlannedSend[] {
-  return rows.filter((r) => isInr(r.currency) && Number(r.share) > 0).map((r) => ({
-    template: 'split_shared_with_you', householdId: r.recipient_household_id, toProfileId: r.recipient_profile_id,
-    values: [ownerNames[r.owner_user_id] || 'Someone', amountText(Number(r.total_amount)), String(r.description ?? '').trim() || 'a shared expense', amountText(Number(r.share))],
+  return rows.filter((r) => String(r.currency ?? '').trim() && Number(r.share) > 0).map((r) => ({
+    template: 'split_shared_with_you', householdId: r.recipient_household_id, currency: r.currency.trim(), toProfileId: r.recipient_profile_id,
+    values: [ownerNames[r.owner_user_id] || 'Someone', templateMoney(Number(r.total_amount), r.currency), String(r.description ?? '').trim() || 'a shared expense', templateMoney(Number(r.share), r.currency)],
     dedupeKey: `share:${r.share_id}`,
   }));
 }
@@ -485,7 +490,7 @@ export interface ScheduleRow { id: string; auto_confirm: boolean; created_by: st
 export function recurringLoggedAlerts(input: {
   household: Household; posted: TxnRow[]; schedules: ScheduleRow[]; members: Member[];
 }): PlannedSend[] {
-  if (!isInr(input.household.base_currency)) return [];
+  const cur = input.household.base_currency.trim();
   const byId = new Map(input.schedules.map((s) => [s.id, s]));
   const linked = new Set(input.members.map((m) => m.profile_id));
   const out: PlannedSend[] = [];
@@ -496,8 +501,8 @@ export function recurringLoggedAlerts(input: {
     if (!to) continue;
     const name = String(s.txn_template?.description || r.description || EXPENSE_LABEL[r.category ?? ''] || 'scheduled payment').trim();
     out.push({
-      template: 'recurring_auto_logged', householdId: input.household.id, toProfileId: to,
-      values: [name, amountText(Number(r.amount)), dueDayText(r.date)], dedupeKey: `rec:${r.id}`,
+      template: 'recurring_auto_logged', householdId: input.household.id, currency: cur, toProfileId: to,
+      values: [name, templateMoney(Number(r.amount), cur), dueDayText(r.date)], dedupeKey: `rec:${r.id}`,
     });
   }
   return out;
@@ -522,7 +527,8 @@ function median(xs: number[]): number {
 export function paydayAlerts(input: {
   household: Household; today: string; salaries: TxnRow[]; earlier: number[]; bills: FixedBills; members: Member[];
 }): PlannedSend[] {
-  if (!isInr(input.household.base_currency) || input.bills.count < 1) return [];
+  if (input.bills.count < 1) return [];
+  const cur = input.household.base_currency.trim();
   const out: PlannedSend[] = [];
   for (const r of input.salaries) {
     if (r.type !== 'income' || r.category !== 'salary' || r.date !== input.today || r.extras?.excluded) continue;
@@ -531,17 +537,17 @@ export function paydayAlerts(input: {
     const income = Number(r.amount);
     const headroom = Math.round((income - input.bills.total) * 100) / 100;
     if (!(headroom > 0)) continue;
-    const base = { householdId: input.household.id, toProfileId: member.profile_id, dedupeKey: `payday:${r.id}` };
+    const base = { householdId: input.household.id, currency: cur, toProfileId: member.profile_id, dedupeKey: `payday:${r.id}` };
     const usual = input.earlier.length >= 2 ? median(input.earlier) : null;
     const diff = usual ? Math.round((income - usual) * 100) / 100 : 0;
     if (usual && Math.abs(diff) >= usual * 0.05) {
       out.push({ ...base, template: 'payday_headroom_variable', values: [
-        member.first_name, amountText(income), `${moneyText(Math.abs(diff), 'INR')} ${diff > 0 ? 'more' : 'less'}`,
-        amountText(headroom), countWord(input.bills.count), amountText(input.bills.total),
+        member.first_name, templateMoney(income, cur), `${templateMoney(Math.abs(diff), cur)} ${diff > 0 ? 'more' : 'less'}`,
+        templateMoney(headroom, cur), countWord(input.bills.count), templateMoney(input.bills.total, cur),
       ] });
     } else {
       out.push({ ...base, template: 'payday_headroom', values: [
-        member.first_name, amountText(income), amountText(headroom), countWord(input.bills.count), amountText(input.bills.total),
+        member.first_name, templateMoney(income, cur), templateMoney(headroom, cur), countWord(input.bills.count), templateMoney(input.bills.total, cur),
       ] });
     }
   }
@@ -557,7 +563,7 @@ export function paydayAlerts(input: {
  * and a day with nothing logged gets the "nothing logged" message, so the evening
  * message comes every day: `daily_nothing_logged` once Meta approves it
  * (`nothingTemplateLive`), until then the approved digest saying "nothing logged yet"
- * (INR households, its body says ₹). A day with only private entries is not "nothing
+ * (its original says ₹, so INR households only until its `_v2` is approved). A day with only private entries is not "nothing
  * logged", so it sends nothing.
  */
 export const NOTHING_LOGGED_LINE = 'nothing logged yet. Reply here with what you spent, like 450 groceries';
@@ -570,22 +576,22 @@ export function dailyDigest(input: {
   const todays = txnsFromRows(input.txns.filter((r) => r.date === input.today));
   // "Logged anything today" counts private entries too (a private day is not "nothing logged").
   if (!spendRows(todays.map((t) => ({ ...t, excluded: false }))).length) return nothingLogged(input);
-  if (!isInr(input.household.base_currency)) return [];
+  const cur = input.household.base_currency.trim();
   const rows = spendRows(todays);
   if (!rows.length) return [];
   const byPerson = new Map<string, number>();
-  for (const t of rows) byPerson.set(t.created_by ?? '', (byPerson.get(t.created_by ?? '') ?? 0) + effectiveAmount(t, 'INR', {}));
+  for (const t of rows) byPerson.set(t.created_by ?? '', (byPerson.get(t.created_by ?? '') ?? 0) + effectiveAmount(t, cur, {}));
   const total = Math.round([...byPerson.values()].reduce((a, b) => a + b, 0) * 100) / 100;
   const out: PlannedSend[] = [];
   for (const m of input.members) {
     if (!m.first_name) continue;
     const ranked = [...byPerson.entries()].sort((a, b) => b[1] - a[1]);
     const shown = ranked.slice(0, 4).map(([id, amt]) =>
-      `${id === m.profile_id ? 'you' : (input.names[id] || 'someone')} ${moneyText(Math.round(amt * 100) / 100, 'INR')}`);
+      `${id === m.profile_id ? 'you' : (input.names[id] || 'someone')} ${templateMoney(Math.round(amt * 100) / 100, cur)}`);
     const line = shown.join(' · ') + (ranked.length > 4 ? ` · +${ranked.length - 4} others` : '');
     out.push({
-      template: 'household_daily_digest', householdId: input.household.id, toProfileId: m.profile_id,
-      values: [m.first_name, amountText(total), String(countSpendEntries(rows)), line], dedupeKey: `digest:${input.today}`,
+      template: 'household_daily_digest', householdId: input.household.id, currency: cur, toProfileId: m.profile_id,
+      values: [m.first_name, templateMoney(total, cur), String(countSpendEntries(rows)), line], dedupeKey: `digest:${input.today}`,
     });
   }
   return out;
@@ -593,39 +599,39 @@ export function dailyDigest(input: {
 
 function nothingLogged(input: { household: Household; today: string; members: Member[]; nothingTemplateLive?: boolean }): PlannedSend[] {
   const fallback = !input.nothingTemplateLive;
-  if (fallback && !isInr(input.household.base_currency)) return [];
+  const cur = input.household.base_currency.trim();
   return input.members.filter((m) => m.first_name).map((m) => ({
     template: fallback ? 'household_daily_digest' : 'daily_nothing_logged',
-    householdId: input.household.id, toProfileId: m.profile_id,
-    values: fallback ? [m.first_name as string, '0', '0', NOTHING_LOGGED_LINE] : [m.first_name as string],
+    householdId: input.household.id, currency: cur, toProfileId: m.profile_id,
+    values: fallback ? [m.first_name as string, templateMoney(0, cur), '0', NOTHING_LOGGED_LINE] : [m.first_name as string],
     dedupeKey: `digest:${input.today}`,
   }));
 }
 
 // ── month_close_summary: the month just closed (monthly job, on the 1st) ─────────
 export function monthClose(input: { household: Household; today: string; txns: TxnRow[]; members: Member[] }): PlannedSend[] {
-  if (input.today.slice(8, 10) !== '01' || !isInr(input.household.base_currency)) return [];
+  if (input.today.slice(8, 10) !== '01') return [];
+  const cur = input.household.base_currency.trim();
   const month = addMonths(input.today.slice(0, 7), -1);
   const prior = addMonths(month, -1);
   const inMonth = (ym: string) => input.txns.filter((r) => r.date.slice(0, 7) === ym);
   const spend = spendRows(txnsFromRows(input.txns));
   const spendIn = (ym: string) => spend.filter((t) => t.date.slice(0, 7) === ym);
-  if ([...spendIn(month), ...spendIn(prior)].some((t) => !isInr(t.currency))) return [];
-  const range = (ym: string) => spendByCategoryInRange(spendIn(ym), `${ym}-01`, `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`, 'INR', {});
+  const range = (ym: string) => spendByCategoryInRange(spendIn(ym), `${ym}-01`, `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`, cur, {});
   const cats = range(month);
   const total = Math.round(Object.values(cats).reduce((a, b) => a + b, 0) * 100) / 100;
   if (!(total > 0)) return [];
   const priorTotal = Math.round(Object.values(range(prior)).reduce((a, b) => a + b, 0) * 100) / 100;
   const diff = Math.round((total - priorTotal) * 100) / 100;
   const comparison = priorTotal > 0
-    ? (diff === 0 ? `the same as ${monthName(prior)}` : `${moneyText(Math.abs(diff), 'INR')} ${diff < 0 ? 'less' : 'more'} than ${monthName(prior)}`)
+    ? (diff === 0 ? `the same as ${monthName(prior)}` : `${templateMoney(Math.abs(diff), cur)} ${diff < 0 ? 'less' : 'more'} than ${monthName(prior)}`)
     : 'nothing to compare with yet';
   const [topCat, topAmt] = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
-  const biggest = `${EXPENSE_LABEL[topCat] ?? topCat} ${moneyText(Math.round(topAmt * 100) / 100, 'INR')}`;
+  const biggest = `${EXPENSE_LABEL[topCat] ?? topCat} ${templateMoney(Math.round(topAmt * 100) / 100, cur)}`;
   const days = new Set(inMonth(month).filter((r) => !r.extras?.excluded).map((r) => r.date)).size;
   return input.members.filter((m) => m.first_name).map((m) => ({
-    template: 'month_close_summary', householdId: input.household.id, toProfileId: m.profile_id,
-    values: [monthName(month), m.first_name!, amountText(total), comparison, biggest, `${days} of ${daysInMonth(month)}`],
+    template: 'month_close_summary', householdId: input.household.id, currency: cur, toProfileId: m.profile_id,
+    values: [monthName(month), m.first_name!, templateMoney(total, cur), comparison, biggest, `${days} of ${daysInMonth(month)}`],
     dedupeKey: `month:${month}`,
   }));
 }
@@ -638,7 +644,7 @@ export function budgetSetup(input: {
   const gap = Math.round((Date.parse(`${next}-01T00:00:00Z`) - Date.parse(`${input.today}T00:00:00Z`)) / 86_400_000);
   if (gap !== 2 || input.hasNextMonthBudget || input.categoriesWithSpend < 1) return [];
   return input.members.filter((m) => m.first_name).map((m) => ({
-    template: 'budget_setup_reminder', householdId: input.household.id, toProfileId: m.profile_id,
+    template: 'budget_setup_reminder', householdId: input.household.id, currency: input.household.base_currency.trim(), toProfileId: m.profile_id,
     values: [m.first_name!, monthName(next), String(input.categoriesWithSpend)], dedupeKey: `setup:${next}`,
   }));
 }
@@ -663,9 +669,9 @@ export function runwayAlerts(input: {
   const one = (n: number) => n.toFixed(1);
   const now = input.months;
   const sends: PlannedSend[] = input.members.filter((m) => m.first_name).map((m) => delta < 0
-    ? { template: 'runway_shift_alert', householdId: input.household.id, toProfileId: m.profile_id,
+    ? { template: 'runway_shift_alert', householdId: input.household.id, currency: input.household.base_currency.trim(), toProfileId: m.profile_id,
         values: [m.first_name!, one(now), one(before)], dedupeKey: `runway:${input.monthKey}` }
-    : { template: 'runway_recovered_alert', householdId: input.household.id, toProfileId: m.profile_id,
+    : { template: 'runway_recovered_alert', householdId: input.household.id, currency: input.household.base_currency.trim(), toProfileId: m.profile_id,
         values: [m.first_name!, one(now), one(before),
           input.quieterCategory ? `A quieter month on ${input.quieterCategory.toLowerCase()}` : 'More left over each month'],
         dedupeKey: `runway:${input.monthKey}` });

@@ -13,8 +13,9 @@ vi.mock('../../../../supabase/functions/_shared/agent/assistantCore.ts', () => (
 vi.mock('../../../../supabase/functions/_shared/agent/engine.ts', async () => {
   // W6 — the UPDATE list and the reconcile plan are the real engine functions; W3e — so is the
   // "paid X" approval plan (the app's generateTransaction → txnToRow + advanceSchedule).
-  const { renderForWhatsApp, balancesToCheck, reconcileOnServer, approveOccurrenceOnServer } = await import('../serverEngine');
-  return { contextFromRows: () => ({}), answerOnServer: engine.answerOnServer, renderForWhatsApp, balancesToCheck, reconcileOnServer, approveOccurrenceOnServer };
+  // v10.138.0 — template amounts are written by the app's own formatter.
+  const { renderForWhatsApp, balancesToCheck, reconcileOnServer, approveOccurrenceOnServer, fmt } = await import('../serverEngine');
+  return { contextFromRows: () => ({}), answerOnServer: engine.answerOnServer, renderForWhatsApp, balancesToCheck, reconcileOnServer, approveOccurrenceOnServer, fmt };
 });
 beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}'))); });
 afterEach(() => vi.unstubAllGlobals());
@@ -348,7 +349,7 @@ describe('whatsapp-notify guards (W0)', () => {
   it('CON-UNIT-WA-W0-008 · marketing is refused until the recipient has opted in', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     tables();
-    expect(await (await call(handler, 'test-service-key', { event: 'reengagement', params: ['Rohan', '6,850', 'four'] })).json())
+    expect(await (await call(handler, 'test-service-key', { event: 'reengagement', params: ['Rohan', '₹6,850', 'four'], currency: 'INR' })).json())
       .toEqual(expect.objectContaining({ status: 'skipped', reason: 'marketing_consent_required' }));
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -667,9 +668,10 @@ describe('WhatsApp preferences and taps (W2)', () => {
       q.update.mockImplementation((row: Record<string, unknown>) => { updates.push(row); return q; });
       return q;
     });
-    const budget = { event: 'budget_threshold_alert', params: ['Dining', '81', '9', '1,540'] };
+    // v10.138.0: amounts carry their symbol, and the currency is named (the original's text says ₹).
+    const budget = { event: 'budget_threshold_alert', params: ['Dining', '81', '9', '₹1,540'], currency: 'INR' };
     expect((await (await call(budget)).json()).reason).toBe('muted');
-    expect((await (await call({ event: 'reengagement', params: ['Rohan', '6,850', 'four'] })).json()).reason).toBe('marketing_consent_required');
+    expect((await (await call({ event: 'reengagement', params: ['Rohan', '₹6,850', 'four'], currency: 'INR' })).json()).reason).toBe('marketing_consent_required');
     // v10.132.0 (Q4, Q-WA-01): the weekly summary needs insights consent, not marketing.
     expect((await (await call({ event: 'weekly_summary', params: ['₹1', '2', 'Dining'] })).json()).reason).toBe('insights_consent_required');
     prefs = { ...prefs, muted_topics: [] };
@@ -1555,7 +1557,7 @@ describe('T2d · WhatsApp writes and the replay sweep (BE-WA-09, BE-WA-12)', () 
       return queryResult(null, { message: 'disk full' }, 0);
     });
     const refused = await notify(new Request('https://edge.example.com/notify', { method: 'POST', headers: { Authorization: 'Bearer test-service-key' },
-      body: JSON.stringify({ event: 'reengagement', householdId: 'h', toProfileId: 'p2', params: ['Rohan', '6,850', 'four'] }) }));
+      body: JSON.stringify({ event: 'reengagement', householdId: 'h', toProfileId: 'p2', params: ['Rohan', '₹6,850', 'four'], currency: 'INR' }) }));
     expect(await refused.json()).toEqual(expect.objectContaining({ status: 'skipped', reason: 'marketing_consent_required' }));
     expect(errors.mock.calls.map((c: unknown[]) => String(c[0]))).toContainEqual(expect.stringMatching(/refusal not audited/));
     expect(fetch).not.toHaveBeenCalled();

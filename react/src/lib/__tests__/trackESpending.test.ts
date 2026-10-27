@@ -57,14 +57,14 @@ describe('Track E · E2: WhatsApp reads the app\'s spending', () => {
     expect(large.map(s => s.dedupeKey)).toEqual(['txn:food']);
     // The evening digest: today's spending rows only (the private one makes the day "logged", not counted).
     const digest = dailyDigest({ household: HH, today: '2026-10-14', txns: rows, members: MEMBERS, names: {}, memberCount: 2 });
-    expect(digest[0].values.slice(1, 3)).toEqual(['18,000', '1']);
+    expect(digest[0].values.slice(1, 3)).toEqual(['₹18,000', '1']);
     // The weekly summary counts the same entries.
     expect(weeklySummary({ household: HH, today: '2026-10-14', txns: rows, member: MEMBERS[0], weekKey: 'w' })?.values.slice(1))
       .toEqual(['1', 'Food & Dining']);
     // Month close: September's total is the app's September spending.
     const close = monthClose({ household: HH, today: '2026-10-01', txns: rows, members: MEMBERS });
     const sept = spendByCategoryInRange(txnsFromRows(rows), '2026-09-01', '2026-09-30', 'INR', {});
-    expect(close[0].values[2]).toBe('4,000');
+    expect(close[0].values[2]).toBe('₹4,000');
     expect(sept).toEqual({ groceries: 4000 });
   });
 
@@ -175,9 +175,9 @@ describe('Track E · E3: a loan payment counts in full as Loan / EMI spending', 
       extras: { emi_split: t.emiSplit, linkedTxnId: t.linkedTxnId } as never,
     }));
     const large = largeSpendAlerts({ household: HH, members: MEMBERS, thresholds: {}, accountNames: { bank: 'HDFC' }, txns: rows });
-    expect(large).toEqual([{ template: 'large_transaction_alert', householdId: 'h', toProfileId: 'bob', values: ['15,000', 'HDFC'], dedupeKey: 'txn:op3' }]);
+    expect(large).toEqual([{ template: 'large_transaction_alert', householdId: 'h', currency: 'INR', toProfileId: 'bob', values: ['₹15,000', 'HDFC'], dedupeKey: 'txn:op3' }]);
     const digest = dailyDigest({ household: HH, today: '2026-10-05', txns: rows, members: MEMBERS, names: {}, memberCount: 2 });
-    expect(digest[0].values.slice(1, 3)).toEqual(['15,000', '1']);
+    expect(digest[0].values.slice(1, 3)).toEqual(['₹15,000', '1']);
   });
 
   it('TE3-007 · Transactions: "Expense" and "Loan / EMI" list the principal row, and the list total matches', () => {
