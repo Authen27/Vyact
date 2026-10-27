@@ -13,7 +13,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.138.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.139.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -687,15 +687,17 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   template through the old body-only `sendTemplate`: Meta needs the header image on every send
   (`sendTemplateMessage`). A template Meta flagged as marketing is treated as marketing. Never run
   `templates-submit.mjs --apply` yourself; submitting is the owner's action with the owner's token.
-  **Redesigned copy is a `_v2` template beside the original, never an edit of it (v10.138.0; owner, 27 Oct 2026).**
-  - A `_v2` (`TEMPLATES_V2`, `family` = the original) keeps the original's values in order, its header, footer,
-    buttons and category; only the body differs. Consent, mutes, dedupe and button payloads use the original's name.
-  - `guardedSend` sends the `_v2` only when its name is on `WHATSAPP_APPROVED_TEMPLATES`, else the original
-    (`versionToSend`); taking the `_v2` name off rolls back. Editing an approved template in place puts it back in review.
-  - Every amount value carries its currency symbol (`templateMoney`, the app's `fmt`, in the household's currency). An
-    original's "₹{{n}}" value is sent without it, and only to INR households (`currency_needs_v2`); a `_v2` has no
-    currency in its text, so it suits any household. A send names its `currency`.
-  - Meta's pre-check files a Utility body with a "Tap below …" line or 🎉 / ✅ as Marketing; keep them out of Utility.
+  **Template copy (v10.138.0, v10.139.0; owner, 27–28 Oct 2026).** The redesign was edited into the originals in place
+  (the owner accepted them going back into review). A copy change that also needs a different CATEGORY cannot be an edit
+  (Meta keeps an approved template's category), so it is a `<name>_v2` (`TEMPLATES_V2`, `family` = the original).
+  - A `_v2` keeps the original's values in order, header, footer and buttons. Consent, mutes, dedupe and button
+    payloads use the original's name; `topicOf` reads `family`.
+  - `guardedSend` sends a `_v2` only when its name is on `WHATSAPP_APPROVED_TEMPLATES` and the person may receive it
+    (`refusalFor`, so a Marketing `_v2` needs marketing consent); everyone else gets the original (`versionToSend`).
+  - Every amount value carries its currency symbol (`templateMoney`, the app's `fmt`, in the household's currency); a
+    template body never writes a currency itself. An original that still says "₹{{n}}" (only `affordability_reply`) gets
+    that value without it, and only for INR households (`currency_needs_v2`). A send names its `currency`.
+  - Meta's pre-check files a Utility body with a "Tap below …" line or a 🎉 as Marketing; keep them out of Utility.
   **v10.42.0 (W2a): every proactive send goes through `guardedSend` (`_shared/whatsapp-send.ts`)** —
   notify and the `whatsapp-dispatch` scheduler alike. Consent lives in `whatsapp_preferences`
   (marketing and insights OFF until given in the app; `START` in chat never grants it). **The weekly summary is an

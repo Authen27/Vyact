@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   TEMPLATES, EVENT_ALIASES, templateForEvent, lintTemplate, variablesIn, metaSubmissionComponents, type TemplateDef,
-  TEMPLATES_V2, NOT_REDESIGNED, ALL_TEMPLATES, rupeeParams, versionToSend,
+  TEMPLATES_V2, ALL_TEMPLATES, rupeeParams, versionToSend,
 } from '../../../../supabase/functions/_shared/whatsapp-templates';
 
 import {
@@ -178,81 +178,80 @@ describe('the wire shape of a send', () => {
   });
 });
 
-// v10.138.0 (owner, 27 Oct 2026) — the redesigned copy, as `_v2` templates beside the approved originals.
-describe('the redesigned templates (_v2)', () => {
+// v10.139.0 (owner, 27–28 Oct 2026) — the redesigned copy: 19 originals edited in place, three Marketing `_v2`s.
+describe('the redesigned templates (v10.139.0)', () => {
   const opts = { appUrl: 'https://vyact.app', context: 'sched-9:2026-09-25' };
   const v2s = Object.entries(TEMPLATES_V2);
+  const redesigned = [...Object.values(TEMPLATES).filter((d) => !TEMPLATES_V2[d.name]), ...Object.values(TEMPLATES_V2)];
 
-  it('CON-UNIT-WA-V2-001 · every original has a _v2 (or a recorded reason it has none) that passes the lint and changes only the body', () => {
-    expect([...Object.keys(TEMPLATES_V2), ...Object.keys(NOT_REDESIGNED)].sort()).toEqual(Object.keys(TEMPLATES).sort());
-    for (const family of Object.keys(NOT_REDESIGNED)) expect(TEMPLATES_V2[family], family).toBeUndefined();
+  it('CON-UNIT-WA-V2-001 · three Marketing _v2 copies, each the same as its original but for the body', () => {
+    expect(Object.keys(TEMPLATES_V2).sort()).toEqual(['affordability_reply', 'weekly_summary', 'whatsapp_welcome']);
     for (const [family, def] of v2s) {
       const original = TEMPLATES[family];
       expect(lintTemplate(def), def.name).toEqual([]);
-      expect(def.name, family).toBe(`${family}_v2`);
-      expect(def.family, family).toBe(family);
+      expect([def.name, def.family, def.category], family).toEqual([`${family}_v2`, family, 'marketing']);
       expect(def.body, family).not.toBe(original.body);
-      // The values, their order, the header, the footer, the buttons and the category are the original's.
       expect(def.params.map((p) => p.name), family).toEqual(original.params.map((p) => p.name));
-      expect([def.headerImage, def.footer, def.category, def.language], family)
-        .toEqual([original.headerImage, original.footer, original.category, original.language]);
+      expect([def.headerImage, def.footer, def.language], family).toEqual([original.headerImage, original.footer, original.language]);
       expect(def.buttons, family).toEqual(original.buttons);
       expect(ALL_TEMPLATES[def.name], family).toBe(def);
     }
   });
 
-  it('CON-UNIT-WA-V2-002 · no _v2 says a currency itself: its amounts carry their own symbol', () => {
-    for (const [family, def] of v2s) {
-      expect(def.body, family).not.toMatch(/[₹$€£¥]|\bRs\.?\s|\bINR\b|\bUSD\b/);
-      for (const n of rupeeParams(TEMPLATES[family])) expect(def.params[n - 1].sample, `${family} {{${n}}}`).toMatch(/^₹\d/);
+  it('CON-UNIT-WA-V2-002 · no redesigned body says a currency: amounts carry their own symbol', () => {
+    for (const def of redesigned) {
+      if (def.name === 'affordability_reply') continue;   // the one original kept as it was (its _v2 is the redesign)
+      expect(def.body, def.name).not.toMatch(/[₹$€£¥]|\bRs\.?\s|\bINR\b|\bUSD\b/);
     }
-    // The originals that write "₹{{n}}" are the ones whose amounts lose their symbol on the fallback.
-    expect(rupeeParams(TEMPLATES.payday_headroom)).toEqual([2, 3, 5]);
-    expect(rupeeParams(TEMPLATES.bill_due_reminder)).toEqual([]);   // its amount always carried the symbol
+    expect(Object.values(TEMPLATES).filter((d) => rupeeParams(d).length).map((d) => d.name)).toEqual(['affordability_reply']);
+    expect(TEMPLATES.payday_headroom.params.map((p) => p.sample)).toEqual(['Rohan', '₹92,000', '₹56,900', 'five', '₹35,100']);
+    for (const n of rupeeParams(TEMPLATES.affordability_reply)) expect(TEMPLATES_V2.affordability_reply.params[n - 1].sample).toMatch(/^₹\d/);
   });
 
   it('CON-UNIT-WA-V2-003 · the redesign\'s shape: a blank line after the opening, one fact per line, at most two bold spans', () => {
-    for (const [family, def] of v2s) {
+    for (const def of redesigned) {
+      if (def.name === 'affordability_reply' || def.name === 'weekly_summary' || def.name === 'whatsapp_welcome') continue;
       const [opening, facts] = def.body.split('\n\n');
-      expect(opening.includes('\n'), family).toBe(false);
-      expect(facts?.trim().length, family).toBeGreaterThan(0);
-      expect((def.body.match(/\*[^*\n]+\*/g) ?? []).length, family).toBeLessThanOrEqual(2);
-      expect(def.body, family).not.toMatch(/\n{3,}/);
+      expect(opening.includes('\n'), def.name).toBe(false);
+      expect(facts?.trim().length, def.name).toBeGreaterThan(0);
+      expect((def.body.match(/\*[^*\n]+\*/g) ?? []).length, def.name).toBeLessThanOrEqual(2);
+      expect(def.body, def.name).not.toMatch(/\n{3,}/);
+    }
+    // Meta's pre-check files a Utility body with a "Tap below" line or a 🎉 as Marketing (split_settled's ✅ passed).
+    for (const def of Object.values(TEMPLATES).filter((d) => d.category === 'utility')) {
+      expect(def.body, def.name).not.toMatch(/Tap below|🎉/);
     }
   });
 
-  it('CON-UNIT-WA-V2-004 · the _v2 goes once approved; until then the original, its ₹ amounts bare, to INR households only', () => {
-    const def = TEMPLATES.payday_headroom;
-    const values = ['Rohan', '₹92,000', '₹56,900', 'five', '₹35,100'];
+  it('CON-UNIT-WA-V2-004 · a _v2 goes once approved and only with consent; else the original, its ₹ amounts bare, INR only', () => {
+    const def = TEMPLATES.affordability_reply;
+    const values = ['Rohan', '₹40,000', '₹4,300', '₹50,000'];
     const approved = (names: string[]) => (n: string) => names.includes(n);
-    expect(versionToSend(def, values, 'INR', approved(['payday_headroom', 'payday_headroom_v2'])))
-      .toEqual({ def: TEMPLATES_V2.payday_headroom, values });
-    expect(versionToSend(def, ['Rohan', '$9,200', '$5,690', 'five', '$3,510'], 'USD', approved(['payday_headroom_v2'])))
-      .toEqual({ def: TEMPLATES_V2.payday_headroom, values: ['Rohan', '$9,200', '$5,690', 'five', '$3,510'] });
-    expect(versionToSend(def, values, 'INR', approved(['payday_headroom'])))
-      .toEqual({ def, values: ['Rohan', '92,000', '56,900', 'five', '35,100'] });
-    // Composed values keep their symbol: the original's text has none before them.
-    expect(versionToSend(TEMPLATES.month_close_summary, ['September', 'Rohan', '₹64,180', '₹2,900 less than August', 'Dining ₹12,400', '24 of 30'], 'INR', approved([])))
-      .toEqual({ def: TEMPLATES.month_close_summary, values: ['September', 'Rohan', '64,180', '₹2,900 less than August', 'Dining ₹12,400', '24 of 30'] });
-    expect(versionToSend(def, values, 'USD', approved(['payday_headroom']))).toEqual({ skip: 'currency_needs_v2' });
+    expect(versionToSend(def, values, 'INR', approved(['affordability_reply_v2'])))
+      .toEqual({ def: TEMPLATES_V2.affordability_reply, values });
+    // No marketing consent: the original, as before.
+    expect(versionToSend(def, values, 'INR', approved(['affordability_reply_v2']), () => false))
+      .toEqual({ def, values: ['Rohan', '40,000', '4,300', '50,000'] });
+    expect(versionToSend(def, ['Rohan', '$400', '$43', '$500'], 'USD', approved(['affordability_reply_v2'])))
+      .toEqual({ def: TEMPLATES_V2.affordability_reply, values: ['Rohan', '$400', '$43', '$500'] });
+    expect(versionToSend(def, values, 'USD', approved([]))).toEqual({ skip: 'currency_needs_v2' });
     expect(versionToSend(def, values, undefined, approved([]))).toEqual({ skip: 'currency_needs_v2' });
-    // An original with no ₹ of its own goes to any household as it is.
-    const bill = ['Rent', '$2,500', '5 Oct', 'Rent'];
-    expect(versionToSend(TEMPLATES.bill_due_reminder, bill, 'USD', approved([]))).toEqual({ def: TEMPLATES.bill_due_reminder, values: bill });
+    // An edited original goes to any household as it is.
+    const pay = ['Rohan', '$9,200', '$5,690', 'five', '$3,510'];
+    expect(versionToSend(TEMPLATES.payday_headroom, pay, 'USD', approved([]))).toEqual({ def: TEMPLATES.payday_headroom, values: pay });
   });
 
   it('CON-UNIT-WA-V2-005 · a _v2 send goes by its own name, with the original\'s header and button payloads', () => {
-    const msg = buildTemplateMessage(TEMPLATES_V2.large_transaction_alert, ['₹18,000', 'HDFC card'], opts);
-    expect(msg.name).toBe('large_transaction_alert_v2');
+    const msg = buildTemplateMessage(TEMPLATES_V2.affordability_reply, ['Rohan', '₹40,000', '₹4,300', '₹50,000'], opts);
+    expect(msg.name).toBe('affordability_reply_v2');
+    expect(msg.components[0]).toEqual({ type: 'header', parameters: [{ type: 'image', image: { link: 'https://vyact.app/whatsapp/11-forecast-response.jpg' } }] });
     expect(msg.components.filter((c) => c.type === 'button').map((c) => (c as { parameters: { payload: string }[] }).parameters[0].payload))
-      .toEqual(['large_transaction_alert:1:sched-9:2026-09-25', 'large_transaction_alert:2:sched-9:2026-09-25']);
-    const payday = buildTemplateMessage(TEMPLATES_V2.payday_headroom, TEMPLATES_V2.payday_headroom.params.map((p) => p.sample), opts);
-    expect(payday.components[0]).toEqual({ type: 'header', parameters: [{ type: 'image', image: { link: 'https://vyact.app/whatsapp/02-payday.jpg' } }] });
+      .toEqual(['affordability_reply:0:sched-9:2026-09-25']);
   });
 
-  it('CON-UNIT-WA-V2-006 · every _v2 is recorded in docs/WHATSAPP_TEMPLATES.md with its body as submitted', () => {
+  it('CON-UNIT-WA-V2-006 · every redesigned body is recorded in docs/WHATSAPP_TEMPLATES.md as submitted', () => {
     const doc = readFileSync(resolve(ROOT, 'docs/WHATSAPP_TEMPLATES.md'), 'utf8').replace(/\r\n/g, '\n');
-    for (const def of Object.values(TEMPLATES_V2)) {
+    for (const def of redesigned) {
       expect(doc, def.name).toContain('`' + def.name + '`');
       expect(doc, def.name).toContain(def.body);
     }
