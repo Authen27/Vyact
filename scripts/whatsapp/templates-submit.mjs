@@ -18,7 +18,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TEMPLATES, lintTemplate, metaSubmissionComponents } from '../../supabase/functions/_shared/whatsapp-templates.ts';
+import { ALL_TEMPLATES as TEMPLATES, lintTemplate, metaSubmissionComponents } from '../../supabase/functions/_shared/whatsapp-templates.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const GRAPH = `https://graph.facebook.com/${process.env.WHATSAPP_GRAPH_VERSION || 'v21.0'}`;

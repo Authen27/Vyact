@@ -99,6 +99,8 @@ export const effectiveAmount = generated.effectiveAmount as (t: EngineTxn, baseC
 export const spendEntryKey = generated.spendEntryKey as (t: EngineTxn) => string;
 /** How many entries these spending rows are (a loan payment counts once). */
 export const countSpendEntries = generated.countSpendEntries as (rows: readonly EngineTxn[]) => number;
+/** An amount as the app writes it, symbol included ("₹1,540.50", "$64", "64 €"): the app's `fmt`. */
+export const fmt = generated.fmt as (amount: number, currency?: string) => string;
 
 // ── WhatsApp's scheduled nudges on the app's own rules (T5c, v10.122.0) ──────────
 /** A budget line at or past a threshold today (the app's `budgetThresholdLines`). */

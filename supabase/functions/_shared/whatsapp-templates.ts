@@ -45,6 +45,8 @@ export interface TemplateDef {
   params: readonly TemplateParam[];
   footer?: string;
   buttons?: readonly TemplateButton[];
+  /** A redesigned version: the original template it replaces (v10.138.0). Payloads and dedupe use this name. */
+  family?: string;
   /** Meta status when last checked (templates-status.mjs refreshes this view). */
   status: 'active' | 'in_review';
   note?: string;
@@ -401,6 +403,119 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
 };
+
+// ── v10.138.0 — the redesigned copy, as `_v2` templates (owner, 27 Oct 2026) ──────────────────────────
+// One fact per line behind a neutral emoji marker, a blank line before the explanation, the one key amount in
+// bold, and 🎉 / ✅ only for good news. Each `_v2` keeps its original's values in the same order, its header
+// image, footer, buttons and category: only the body changes. So nothing that reads a template by name changes.
+// Consent, mutes, the dedupe slot and the button payloads all use the original's name (`family`).
+//
+// No `_v2` body carries a currency symbol. Its amounts carry their own (`templateMoney`), so it suits a
+// household in any currency. The originals keep "₹" in their text and stay the fallback, for INR households
+// only, until Meta approves the `_v2` and it is on WHATSAPP_APPROVED_TEMPLATES (`versionToSend`).
+
+/** The `{{n}}` an original writes straight after "₹": an amount it takes WITHOUT the symbol. */
+export function rupeeParams(def: TemplateDef): number[] {
+  return [...def.body.matchAll(/₹\{\{(\d+)\}\}/g)].map((m) => Number(m[1]));
+}
+
+function redesign(family: string, body: string): TemplateDef {
+  const original = TEMPLATES[family];
+  const rupee = rupeeParams(original);
+  return {
+    ...original,
+    name: `${family}_v2`,
+    family,
+    status: 'in_review',
+    body,
+    params: original.params.map((p, i) => rupee.includes(i + 1)
+      ? { ...p, sample: `₹${p.sample}`, note: "formatted WITH the household's currency symbol" }
+      : p),
+    note: `Redesigned copy of ${family} (submitted 27 Oct 2026).`,
+  };
+}
+
+// Meta's pre-check (27 Oct 2026) filed a Utility body as Marketing when it had a "Tap below …" line or a 🎉 / ✅,
+// so the Utility `_v2`s have neither. These are the bodies as submitted.
+const REDESIGNED: Record<string, string> = {
+  bill_due_reminder:
+    '🧾 Bill reminder\n\n📌 {{1}}\n💰 *{{2}}*\n📅 Due on {{3}}\n\nReply "paid {{4}}" once it\'s paid and I\'ll log it.',
+  split_settled:
+    'Settled ✅\n\n🤝 {{1}} paid their *{{2}}* share of "{{3}}"\n⚖️ You\'re all square now.',
+  reengagement_nudge:
+    "Hi {{1}} 👋\n\n🔍 *{{2}}* of this month's spending has no category yet\n🧾 That's {{3}} entries\n\nUntil they're named, your category totals are guessing. Tap *Name them here* and we'll sort them in this chat, one line each.",
+  large_transaction_alert:
+    "Heads-up 🔔\n\n💳 *{{1}}* just went out on your {{2}}\n\nIf that was you, there's nothing to do. If it wasn't, tap *Flag it* and I'll mark it for review.",
+  budget_threshold_alert:
+    'Budget heads-up: {{1}} 📌\n\n📊 {{2}}% of the budget used\n📅 {{3}} days to go\n💰 *{{4}}* still in the pot',
+  partner_split_prompt:
+    'New shared expense 🧾\n\n👤 {{1}} logged *{{2}}*\n📝 For "{{3}}"\n\nHow should it split? Nothing changes until you pick.',
+  split_shared_with_you:
+    'New split from {{1}} on Vyact 🤝\n\n🧾 {{2}} for "{{3}}"\n💰 Your share: *{{4}}*\n\nSettle it in the app whenever you\'re ready.',
+  recurring_auto_logged:
+    "Logged as scheduled 🔁\n\n📌 {{1}}\n💰 *{{2}}*\n📅 {{3}}\n\nIf it didn't go out this time, tap *Undo* within 15 minutes.",
+  payday_headroom:
+    "Payday's in, {{1}} 💼\n\n💰 {{2}} landed today\n🧮 About *{{3}}* of room this month, after your usual bills\n\n📌 Assumes your {{4}} fixed bills at last month's amounts, {{5}} together.",
+  household_daily_digest:
+    'Evening, {{1}} 🌙\n\n🏠 Your household spent *{{2}}* today\n🧾 {{3}} entries\n👥 Who spent: {{4}}\n\nOne message a day, never one per spend.',
+  runway_shift_alert:
+    "Heads-up, {{1}} 📌\n\n🧭 At this month's pace, your savings would cover about *{{2}} months*\n📉 Down from {{3}}\nℹ️ Assumes your recent spending continues\n\nNothing's wrong, and nothing needs doing today. Better to see it now than in three months.",
+  month_close_summary:
+    'Your {{1}} summary is ready, {{2}} 📊\n\n💸 Spent: *{{3}}*\n⚖️ Compared with last month: {{4}}\n🏷️ Biggest slice: {{5}}\n✍️ Something logged on {{6}} days',
+  budget_setup_reminder:
+    "Next month starts in two days, {{1}} 🗓️\n\n📅 That's {{2}}\n🎯 I can suggest a limit for each of your {{3}} categories, from what you actually spent this month\n\nYou adjust anything before it goes live. Nothing locks in without you.",
+  balance_stale_nudge:
+    "Quick one, {{1}} 👋\n\n🏦 Balances not updated in a month: {{2}}\nℹ️ Your net worth is drifting from what's actually there\n\nA couple of minutes in Vyact brings it back in line.",
+  bill_overdue_reminder:
+    'Overdue bill ⚠️\n\n🧾 {{1}}, due {{2}}\n💰 Amount: *{{3}}*\n\nIf you\'ve already paid it, tap *Already paid* or reply "paid {{4}}" and I\'ll close it off. If not, it\'s worth paying before a late fee lands.',
+  payday_headroom_variable:
+    "Money's in, {{1}} 💼\n\n💰 {{2}} landed, {{3}} than your usual month\n🧮 About *{{4}}* of room after your bills\n\n📌 Assumes your {{5}} fixed bills at last month's amounts, {{6}} together.",
+  reengagement_nudge_quiet:
+    "Hi {{1}} 👋\n\n📅 It's been {{2}} days since anything was logged\nℹ️ This month's picture is going stale\n\nA week of logging is usually enough for a forecast worth trusting. Reply *LOG* and we'll do today's in one line.",
+  runway_recovered_alert:
+    'Good news, {{1}} 🎉\n\n🧭 Your savings would now cover about *{{2}} months*\n📈 Up from {{3}}\n💡 What moved it: {{4}}\n\nAssumes your recent spending continues.',
+  daily_nothing_logged:
+    'Evening, {{1}} 🌙\n\n📝 Nothing has been logged in Vyact today\n💬 Spent anything? Reply here with it, like "450 groceries", and I\'ll add it for you\n\nOne message a day, never one per spend.',
+};
+
+/**
+ * Originals with no `_v2`: Meta's pre-check filed every redesign of these as Marketing, and Meta rejects a
+ * template submitted against its pre-check. They keep their approved copy (₹ in the text, INR households only).
+ */
+export const NOT_REDESIGNED: Record<string, string> = {
+  weekly_summary: 'Filed as Marketing by the pre-check with or without the "Tap below" line; Marketing would need marketing consent.',
+  affordability_reply: 'Filed as Marketing by the pre-check, with and without the emoji.',
+  whatsapp_welcome: 'Filed as Marketing by the pre-check, with and without the emoji.',
+};
+
+/** The redesigned templates, keyed by their ORIGINAL's name. */
+export const TEMPLATES_V2: Record<string, TemplateDef> = Object.fromEntries(
+  Object.entries(REDESIGNED).map(([family, body]) => [family, redesign(family, body)]),
+);
+
+/** Every template Meta holds for Vyact, by its own name: what the owner scripts check and submit. */
+export const ALL_TEMPLATES: Record<string, TemplateDef> = {
+  ...TEMPLATES,
+  ...Object.fromEntries(Object.values(TEMPLATES_V2).map((d) => [d.name, d])),
+};
+
+export type VersionChoice = { def: TemplateDef; values: string[] } | { skip: 'currency_needs_v2' };
+
+/**
+ * Which version of a template goes out, with its values. The values arrive as the rules write them: every
+ * amount with its symbol, in `currency`. The `_v2` goes once it is approved. Until then the original goes, its
+ * "₹{{n}}" values without their symbol, and only to an INR household, because its text says ₹.
+ */
+export function versionToSend(
+  def: TemplateDef, values: readonly string[], currency: string | undefined, isApproved: (name: string) => boolean,
+): VersionChoice {
+  const next = TEMPLATES_V2[def.name];
+  if (next && isApproved(next.name)) return { def: next, values: [...values] };
+  const rupee = rupeeParams(def);
+  if (!rupee.length) return { def, values: [...values] };
+  if (String(currency ?? '').trim() !== 'INR') return { skip: 'currency_needs_v2' };
+  return { def, values: values.map((v, i) => rupee.includes(i + 1) ? v.replace(/^₹\s*/, '') : v) };
+}
 
 /** Legacy `whatsapp-notify` event names → template. New templates use their own name. */
 export const EVENT_ALIASES: Record<string, string> = {

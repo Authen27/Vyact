@@ -14,17 +14,21 @@
 //     which delivery statuses and button taps are matched against.
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { env, sendTemplateMessage, gateReason, cleanParam, APP_URL } from './whatsapp.ts';
-import type { TemplateDef } from './whatsapp-templates.ts';
+import { env, sendTemplateMessage, gateReason, cleanParam, APP_URL, isTemplateApproved } from './whatsapp.ts';
+import { versionToSend, type TemplateDef } from './whatsapp-templates.ts';
 import { DEFAULT_PREFS, refusalFor, type WaPrefs } from './whatsapp-prefs.ts';
 
 export interface SendRequest {
+  /** The ORIGINAL template; its approved `_v2` goes in its place (`versionToSend`). */
   def: TemplateDef;
   /** The name the caller used (a legacy alias or the template name); part of the dedupe slot. */
   event: string;
   householdId: string;
   toProfileId: string;
+  /** Every amount with its currency symbol (`templateMoney`). */
   values: readonly unknown[];
+  /** The currency those amounts are in. Without it, a template whose text says ₹ is not sent. */
+  currency?: string;
   /** Defaults to the UTC day. Rides on quick-reply payloads as their context. */
   dedupeKey?: string;
   caller: string;
@@ -86,7 +90,11 @@ export function advancesDelivery(current: string | null | undefined, next: strin
 
 export async function guardedSend(admin: SupabaseClient, req: SendRequest): Promise<SendResult> {
   const { def, event, householdId, toProfileId } = req;
-  const template = def.name;
+  // v10.138.0: the redesigned `_v2` once Meta approved it, else the original (INR only where its text says ₹).
+  // Consent, mutes and the dedupe slot stay with the original (`def`, `event`).
+  const choice = versionToSend(def, req.values.map((v) => cleanParam(v)), req.currency, isTemplateApproved);
+  const sendDef = 'def' in choice ? choice.def : def;
+  const template = sendDef.name;
 
   const { data: recipient } = await admin
     .from('whatsapp_identities').select('phone_number, household_id')
@@ -102,7 +110,7 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
     return { status: 'skipped', reason: 'recipient_not_a_member', template };
   }
 
-  const cleaned = req.values.map((v) => cleanParam(v));
+  const cleaned = 'values' in choice ? choice.values : req.values.map((v) => cleanParam(v));
   // v10.47.0 — the payload's `result` is rewritten when the send settles; it used to
   // keep the claim's { sent: false } on a message Meta had delivered.
   const payloadWith = (result: Record<string, unknown>) => ({ event, templateName: template, params: cleaned, caller: req.caller, result });
@@ -134,6 +142,8 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
   const refused = refusalFor(def, await loadPrefs(admin, toProfileId));
   if (refused) return skip(refused);
 
+  if ('skip' in choice) return skip(choice.skip);
+
   const gated = gateReason(template);
   if (gated) return skip(gated);
 
@@ -161,7 +171,7 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
 
   let wamid: string | null;
   try {
-    wamid = await sendTemplateMessage(recipient.phone_number, def, cleaned, { appUrl: APP_URL, context: key });
+    wamid = await sendTemplateMessage(recipient.phone_number, sendDef, cleaned, { appUrl: APP_URL, context: key });
   } catch (e) {
     // W8b (audit BE-WA-11): a send Meta refused frees its dedupe slot — the audit row moves to a unique
     // id — so the next run can send it. It used to keep the slot, and that message was never sent.

@@ -1,6 +1,6 @@
 // W6b (v10.47.0) — senders for the approved templates that had none, and the replies
-// their buttons promise. Pinned: each rule's trigger and exact values, the INR/private
-// honesty rules, and that the 50/50 split written from WhatsApp is the app's split
+// their buttons promise. Pinned: each rule's trigger and exact values (v10.138.0: every amount
+// with the household's own currency symbol), the private-entry honesty rules, and that the 50/50 split written from WhatsApp is the app's split
 // (the app's own effectiveAmount then counts only your half).
 import { describe, expect, it } from 'vitest';
 import {
@@ -27,15 +27,19 @@ const row = (id: string, p: Partial<TxnRow>): TxnRow => ({
 });
 
 describe('W6b senders', () => {
-  it('CON-UNIT-W6B-001 · split_shared_with_you: each new INR share → the linked participant, owner named, amounts without ₹', () => {
+  it('CON-UNIT-W6B-001 · split_shared_with_you: each new share → the linked participant, owner named, amounts in the split\'s currency', () => {
     const sends = splitSharedAlerts([
       { share_id: 's1', share: 800, split_id: 'x', description: 'Dinner at Olive', currency: 'INR', total_amount: 2400,
         owner_user_id: 'priya', recipient_profile_id: 'me', recipient_household_id: 'h' },
       { share_id: 's2', share: 10, split_id: 'y', description: 'Taxi', currency: 'USD', total_amount: 30,
         owner_user_id: 'priya', recipient_profile_id: 'me', recipient_household_id: 'h' },
     ], { priya: 'Priya' });
-    expect(sends).toEqual([{ template: 'split_shared_with_you', householdId: 'h', toProfileId: 'me',
-      values: ['Priya', '2,400', 'Dinner at Olive', '800'], dedupeKey: 'share:s1' }]);
+    expect(sends).toEqual([
+      { template: 'split_shared_with_you', householdId: 'h', currency: 'INR', toProfileId: 'me',
+        values: ['Priya', '₹2,400', 'Dinner at Olive', '₹800'], dedupeKey: 'share:s1' },
+      { template: 'split_shared_with_you', householdId: 'h', currency: 'USD', toProfileId: 'me',
+        values: ['Priya', '$30', 'Taxi', '$10'], dedupeKey: 'share:s2' },
+    ]);
   });
 
   it('CON-UNIT-W6B-002 · recurring_auto_logged: only a self-posting schedule, to its owner, keyed by the entry for Undo', () => {
@@ -49,19 +53,19 @@ describe('W6b senders', () => {
       { id: 'approve', auto_confirm: false, created_by: 'me', txn_template: { description: 'Rent' } },
     ];
     expect(recurringLoggedAlerts({ household: HH, posted, schedules, members: [ME] })).toEqual([
-      { template: 'recurring_auto_logged', householdId: 'h', toProfileId: 'me', values: ['Netflix', '649', '1 Sep'], dedupeKey: 'rec:t1' },
+      { template: 'recurring_auto_logged', householdId: 'h', currency: 'INR', toProfileId: 'me', values: ['Netflix', '₹649', '1 Sep'], dedupeKey: 'rec:t1' },
     ]);
-    expect(recurringLoggedAlerts({ household: { id: 'h', base_currency: 'USD' }, posted, schedules, members: [ME] })).toEqual([]);
+    expect(recurringLoggedAlerts({ household: { id: 'h', base_currency: 'USD' }, posted, schedules, members: [ME] })[0].values[1]).toBe('$649');
   });
 
   it('CON-UNIT-W6B-003 · payday: steady pay → payday_headroom; 5%+ off the median → the variable one; no bills or no room → nothing', () => {
     const salary = row('s', { type: 'income', category: 'salary', amount: 92000, date: '2026-09-26' });
     const bills = { count: 5, total: 35100 };
     expect(paydayAlerts({ household: HH, today: '2026-09-26', salaries: [salary], earlier: [91000, 92500, 92000], bills, members: [ME] }))
-      .toEqual([{ template: 'payday_headroom', householdId: 'h', toProfileId: 'me', dedupeKey: 'payday:s',
-        values: ['Rohan', '92,000', '56,900', 'five', '35,100'] }]);
+      .toEqual([{ template: 'payday_headroom', householdId: 'h', currency: 'INR', toProfileId: 'me', dedupeKey: 'payday:s',
+        values: ['Rohan', '₹92,000', '₹56,900', 'five', '₹35,100'] }]);
     expect(paydayAlerts({ household: HH, today: '2026-09-26', salaries: [salary], earlier: [83000, 84000, 83600], bills, members: [ME] })[0])
-      .toEqual(expect.objectContaining({ template: 'payday_headroom_variable', values: ['Rohan', '92,000', '₹8,400 more', '56,900', 'five', '35,100'] }));
+      .toEqual(expect.objectContaining({ template: 'payday_headroom_variable', values: ['Rohan', '₹92,000', '₹8,400 more', '₹56,900', 'five', '₹35,100'] }));
     expect(paydayAlerts({ household: HH, today: '2026-09-26', salaries: [salary], earlier: [], bills: { count: 0, total: 0 }, members: [ME] })).toEqual([]);
     expect(paydayAlerts({ household: HH, today: '2026-09-26', salaries: [salary], earlier: [], bills: { count: 2, total: 95000 }, members: [ME] })).toEqual([]);
     expect(paydayAlerts({ household: HH, today: '2026-09-27', salaries: [salary], earlier: [], bills, members: [ME] })).toEqual([]);
@@ -77,12 +81,12 @@ describe('W6b senders', () => {
       row('f', { created_by: 'me', amount: 70, date: '2026-09-25' }),
     ];
     const sends = dailyDigest({ household: HH, today: '2026-09-26', txns, members: [ME, PRIYA], names: { priya: 'Priya', me: 'Rohan' }, memberCount: 2 });
-    expect(sends[0]).toEqual({ template: 'household_daily_digest', householdId: 'h', toProfileId: 'me',
-      values: ['Rohan', '5,410', '3', 'Priya ₹3,200 · you ₹2,210'], dedupeKey: 'digest:2026-09-26' });
+    expect(sends[0]).toEqual({ template: 'household_daily_digest', householdId: 'h', currency: 'INR', toProfileId: 'me',
+      values: ['Rohan', '₹5,410', '3', 'Priya ₹3,200 · you ₹2,210'], dedupeKey: 'digest:2026-09-26' });
     expect(sends[1].values[3]).toBe('you ₹3,200 · Rohan ₹2,210');
     // v10.58.0 — a household of one gets its digest too.
     expect(dailyDigest({ household: HH, today: '2026-09-26', txns, members: [ME], names: {}, memberCount: 1 })[0].values)
-      .toEqual(['Rohan', '5,410', '3', 'someone ₹3,200 · you ₹2,210']);
+      .toEqual(['Rohan', '₹5,410', '3', 'someone ₹3,200 · you ₹2,210']);
     expect(dailyDigest({ household: HH, today: '2026-09-26', txns, members: [ME], names: {}, memberCount: 0 })).toEqual([]);
   });
 
@@ -90,14 +94,15 @@ describe('W6b senders', () => {
     const yesterday = [row('a', { date: '2026-09-25', amount: 900 })];
     const base = { household: HH, today: '2026-09-26', txns: yesterday, members: [ME, PRIYA], names: {}, memberCount: 2 };
     expect(dailyDigest({ ...base, nothingTemplateLive: true })).toEqual([
-      { template: 'daily_nothing_logged', householdId: 'h', toProfileId: 'me', values: ['Rohan'], dedupeKey: 'digest:2026-09-26' },
-      { template: 'daily_nothing_logged', householdId: 'h', toProfileId: 'priya', values: ['Priya'], dedupeKey: 'digest:2026-09-26' },
+      { template: 'daily_nothing_logged', householdId: 'h', currency: 'INR', toProfileId: 'me', values: ['Rohan'], dedupeKey: 'digest:2026-09-26' },
+      { template: 'daily_nothing_logged', householdId: 'h', currency: 'INR', toProfileId: 'priya', values: ['Priya'], dedupeKey: 'digest:2026-09-26' },
     ]);
     expect(dailyDigest({ ...base, nothingTemplateLive: false })[0]).toEqual({ template: 'household_daily_digest', householdId: 'h',
-      toProfileId: 'me', values: ['Rohan', '0', '0', NOTHING_LOGGED_LINE], dedupeKey: 'digest:2026-09-26' });
-    // The fallback says ₹, so it is INR only; the new template has no currency and suits anyone.
+      currency: 'INR', toProfileId: 'me', values: ['Rohan', '₹0', '0', NOTHING_LOGGED_LINE], dedupeKey: 'digest:2026-09-26' });
+    // v10.138.0: the fallback is planned in the household's currency; the digest's original says ₹, so
+    // guardedSend sends it to INR households only until its `_v2` is approved (versionToSend).
     const usd = { ...base, household: { id: 'h', base_currency: 'USD' } };
-    expect(dailyDigest({ ...usd, nothingTemplateLive: false })).toEqual([]);
+    expect(dailyDigest({ ...usd, nothingTemplateLive: false })[0]).toEqual(expect.objectContaining({ currency: 'USD', values: ['Rohan', '$0', '0', NOTHING_LOGGED_LINE] }));
     expect(dailyDigest({ ...usd, nothingTemplateLive: true })).toHaveLength(2);
     // Only private entries today is not "nothing logged": nothing is sent.
     expect(dailyDigest({ ...base, txns: [row('p', { extras: { excluded: true } })], nothingTemplateLive: true })).toEqual([]);
@@ -134,8 +139,8 @@ describe('W6b senders', () => {
       row('d', { date: '2026-09-10', amount: 500, extras: { excluded: true } }),
     ];
     const sends = monthClose({ household: HH, today: '2026-10-01', txns, members: [ME] });
-    expect(sends).toEqual([{ template: 'month_close_summary', householdId: 'h', toProfileId: 'me', dedupeKey: 'month:2026-09',
-      values: ['September', 'Rohan', '64,180', '₹2,900 less than August', 'Rent / Mortgage ₹51,780', '2 of 30'] }]);
+    expect(sends).toEqual([{ template: 'month_close_summary', householdId: 'h', currency: 'INR', toProfileId: 'me', dedupeKey: 'month:2026-09',
+      values: ['September', 'Rohan', '₹64,180', '₹2,900 less than August', 'Rent / Mortgage ₹51,780', '2 of 30'] }]);
     expect(monthClose({ household: HH, today: '2026-10-02', txns, members: [ME] })).toEqual([]);
     expect(monthClose({ household: HH, today: '2026-10-01', txns: txns.filter((t) => t.date >= '2026-09-01'), members: [ME] })[0].values[3])
       .toBe('nothing to compare with yet');
@@ -144,7 +149,7 @@ describe('W6b senders', () => {
   it('CON-UNIT-W6B-006 · budget set-up: exactly two days before a month with no budget, to owners/admins given', () => {
     const base = { household: HH, categoriesWithSpend: 7, hasNextMonthBudget: false, members: [ME] };
     expect(budgetSetup({ ...base, today: '2026-09-29' })).toEqual([{ template: 'budget_setup_reminder', householdId: 'h',
-      toProfileId: 'me', values: ['Rohan', 'October', '7'], dedupeKey: 'setup:2026-10' }]);
+      currency: 'INR', toProfileId: 'me', values: ['Rohan', 'October', '7'], dedupeKey: 'setup:2026-10' }]);
     expect(budgetSetup({ ...base, today: '2026-09-28' })).toEqual([]);
     expect(budgetSetup({ ...base, today: '2026-09-29', hasNextMonthBudget: true })).toEqual([]);
     expect(budgetSetup({ ...base, today: '2026-02-27' })[0].values[1]).toBe('March');
@@ -157,7 +162,7 @@ describe('W6b senders', () => {
     const small = runwayAlerts({ ...base, months: 4.8, state: { value: 5.1, detail: {} } });
     expect(small.sends).toEqual([]);
     const down = runwayAlerts({ ...base, months: 4.2, state: { value: 5.1, detail: {} } });
-    expect(down.sends).toEqual([{ template: 'runway_shift_alert', householdId: 'h', toProfileId: 'me', values: ['Rohan', '4.2', '5.1'], dedupeKey: 'runway:2026-10' }]);
+    expect(down.sends).toEqual([{ template: 'runway_shift_alert', householdId: 'h', currency: 'INR', toProfileId: 'me', values: ['Rohan', '4.2', '5.1'], dedupeKey: 'runway:2026-10' }]);
     expect(down.state).toEqual({ value: 4.2, detail: { lastSent: '2026-10' } });
     expect(runwayAlerts({ ...base, months: 3.0, state: down.state! }).sends).toEqual([]);          // once a month
     const up = runwayAlerts({ ...base, monthKey: '2026-11', months: 5.1, state: down.state! });

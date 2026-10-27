@@ -125,7 +125,7 @@ async function runDispatch(admin: SupabaseClient, job: string, now: Date): Promi
     const def = TEMPLATES[p.template];
     results.push(await guardedSend(admin, {
       def, event: p.template, householdId: p.householdId, toProfileId: p.toProfileId,
-      values: p.values, dedupeKey: p.dedupeKey, caller: `dispatch:${job}`,
+      values: p.values, currency: p.currency, dedupeKey: p.dedupeKey, caller: `dispatch:${job}`,
     }));
   }
   const tally: Record<string, number> = {};
@@ -349,7 +349,9 @@ async function paydayFor(admin: SupabaseClient, household: Household, members: M
   const { data: schedules } = await admin.from('recurring_schedules').select('frequency, rrule, txn_template')
     .eq('household_id', household.id).is('deleted_at', null).eq('active', true);
   const monthly = ((schedules ?? []) as { frequency: string | null; rrule: string | null; txn_template: { type?: string; amount?: number | string; currency?: string } }[])
-    .filter((s) => s.txn_template?.type === 'expense' && String(s.txn_template?.currency ?? '').trim() === 'INR'
+    // W3b face value: a schedule counts in the household's one currency, whatever label it carries (v10.138.0;
+    // it was INR schedules only, while the payday note went to INR households only).
+    .filter((s) => s.txn_template?.type === 'expense'
       && (s.frequency === 'monthly' || /FREQ=MONTHLY/i.test(s.rrule ?? '')) && Number(s.txn_template?.amount) > 0);
   const bills = { count: monthly.length, total: Math.round(monthly.reduce((a, s) => a + Number(s.txn_template.amount), 0) * 100) / 100 };
   return paydayAlerts({ household, today, salaries: landed, earlier, bills, members: await withNames(admin, members) });
