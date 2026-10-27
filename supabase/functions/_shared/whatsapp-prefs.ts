@@ -100,7 +100,7 @@ export const DEFAULT_PREFS: WaPrefs = {
 };
 
 export function topicOf(def: TemplateDef): TopicId {
-  return TEMPLATE_TOPIC[def.name] ?? 'tips';
+  return TEMPLATE_TOPIC[def.family ?? def.name] ?? 'tips';   // a `_v2` is its original's topic
 }
 
 /** The consent a template needs. Anything Meta treats as marketing needs marketing. */

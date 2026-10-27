@@ -1036,7 +1036,7 @@ describe('W6b template replies in the webhook', () => {
     const logged = api.rpc.mock.calls.find(([n]) => n === 'whatsapp_log_transaction')![1] as Record<string, unknown>;
     expect(logged).toEqual(expect.objectContaining({ p_amount: 1200 }));
     expect(String(logged.p_description ?? '')).not.toMatch(/shared/i);
-    expect(templateSends()).toEqual([{ name: 'partner_split_prompt', body: ['You', '1,200', expect.any(String)] }]);
+    expect(templateSends()).toEqual([{ name: 'partner_split_prompt', body: ['You', '₹1,200', expect.any(String)] }]);
     vi.mocked(fetch).mockClear();
     await post(handler, { id: 'm-2', type: 'button', button: { payload: `partner_split_prompt:0:ps:${TXN}`, text: 'Split 50/50' } });
     const split = api.rpc.mock.calls.find(([n]) => n === 'whatsapp_split_even')![1] as Record<string, any>;

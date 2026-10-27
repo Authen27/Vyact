@@ -57,9 +57,9 @@ const t = (def: TemplateDef): TemplateDef => def;
 export const TEMPLATES: Record<string, TemplateDef> = {
   // ── Existing templates, image header added 24 Sep ────────────────────────────
   bill_due_reminder: t({
-    name: 'bill_due_reminder', category: 'utility', language: 'en_US', status: 'active',
+    name: 'bill_due_reminder', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '01-bill-reminder.jpg',
-    body: 'Reminder: your {{1}} of {{2}} is due on {{3}}. Reply "paid {{4}}" to log it.',
+    body: "🧾 Bill reminder\n\n📌 {{1}}\n💰 *{{2}}*\n📅 Due on {{3}}\n\nReply \"paid {{4}}\" once it's paid and I'll log it.",
     params: [
       { name: 'biller', sample: 'Rent' },
       { name: 'amount', sample: '₹25,000', note: 'formatted WITH the currency symbol' },
@@ -68,9 +68,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   split_settled: t({
-    name: 'split_settled', category: 'utility', language: 'en_US', status: 'active',
+    name: 'split_settled', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '08-split-settled.jpg',
-    body: 'Update: {{1}} settled their {{2}} share of "{{3}}". You\'re all square.',
+    body: "Settled ✅\n\n🤝 {{1}} paid their *{{2}}* share of \"{{3}}\"\n⚖️ You're all square now.",
     params: [
       { name: 'person', sample: 'Priya' },
       { name: 'amount', sample: '₹600', note: 'formatted WITH the currency symbol' },
@@ -93,15 +93,15 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     buttons: [{ type: 'url', text: 'See details', url: 'https://vyact.app/reports' }],
   }),
   reengagement_nudge: t({
-    name: 'reengagement_nudge', category: 'marketing', language: 'en_US', status: 'active',
+    name: 'reengagement_nudge', category: 'marketing', language: 'en_US', status: 'in_review',
     // v10.47.0 — edited in place 26 Sep (in review): the board's variant A, unnamed
     // spending. "Name them here" starts the naming conversation in the chat; the
     // Open Vyact link now points at vyact.app. Meta's button order: URL first.
     headerImage: '04-reengagement.jpg',
-    body: "Hi {{1}}, ₹{{2}} of this month's spending has no category yet. That's {{3}} entries, and until they're named your category totals are guessing.\n\nTap Name them here and we'll sort them in this chat, one line each.",
+    body: "Hi {{1}} 👋\n\n🔍 *{{2}}* of this month's spending has no category yet\n🧾 That's {{3}} entries\n\nUntil they're named, your category totals are guessing. Tap *Name them here* and we'll sort them in this chat, one line each.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
-      { name: 'unnamedTotal', sample: '6,850', note: 'WITHOUT the currency symbol' },
+      { name: 'unnamedTotal', sample: '₹6,850', note: 'formatted WITH the currency symbol' },
       { name: 'unnamedCount', sample: 'four', note: 'spelled out' },
     ],
     footer: 'You opted into tips. Reply STOP TIPS to end them.',
@@ -113,10 +113,10 @@ export const TEMPLATES: Record<string, TemplateDef> = {
 
   // ── Existing templates, enriched 25 Sep ───────────────────────────────────────
   large_transaction_alert: t({
-    name: 'large_transaction_alert', category: 'utility', language: 'en_US', status: 'active',
-    body: "Heads-up: ₹{{1}} just went out on your {{2}}.\n\nIf that was you, there's nothing to do. If it wasn't, tap Flag it and I'll mark it for review.",
+    name: 'large_transaction_alert', category: 'utility', language: 'en_US', status: 'in_review',
+    body: "Heads-up 🔔\n\n💳 *{{1}}* just went out on your {{2}}\n\nIf that was you, there's nothing to do. If it wasn't, tap *Flag it* and I'll mark it for review.",
     params: [
-      { name: 'amount', sample: '18,000', note: 'WITHOUT the currency symbol' },
+      { name: 'amount', sample: '₹18,000', note: 'formatted WITH the currency symbol' },
       { name: 'account', sample: 'HDFC card' },
     ],
     buttons: [
@@ -126,13 +126,13 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   budget_threshold_alert: t({
-    name: 'budget_threshold_alert', category: 'utility', language: 'en_US', status: 'active',
-    body: 'Heads-up: {{1}} is at {{2}}% of its budget, with {{3}} days to go.\n\n₹{{4}} is still in the pot.',
+    name: 'budget_threshold_alert', category: 'utility', language: 'en_US', status: 'in_review',
+    body: "Budget heads-up: {{1}} 📌\n\n📊 {{2}}% of the budget used\n📅 {{3}} days to go\n💰 *{{4}}* still in the pot",
     params: [
       { name: 'category', sample: 'Dining' },
       { name: 'percentUsed', sample: '78' },
       { name: 'daysLeft', sample: '18' },
-      { name: 'remaining', sample: '1,540', note: 'WITHOUT the currency symbol' },
+      { name: 'remaining', sample: '₹1,540', note: 'formatted WITH the currency symbol' },
     ],
     buttons: [
       { type: 'url', text: 'View budget', url: 'https://vyact.app/budgets' },
@@ -141,11 +141,11 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   partner_split_prompt: t({
-    name: 'partner_split_prompt', category: 'utility', language: 'en_US', status: 'active',
-    body: 'New shared expense: {{1}} logged ₹{{2}} for "{{3}}".\n\nHow should it split? Nothing changes until you pick.',
+    name: 'partner_split_prompt', category: 'utility', language: 'en_US', status: 'in_review',
+    body: "New shared expense 🧾\n\n👤 {{1}} logged *{{2}}*\n📝 For \"{{3}}\"\n\nHow should it split? Nothing changes until you pick.",
     params: [
       { name: 'person', sample: 'Priya' },
-      { name: 'amount', sample: '1,200', note: 'WITHOUT the currency symbol' },
+      { name: 'amount', sample: '₹1,200', note: 'formatted WITH the currency symbol' },
       { name: 'what', sample: 'Dinner at Olive' },
     ],
     buttons: [
@@ -155,13 +155,13 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   split_shared_with_you: t({
-    name: 'split_shared_with_you', category: 'utility', language: 'en_US', status: 'active',
-    body: 'Update: {{1}} shared a split with you on Vyact: ₹{{2}} for "{{3}}".\n\nYour share: ₹{{4}}. Settle it in the app whenever you\'re ready.',
+    name: 'split_shared_with_you', category: 'utility', language: 'en_US', status: 'in_review',
+    body: "New split from {{1}} on Vyact 🤝\n\n🧾 {{2}} for \"{{3}}\"\n💰 Your share: *{{4}}*\n\nSettle it in the app whenever you're ready.",
     params: [
       { name: 'person', sample: 'Priya' },
-      { name: 'total', sample: '2,400', note: 'WITHOUT the currency symbol' },
+      { name: 'total', sample: '₹2,400', note: 'formatted WITH the currency symbol' },
       { name: 'what', sample: 'Dinner at Olive' },
-      { name: 'yourShare', sample: '800', note: 'WITHOUT the currency symbol' },
+      { name: 'yourShare', sample: '₹800', note: 'formatted WITH the currency symbol' },
     ],
     buttons: [{ type: 'url', text: 'See your share', url: 'https://vyact.app/splits' }],
   }),
@@ -169,12 +169,12 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // 26 Sep: edit submitted adding header 17-recurring-logged.jpg (in review). Add
     // headerImage here only once Meta approves it: until then a send with an image
     // header would not match the live template.
-    name: 'recurring_auto_logged', category: 'utility', language: 'en_US', status: 'active',
+    name: 'recurring_auto_logged', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '17-recurring-logged.jpg',
-    body: "Logged as scheduled: your {{1}} of ₹{{2}} on {{3}}.\n\nIf it didn't go out this time, tap Undo within 15 minutes.",
+    body: "Logged as scheduled 🔁\n\n📌 {{1}}\n💰 *{{2}}*\n📅 {{3}}\n\nIf it didn't go out this time, tap *Undo* within 15 minutes.",
     params: [
       { name: 'schedule', sample: 'Netflix' },
-      { name: 'amount', sample: '649', note: 'WITHOUT the currency symbol' },
+      { name: 'amount', sample: '₹649', note: 'formatted WITH the currency symbol' },
       { name: 'date', sample: '1 Aug' },
     ],
     buttons: [
@@ -185,15 +185,15 @@ export const TEMPLATES: Record<string, TemplateDef> = {
 
   // ── New image templates, submitted 24–25 Sep ─────────────────────────────────
   payday_headroom: t({
-    name: 'payday_headroom', category: 'utility', language: 'en_US', status: 'active',
+    name: 'payday_headroom', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '02-payday.jpg',
-    body: "Payday's in, {{1}}.\n\n₹{{2}} landed today.\nAfter your usual bills, you've got about ₹{{3}} of room this month.\n\nAssumes your {{4}} fixed bills at last month's amounts, ₹{{5}} together.",
+    body: "Payday's in, {{1}} 💼\n\n💰 {{2}} landed today\n🧮 About *{{3}}* of room this month, after your usual bills\n\n📌 Assumes your {{4}} fixed bills at last month's amounts, {{5}} together.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
-      { name: 'income', sample: '92,000' },
-      { name: 'headroom', sample: '56,900' },
+      { name: 'income', sample: '₹92,000', note: 'formatted WITH the currency symbol' },
+      { name: 'headroom', sample: '₹56,900', note: 'formatted WITH the currency symbol' },
       { name: 'fixedBillCount', sample: 'five', note: 'spelled out' },
-      { name: 'fixedBillTotal', sample: '35,100' },
+      { name: 'fixedBillTotal', sample: '₹35,100', note: 'formatted WITH the currency symbol' },
     ],
     footer: 'Once a pay cycle. Reply STOP PAYDAY to end these.',
     buttons: [
@@ -202,12 +202,12 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   household_daily_digest: t({
-    name: 'household_daily_digest', category: 'utility', language: 'en_US', status: 'active',
+    name: 'household_daily_digest', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '03-household-digest.jpg',
-    body: 'Evening, {{1}}.\n\nYour household spent ₹{{2}} today, across {{3}} entries.\n\nWho spent: {{4}}\n\nOne message a day, never one per spend.',
+    body: "Evening, {{1}} 🌙\n\n🏠 Your household spent *{{2}}* today\n🧾 {{3}} entries\n👥 Who spent: {{4}}\n\nOne message a day, never one per spend.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
-      { name: 'dayTotal', sample: '5,410' },
+      { name: 'dayTotal', sample: '₹5,410', note: 'formatted WITH the currency symbol' },
       { name: 'entryCount', sample: '4' },
       { name: 'perMember', sample: 'Priya ₹3,200 · you ₹2,210', note: 'composed on the server, max 4 members' },
     ],
@@ -218,9 +218,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   runway_shift_alert: t({
-    name: 'runway_shift_alert', category: 'marketing', language: 'en_US', status: 'active',
+    name: 'runway_shift_alert', category: 'marketing', language: 'en_US', status: 'in_review',
     headerImage: '05-runway-shift.jpg',
-    body: "Heads-up, {{1}}.\n\nAt this month's pace, your savings would cover about {{2}} months, down from {{3}}.\n\nAssumes your recent spending continues.\n\nNothing's wrong, and nothing needs doing today. Better to see it now than in three months.",
+    body: "Heads-up, {{1}} 📌\n\n🧭 At this month's pace, your savings would cover about *{{2}} months*\n📉 Down from {{3}}\nℹ️ Assumes your recent spending continues\n\nNothing's wrong, and nothing needs doing today. Better to see it now than in three months.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
       { name: 'coverNow', sample: '4.2', note: 'one decimal' },
@@ -234,13 +234,13 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     note: "Meta's pre-check said Utility would be rejected; submitted as Marketing.",
   }),
   month_close_summary: t({
-    name: 'month_close_summary', category: 'utility', language: 'en_US', status: 'active',
+    name: 'month_close_summary', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '06-month-close.jpg',
-    body: 'Your {{1}} summary is ready, {{2}}.\n\nSpent: ₹{{3}}\nCompared with last month: {{4}}\nBiggest slice: {{5}}\n\nYou logged something on {{6}} days this month.',
+    body: "Your {{1}} summary is ready, {{2}} 📊\n\n💸 Spent: *{{3}}*\n⚖️ Compared with last month: {{4}}\n🏷️ Biggest slice: {{5}}\n✍️ Something logged on {{6}} days",
     params: [
       { name: 'month', sample: 'September' },
       { name: 'firstName', sample: 'Rohan' },
-      { name: 'spent', sample: '64,180' },
+      { name: 'spent', sample: '₹64,180', note: 'formatted WITH the currency symbol' },
       { name: 'comparison', sample: '₹2,900 less than August', note: 'composed, direction in words' },
       { name: 'biggestSlice', sample: 'Dining ₹12,400' },
       { name: 'daysLogged', sample: '24 of 30' },
@@ -252,9 +252,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   budget_setup_reminder: t({
-    name: 'budget_setup_reminder', category: 'marketing', language: 'en_US', status: 'active',
+    name: 'budget_setup_reminder', category: 'marketing', language: 'en_US', status: 'in_review',
     headerImage: '07-budget-setup.jpg',
-    body: "Next month starts in two days, {{1}}. That's {{2}}.\n\nWant me to set your budgets from what you actually spent this month? I'll suggest a limit for each of your {{3}} categories.\n\nYou adjust anything before it goes live. Nothing locks in without you.",
+    body: "Next month starts in two days, {{1}} 🗓️\n\n📅 That's {{2}}\n🎯 I can suggest a limit for each of your {{3}} categories, from what you actually spent this month\n\nYou adjust anything before it goes live. Nothing locks in without you.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
       { name: 'month', sample: 'October' },
@@ -267,9 +267,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   balance_stale_nudge: t({
-    name: 'balance_stale_nudge', category: 'marketing', language: 'en_US', status: 'active',
+    name: 'balance_stale_nudge', category: 'marketing', language: 'en_US', status: 'in_review',
     headerImage: '10-balance-recheck.jpg',
-    body: "Quick one, {{1}}.\n\nSome of your balances, {{2}} in all, haven't been updated in a month, so your net worth is drifting from what's actually there.\n\nA couple of minutes in Vyact brings it back in line.",
+    body: "Quick one, {{1}} 👋\n\n🏦 Balances not updated in a month: {{2}}\nℹ️ Your net worth is drifting from what's actually there\n\nA couple of minutes in Vyact brings it back in line.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
       { name: 'staleCount', sample: 'four', note: 'spelled out' },
@@ -321,9 +321,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // Sent once, three days after an APPROVAL bill fell due and is still waiting.
     // No greeting and no emoji: an overdue bill is not neutral news. "Already paid"
     // is the likeliest truth by then, so it leads.
-    name: 'bill_overdue_reminder', category: 'utility', language: 'en_US', status: 'active',
+    name: 'bill_overdue_reminder', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '13-bill-overdue.jpg',
-    body: 'Overdue: your {{1}} bill was due {{2}}.\nAmount: {{3}}\n\nIf you\'ve already paid it, tap Already paid or reply "paid {{4}}" and I\'ll close it off. If not, it\'s worth paying before a late fee lands.',
+    body: "Overdue bill ⚠️\n\n🧾 {{1}}, due {{2}}\n💰 Amount: *{{3}}*\n\nIf you've already paid it, tap *Already paid* or reply \"paid {{4}}\" and I'll close it off. If not, it's worth paying before a late fee lands.",
     params: [
       { name: 'biller', sample: 'BESCOM' },
       { name: 'dueWhen', sample: '3 days ago', note: 'relative within a week, else "on 15 Sep"' },
@@ -335,16 +335,16 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   payday_headroom_variable: t({
     // For pay that is not the same twice: the fact that matters is the difference from
     // a usual month. No 🎉 — a light month should not be cheered. Needs #68 to send.
-    name: 'payday_headroom_variable', category: 'utility', language: 'en_US', status: 'active',
+    name: 'payday_headroom_variable', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '14-payday-variable.jpg',
-    body: "Money's in, {{1}}.\n\n₹{{2}} landed. That's {{3}} than your usual month.\nAfter your bills, you've got about ₹{{4}} of room.\n\nAssumes your {{5}} fixed bills at last month's amounts, ₹{{6}} together.",
+    body: "Money's in, {{1}} 💼\n\n💰 {{2}} landed, {{3}} than your usual month\n🧮 About *{{4}}* of room after your bills\n\n📌 Assumes your {{5}} fixed bills at last month's amounts, {{6}} together.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
-      { name: 'income', sample: '92,000' },
+      { name: 'income', sample: '₹92,000', note: 'formatted WITH the currency symbol' },
       { name: 'versusUsual', sample: '₹8,400 more', note: 'composed: amount and direction' },
-      { name: 'headroom', sample: '56,900' },
+      { name: 'headroom', sample: '₹56,900', note: 'formatted WITH the currency symbol' },
       { name: 'fixedBillCount', sample: 'five', note: 'spelled out' },
-      { name: 'fixedBillTotal', sample: '35,100' },
+      { name: 'fixedBillTotal', sample: '₹35,100', note: 'formatted WITH the currency symbol' },
     ],
     footer: 'Once a pay cycle. Reply STOP PAYDAY to end these.',
     buttons: [
@@ -355,9 +355,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   reengagement_nudge_quiet: t({
     // Nothing pending, so no invented urgency: it names the gap and one small ask.
     // "Reply LOG" is answered by the webhook (isLogTrigger / the Log today button).
-    name: 'reengagement_nudge_quiet', category: 'marketing', language: 'en_US', status: 'active',
+    name: 'reengagement_nudge_quiet', category: 'marketing', language: 'en_US', status: 'in_review',
     headerImage: '15-reengage-quiet.jpg',
-    body: "Hi {{1}}, it's been {{2}} days since anything was logged, so this month's picture is going stale.\n\nA week of logging is usually enough for a forecast worth trusting. Reply LOG and we'll do today's in one line.",
+    body: "Hi {{1}} 👋\n\n📅 It's been {{2}} days since anything was logged\nℹ️ This month's picture is going stale\n\nA week of logging is usually enough for a forecast worth trusting. Reply *LOG* and we'll do today's in one line.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
       { name: 'daysQuiet', sample: '11' },
@@ -371,9 +371,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   runway_recovered_alert: t({
     // Pip should be able to give good news about the same metric, or the runway note
     // becomes a message people learn to dread. Keeps the assumption line.
-    name: 'runway_recovered_alert', category: 'marketing', language: 'en_US', status: 'active',
+    name: 'runway_recovered_alert', category: 'marketing', language: 'en_US', status: 'in_review',
     headerImage: '16-runway-recovered.jpg',
-    body: 'Good news, {{1}}.\n\nYour savings would now cover about {{2}} months, up from {{3}}. {{4}} is what moved it.\n\nAssumes your recent spending continues.',
+    body: "Good news, {{1}} 🎉\n\n🧭 Your savings would now cover about *{{2}} months*\n📈 Up from {{3}}\n💡 What moved it: {{4}}\n\nAssumes your recent spending continues.",
     params: [
       { name: 'firstName', sample: 'Rohan' },
       { name: 'coverNow', sample: '5.1', note: 'one decimal' },
@@ -392,9 +392,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // household. Approved by Meta (Active, checked in WhatsApp Manager on 23 Oct 2026). Until
     // it is on WHATSAPP_APPROVED_TEMPLATES, the dispatcher sends the approved digest with a
     // "nothing logged yet" line instead (INR households only, its body says ₹).
-    name: 'daily_nothing_logged', category: 'utility', language: 'en_US', status: 'active',
+    name: 'daily_nothing_logged', category: 'utility', language: 'en_US', status: 'in_review',
     headerImage: '18-nothing-logged.jpg',
-    body: 'Evening, {{1}}.\n\nNothing has been logged in Vyact today. If you spent anything, reply here with it, like "450 groceries", and I\'ll add it for you.\n\nOne message a day, never one per spend.',
+    body: "Evening, {{1}} 🌙\n\n📝 Nothing has been logged in Vyact today\n💬 Spent anything? Reply here with it, like \"450 groceries\", and I'll add it for you\n\nOne message a day, never one per spend.",
     params: [{ name: 'firstName', sample: 'Rohan' }],
     footer: 'Reply STOP DIGEST to end these.',
     buttons: [
@@ -404,93 +404,51 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   }),
 };
 
-// ── v10.138.0 — the redesigned copy, as `_v2` templates (owner, 27 Oct 2026) ──────────────────────────
+// ── v10.139.0 — the redesigned copy (owner, 27 Oct 2026) ────────────────────────────────────────────────
 // One fact per line behind a neutral emoji marker, a blank line before the explanation, the one key amount in
-// bold, and 🎉 / ✅ only for good news. Each `_v2` keeps its original's values in the same order, its header
-// image, footer, buttons and category: only the body changes. So nothing that reads a template by name changes.
-// Consent, mutes, the dedupe slot and the button payloads all use the original's name (`family`).
+// bold. The originals above were edited in place to it (28 Oct 2026; owner: "fine with them going into review"),
+// and their amounts now carry the currency symbol themselves (`templateMoney`), so they suit any household.
 //
-// No `_v2` body carries a currency symbol. Its amounts carry their own (`templateMoney`), so it suits a
-// household in any currency. The originals keep "₹" in their text and stay the fallback, for INR households
-// only, until Meta approves the `_v2` and it is on WHATSAPP_APPROVED_TEMPLATES (`versionToSend`).
+// Meta does not change an approved template's category, and its pre-check files the redesign of three originals
+// as Marketing. Those three are `_v2` templates in the Marketing category (owner, 28 Oct 2026). Each keeps its
+// original's values in order, header, footer and buttons; consent, mutes, dedupe and button payloads use the
+// original's name (`family`). `guardedSend` sends the `_v2` to someone who has opted in to marketing, once it
+// is on WHATSAPP_APPROVED_TEMPLATES; everyone else still gets the original (`versionToSend`).
 
 /** The `{{n}}` an original writes straight after "₹": an amount it takes WITHOUT the symbol. */
 export function rupeeParams(def: TemplateDef): number[] {
   return [...def.body.matchAll(/₹\{\{(\d+)\}\}/g)].map((m) => Number(m[1]));
 }
 
-function redesign(family: string, body: string): TemplateDef {
+function marketingCopy(family: string, body: string): TemplateDef {
   const original = TEMPLATES[family];
   const rupee = rupeeParams(original);
   return {
     ...original,
     name: `${family}_v2`,
     family,
+    category: 'marketing',
     status: 'in_review',
     body,
     params: original.params.map((p, i) => rupee.includes(i + 1)
       ? { ...p, sample: `₹${p.sample}`, note: "formatted WITH the household's currency symbol" }
       : p),
-    note: `Redesigned copy of ${family} (submitted 27 Oct 2026).`,
+    note: `Redesigned copy of ${family}, submitted as Marketing (28 Oct 2026).`,
   };
 }
 
-// Meta's pre-check (27 Oct 2026) filed a Utility body as Marketing when it had a "Tap below …" line or a 🎉 / ✅,
-// so the Utility `_v2`s have neither. These are the bodies as submitted.
-const REDESIGNED: Record<string, string> = {
-  bill_due_reminder:
-    '🧾 Bill reminder\n\n📌 {{1}}\n💰 *{{2}}*\n📅 Due on {{3}}\n\nReply "paid {{4}}" once it\'s paid and I\'ll log it.',
-  split_settled:
-    'Settled ✅\n\n🤝 {{1}} paid their *{{2}}* share of "{{3}}"\n⚖️ You\'re all square now.',
-  reengagement_nudge:
-    "Hi {{1}} 👋\n\n🔍 *{{2}}* of this month's spending has no category yet\n🧾 That's {{3}} entries\n\nUntil they're named, your category totals are guessing. Tap *Name them here* and we'll sort them in this chat, one line each.",
-  large_transaction_alert:
-    "Heads-up 🔔\n\n💳 *{{1}}* just went out on your {{2}}\n\nIf that was you, there's nothing to do. If it wasn't, tap *Flag it* and I'll mark it for review.",
-  budget_threshold_alert:
-    'Budget heads-up: {{1}} 📌\n\n📊 {{2}}% of the budget used\n📅 {{3}} days to go\n💰 *{{4}}* still in the pot',
-  partner_split_prompt:
-    'New shared expense 🧾\n\n👤 {{1}} logged *{{2}}*\n📝 For "{{3}}"\n\nHow should it split? Nothing changes until you pick.',
-  split_shared_with_you:
-    'New split from {{1}} on Vyact 🤝\n\n🧾 {{2}} for "{{3}}"\n💰 Your share: *{{4}}*\n\nSettle it in the app whenever you\'re ready.',
-  recurring_auto_logged:
-    "Logged as scheduled 🔁\n\n📌 {{1}}\n💰 *{{2}}*\n📅 {{3}}\n\nIf it didn't go out this time, tap *Undo* within 15 minutes.",
-  payday_headroom:
-    "Payday's in, {{1}} 💼\n\n💰 {{2}} landed today\n🧮 About *{{3}}* of room this month, after your usual bills\n\n📌 Assumes your {{4}} fixed bills at last month's amounts, {{5}} together.",
-  household_daily_digest:
-    'Evening, {{1}} 🌙\n\n🏠 Your household spent *{{2}}* today\n🧾 {{3}} entries\n👥 Who spent: {{4}}\n\nOne message a day, never one per spend.',
-  runway_shift_alert:
-    "Heads-up, {{1}} 📌\n\n🧭 At this month's pace, your savings would cover about *{{2}} months*\n📉 Down from {{3}}\nℹ️ Assumes your recent spending continues\n\nNothing's wrong, and nothing needs doing today. Better to see it now than in three months.",
-  month_close_summary:
-    'Your {{1}} summary is ready, {{2}} 📊\n\n💸 Spent: *{{3}}*\n⚖️ Compared with last month: {{4}}\n🏷️ Biggest slice: {{5}}\n✍️ Something logged on {{6}} days',
-  budget_setup_reminder:
-    "Next month starts in two days, {{1}} 🗓️\n\n📅 That's {{2}}\n🎯 I can suggest a limit for each of your {{3}} categories, from what you actually spent this month\n\nYou adjust anything before it goes live. Nothing locks in without you.",
-  balance_stale_nudge:
-    "Quick one, {{1}} 👋\n\n🏦 Balances not updated in a month: {{2}}\nℹ️ Your net worth is drifting from what's actually there\n\nA couple of minutes in Vyact brings it back in line.",
-  bill_overdue_reminder:
-    'Overdue bill ⚠️\n\n🧾 {{1}}, due {{2}}\n💰 Amount: *{{3}}*\n\nIf you\'ve already paid it, tap *Already paid* or reply "paid {{4}}" and I\'ll close it off. If not, it\'s worth paying before a late fee lands.',
-  payday_headroom_variable:
-    "Money's in, {{1}} 💼\n\n💰 {{2}} landed, {{3}} than your usual month\n🧮 About *{{4}}* of room after your bills\n\n📌 Assumes your {{5}} fixed bills at last month's amounts, {{6}} together.",
-  reengagement_nudge_quiet:
-    "Hi {{1}} 👋\n\n📅 It's been {{2}} days since anything was logged\nℹ️ This month's picture is going stale\n\nA week of logging is usually enough for a forecast worth trusting. Reply *LOG* and we'll do today's in one line.",
-  runway_recovered_alert:
-    'Good news, {{1}} 🎉\n\n🧭 Your savings would now cover about *{{2}} months*\n📈 Up from {{3}}\n💡 What moved it: {{4}}\n\nAssumes your recent spending continues.',
-  daily_nothing_logged:
-    'Evening, {{1}} 🌙\n\n📝 Nothing has been logged in Vyact today\n💬 Spent anything? Reply here with it, like "450 groceries", and I\'ll add it for you\n\nOne message a day, never one per spend.',
+const MARKETING_COPY: Record<string, string> = {
+  weekly_summary:
+    "Your week on Vyact 📊\n\n💸 *{{1}}* spent\n🧾 {{2}} entries\n🏷️ Top category: {{3}}\n\nTap below for the details.",
+  affordability_reply:
+    "Here's how that would land, {{1}} 🧮\n\n✅ *It fits.* {{2}} would still leave about *{{3}}* above your safety floor\n📌 Assumes your card dues are paid first, and a floor of {{4}} (three months of essential spending)\n\nTap below to see the working.",
+  whatsapp_welcome:
+    "You're linked, {{1}} 🎉\n\n🏠 This number now logs to {{2}} in Vyact\n✍️ Send me a spend in one line, like 450 lunch hdfc\n📋 Or tap *Menu* to see everything I can do",
 };
 
-/**
- * Originals with no `_v2`: Meta's pre-check filed every redesign of these as Marketing, and Meta rejects a
- * template submitted against its pre-check. They keep their approved copy (₹ in the text, INR households only).
- */
-export const NOT_REDESIGNED: Record<string, string> = {
-  weekly_summary: 'Filed as Marketing by the pre-check with or without the "Tap below" line; Marketing would need marketing consent.',
-  affordability_reply: 'Filed as Marketing by the pre-check, with and without the emoji.',
-  whatsapp_welcome: 'Filed as Marketing by the pre-check, with and without the emoji.',
-};
-
-/** The redesigned templates, keyed by their ORIGINAL's name. */
+/** The Marketing copies, keyed by their ORIGINAL's name. */
 export const TEMPLATES_V2: Record<string, TemplateDef> = Object.fromEntries(
-  Object.entries(REDESIGNED).map(([family, body]) => [family, redesign(family, body)]),
+  Object.entries(MARKETING_COPY).map(([family, body]) => [family, marketingCopy(family, body)]),
 );
 
 /** Every template Meta holds for Vyact, by its own name: what the owner scripts check and submit. */
@@ -503,14 +461,16 @@ export type VersionChoice = { def: TemplateDef; values: string[] } | { skip: 'cu
 
 /**
  * Which version of a template goes out, with its values. The values arrive as the rules write them: every
- * amount with its symbol, in `currency`. The `_v2` goes once it is approved. Until then the original goes, its
- * "₹{{n}}" values without their symbol, and only to an INR household, because its text says ₹.
+ * amount with its symbol, in `currency`. The `_v2` goes once it is approved and `allows` it (the recipient's
+ * consent to marketing). Otherwise the original goes; where its text still says "₹{{n}}", that value goes without
+ * its symbol, and only to an INR household.
  */
 export function versionToSend(
   def: TemplateDef, values: readonly string[], currency: string | undefined, isApproved: (name: string) => boolean,
+  allows: (v2: TemplateDef) => boolean = () => true,
 ): VersionChoice {
   const next = TEMPLATES_V2[def.name];
-  if (next && isApproved(next.name)) return { def: next, values: [...values] };
+  if (next && isApproved(next.name) && allows(next)) return { def: next, values: [...values] };
   const rupee = rupeeParams(def);
   if (!rupee.length) return { def, values: [...values] };
   if (String(currency ?? '').trim() !== 'INR') return { skip: 'currency_needs_v2' };

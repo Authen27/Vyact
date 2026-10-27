@@ -90,26 +90,29 @@ export function advancesDelivery(current: string | null | undefined, next: strin
 
 export async function guardedSend(admin: SupabaseClient, req: SendRequest): Promise<SendResult> {
   const { def, event, householdId, toProfileId } = req;
-  // v10.138.0: the redesigned `_v2` once Meta approved it, else the original (INR only where its text says ₹).
-  // Consent, mutes and the dedupe slot stay with the original (`def`, `event`).
-  const choice = versionToSend(def, req.values.map((v) => cleanParam(v)), req.currency, isTemplateApproved);
-  const sendDef = 'def' in choice ? choice.def : def;
-  const template = sendDef.name;
 
   const { data: recipient } = await admin
     .from('whatsapp_identities').select('phone_number, household_id')
     .eq('profile_id', toProfileId).maybeSingle();
   if (!recipient?.phone_number || recipient.household_id !== householdId) {
-    return { status: 'skipped', reason: 'recipient_not_linked', template };
+    return { status: 'skipped', reason: 'recipient_not_linked', template: def.name };
   }
   // W1 (audit 2026-10-04, BE-WA-01) — a link only counts while its person is still a
   // member of that household. A removed partner kept receiving bill and spend alerts
   // because nothing re-checked membership (the DB now also deletes the identity when the
   // membership goes; this is the second layer).
   if (!await isLiveMember(admin, householdId, toProfileId)) {
-    return { status: 'skipped', reason: 'recipient_not_a_member', template };
+    return { status: 'skipped', reason: 'recipient_not_a_member', template: def.name };
   }
 
+  // v10.139.0: a Marketing `_v2` goes once Meta approved it and only to someone who opted in to marketing;
+  // everyone else gets the original (INR only where its text still says ₹). Consent, mutes and the dedupe slot
+  // stay with the original (`def`, `event`).
+  const prefs = await loadPrefs(admin, toProfileId);
+  const choice = versionToSend(def, req.values.map((v) => cleanParam(v)), req.currency, isTemplateApproved,
+    (v2) => !refusalFor(v2, prefs));
+  const sendDef = 'def' in choice ? choice.def : def;
+  const template = sendDef.name;
   const cleaned = 'values' in choice ? choice.values : req.values.map((v) => cleanParam(v));
   // v10.47.0 — the payload's `result` is rewritten when the send settles; it used to
   // keep the claim's { sent: false } on a message Meta had delivered.
@@ -139,7 +142,7 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
   const held = HELD[template];
   if (held) return skip(held);
 
-  const refused = refusalFor(def, await loadPrefs(admin, toProfileId));
+  const refused = refusalFor(def, prefs);
   if (refused) return skip(refused);
 
   if ('skip' in choice) return skip(choice.skip);

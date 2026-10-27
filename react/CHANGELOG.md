@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.138.0`** (consumer)
+> **Current production version: `v10.139.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** retired in v10.121.0. Every build's account pickers read the household's accounts.
 > **Next planned: see Roadmap at the bottom.**
@@ -21,6 +21,21 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.139.0 — The redesigned WhatsApp copy goes into the live templates *(2026-10-28)*
+
+The owner chose to edit the live templates in place rather than run the `_v2` copies beside them (28 Oct 2026). Nothing
+changes in the app itself.
+
+- **19 live templates edited in WhatsApp Manager** to the redesigned copy (one fact per line, neutral emoji markers, the
+  key amount in bold). They are back in Meta's review; the owner accepted that while few people use WhatsApp.
+- **Their text no longer says ₹.** Each amount carries the household's own symbol (`templateMoney`), so once approved
+  every alert, digest and summary reaches households in any currency.
+- **Three as Marketing `_v2` templates:** `weekly_summary`, `affordability_reply` and `whatsapp_welcome`. Meta's
+  pre-check files their redesign as Marketing and keeps an approved template's category, so each is a new template.
+  `guardedSend` sends a `_v2` only to someone who has opted in to marketing; everyone else keeps the original wording,
+  so nobody stops receiving them.
+- The 19 `_v2` copies submitted on 27 Oct (v10.138.0) are superseded and never sent.
 
 ## v10.138.0 — Friendlier WhatsApp messages, in any household's currency *(2026-10-27)*
 
